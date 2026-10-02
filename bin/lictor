@@ -44,6 +44,7 @@ parser = OptionParser.new do |opts|
   opts.on("--success", "Record a successful outcome (outcome only)") { options[:success] = true }
   opts.on("--failure", "Record a failed outcome (outcome only)") { options[:success] = false }
   opts.on("--technique NAME", "The technique the outcome applies to") { |v| options[:technique] = v }
+  opts.on("--packs DIR", "Technique packs directory (default: packs/)") { |v| options[:packs] = v }
   opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
   opts.on("-j", "--json", "Machine payload instead of human output") { options[:json] = true }
   opts.on("-h", "--help", "Show this help") { puts opts; exit 0 }
@@ -57,6 +58,7 @@ HELP = {
   "outcome" => "outcome <run-id> --success|--failure --technique NAME\n    Record the result; the next plan adapts the priors.",
   "runs" => "runs\n    List the trailed runs.",
   "report" => "report [--json] [-o PATH]\n    Render the auditable engagement report.",
+  "rule" => "rule validate|install|list <pack.yml>\n    Teach augure a technique: data-only pack, validated + corpus-guarded.\n    install is interactive and trailed.",
   "init" => "init\n    Scaffold lictor.yml, targets.yml and an example.",
   "doctor" => "doctor\n    Verify the environment; print the exact fix per check."
 }.freeze
@@ -174,6 +176,46 @@ when "recon"
   # copies entries into targets.yml and the gates still check them.
   xml = ARGV.shift or abort(parser.to_s)
   puts Lictor::Recon.allowlist_candidates(xml)
+when "rule"
+  sub = ARGV.shift or abort(parser.to_s)
+  packs_dir = options[:packs] || Lictor::Config.load[:packs] || "packs"
+  case sub
+  when "list"
+    Dir.glob(File.join(packs_dir, "*.{yml,yaml}")).sort.each do |p|
+      pack = Augure::PackLoader.load_file(p)
+      puts "#{pack.technique}  by #{pack.author}  (#{p})"
+    end
+  when "validate", "install"
+    path = ARGV.shift or abort("lictor: rule #{sub} <pack.yml>")
+    begin
+      pack = Augure::PackLoader.load_file(path)
+      Augure::PackLoader.corpus_guard([pack])
+    rescue Augure::PackError => e
+      abort("lictor: pack refused - #{e.message}")
+    end
+    puts "pack:       #{pack.technique}"
+    puts "author:     #{pack.author}"
+    puts "source:     #{pack.source}"
+    puts "corpus:     all 34 documented verdicts intact"
+    if sub == "validate"
+      puts "verdict:    valid (dry-run; `lictor rule install #{path}` to teach augure)"
+    else
+      # Interactive confirmation: friction with information. Type the
+      # technique name - a flag can be typed by reflex, this cannot.
+      print "type the technique name to confirm: "
+      confirm = $stdin.gets.to_s.strip
+      abort("lictor: confirmation mismatch - nothing installed") unless confirm == pack.technique
+      FileUtils.mkdir_p(packs_dir)
+      installed = File.join(packs_dir, File.basename(path))
+      FileUtils.cp(path, installed)
+      trail.record(run: SecureRandom.uuid, type: "rule_install", technique: pack.technique,
+                   author: pack.author, source: pack.source, pack_file: installed)
+      puts "installed:  #{installed} (trailed)"
+      puts "next plan run will consider #{pack.technique}"
+    end
+  else
+    abort("lictor: rule validate|install|list")
+  end
 when "scan"
   # A scan is an ACTION: the target must be in the allowlist, and the
   # scan is trailed.

@@ -104,9 +104,14 @@ when "init"
     File.write(File.join(Dir.pwd, name), content)
   end
   # The one example that proves the pipeline: straight from the corpus.
+  # Same resolution as the Gemfile: dev sibling or CI in-tree checkout.
   FileUtils.mkdir_p("examples")
-  augure_corpus = File.expand_path("../../augure/spec/fixtures/ctf_corpus.json", __dir__)
-  if File.file?(augure_corpus)
+  corpus_candidates = [
+    File.expand_path("../../augure/spec/fixtures/ctf_corpus.json", __dir__),
+    File.expand_path("../augure/spec/fixtures/ctf_corpus.json", __dir__)
+  ]
+  augure_corpus = corpus_candidates.find { |p| File.file?(p) }
+  if augure_corpus
     entry = JSON.parse(File.read(augure_corpus))["suites"]["ropemporium"].find { |e| e["name"] == "ret2win" }
     File.write("examples/ret2win.facts", entry["facts"]) if entry
   end

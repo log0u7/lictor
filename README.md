@@ -55,12 +55,18 @@ gem "augure"                       # published, clean, MIT
 lictor scan 192.168.56.10 -a targets.yml           # nmap, allowlist-gated, trailed
 lictor recon scan.xml                              # candidates from an XML scan
 # operator copies candidates into targets.yml (explicit, reviewed)
-augure-profile <binary> -o target.facts            # gem augure-profiler
-lictor plan target.facts -a targets.yml            # handoff: decision + recipe
+lictor plan <binary> -a targets.yml                # ELF? profiles it (augure-profiler),
+                                                   # then decides + prints the recipe
+lictor plan target.facts -a targets.yml            # facts file accepted unchanged
 lictor outcome <run-id> --success --technique ret2plt   # the closed loop
 lictor runs                                        # the trailed history
 lictor report -o engagement.md                     # the auditable deliverable
 ```
+
+`plan` detects the ELF magic: a binary goes through the profiler
+subcontract (`augure-profile`, gem `augure-profiler` - profiling is
+trailed), a `.facts` file passes through unchanged. One command from
+binary to decision.
 
 Scanning is an **action**: `lictor scan` runs nmap (subprocess) only
 against a host the allowlist names, and trails the scan. `lictor recon`

@@ -31,8 +31,11 @@ module Lictor
         run = grouped[event["run"]] ||= {run: event["run"], outcomes: []}
         case event["type"]
         when "plan"
-          run.merge!(event.slice("mode", "selected", "applicable", "explain", "facts_file")
+          run.merge!(event.slice("mode", "selected", "applicable", "explain",
+            "facts_file", "profiled", "priors_adapted")
                          .transform_keys(&:to_sym))
+        when "profile"
+          run[:profiled] = event["binary"]
         when "outcome"
           run[:outcomes] << {technique: event["technique"], success: event["success"]}
         when "scan"

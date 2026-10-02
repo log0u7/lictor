@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `lictor plan <binary>`: ELF magic detection profiles the binary
+  through the augure-profile subprocess (trailed), then decides. A
+  `.facts` file passes through unchanged. One command from binary to
+  decision.
 - `lictor scan`: nmap as a gated, trailed action against an allowlisted
   host (subprocess; --nmap override for testing). Scans appear in
   `runs` and in the engagement report.

@@ -27,6 +27,7 @@ parser = OptionParser.new do |opts|
   opts.on("-s", "--seed N", Integer, "Seed for reproducible decisions") { |v| options[:seed] = v }
   opts.on("-t", "--trail PATH", "JSONL trail (default: lictor-trail.jsonl)") { |v| options[:trail] = v }
   opts.on("--nmap PATH", "Path to the nmap binary (default: nmap in PATH)") { |v| options[:nmap] = v }
+  opts.on("--profile-cmd PATH", "Path to augure-profile (default: augure-profile in PATH)") { |v| options[:profile_cmd] = v }
   opts.on("--success", "Record a successful outcome (outcome only)") { options[:success] = true }
   opts.on("--failure", "Record a failed outcome (outcome only)") { options[:success] = false }
   opts.on("--technique NAME", "The technique the outcome applies to") { |v| options[:technique] = v }
@@ -66,7 +67,7 @@ when "scan"
     puts "#{t[:host]}:#{t[:port]}  #{t[:service]}#{t[:product] ? " (#{t[:product]} #{t[:version]})" : ''}"
   end
 when "plan"
-  path = ARGV.shift or abort(parser.to_s)
+  input = ARGV.shift or abort(parser.to_s)
   begin
     Lictor::Gates.allowlist(options[:allowlist]) # the scope artifact must exist and be clean
   rescue Lictor::Unauthorized => e
@@ -75,12 +76,21 @@ when "plan"
   mode = "handoff (prints a recipe; executes nothing)"
 
   begin
+    if Lictor::Profiler.elf?(input)
+      facts = Lictor::Profiler.run(input, cmd: options[:profile_cmd] || Lictor::Profiler::DEFAULT_CMD)
+      trail.record(run: SecureRandom.uuid, type: "profile", binary: input)
+    else
+      facts = File.read(input)
+    end
     priors = Lictor::Priors.from_trail(trail)
-    plan = Lictor::Handoff.plan(facts: File.read(path), seed: options[:seed], priors: priors)
+    plan = Lictor::Handoff.plan(facts: facts, seed: options[:seed], priors: priors)
+  rescue Lictor::ProfilerError => e
+    abort("lictor: #{e.message}")
   rescue Augure::MalformedFact, Augure::UnknownPredicate => e
     abort("lictor: #{e.message}")
   end
-  trail.record(run: SecureRandom.uuid, type: "plan", mode: mode, facts_file: path,
+  trail.record(run: SecureRandom.uuid, type: "plan", mode: mode, facts_file: input,
+               profiled: Lictor::Profiler.elf?(input) ? input : nil,
                selected: plan[:selected], applicable: plan[:applicable],
                explain: plan[:explain],
                priors_adapted: Lictor::Priors.adapted?(trail))

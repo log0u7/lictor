@@ -1,8 +1,17 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+# Bootstrap the bundler context from the checkout: the CLI runs from any
+# working directory (when not already inside `bundle exec`).
+unless defined?(Bundler)
+  ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
+  require "bundler/setup"
+end
+
 require "optparse"
 require "tmpdir"
+require "fileutils"
+require "json"
 require_relative "../lib/lictor"
 
 # Config first (lictor.yml in CWD), flags override it.
@@ -46,7 +55,92 @@ options[:success] = nil unless options.key?(:success)
 command = ARGV.shift or abort(parser.to_s)
 trail = Lictor::Trail.new(options[:trail])
 
+def scaffold_files
+  {
+    "lictor.yml" => <<~YML,
+      # lictor setup - flags override these values
+      allowlist: targets.yml
+      trail: lictor-trail.jsonl
+    YML
+    "targets.yml" => <<~YML
+      # The scope document: explicit host[:port] entries you are
+      # authorized to touch. Wildcards are rejected. Copy candidates
+      # from `lictor recon scan.xml` after checking the contract.
+      192.168.56.10
+    YML
+  }
+end
+
 case command
+when "init"
+  scaffold_files.each do |name, content|
+    path = File.join(Dir.pwd, name)
+    if File.exist?(path)
+      abort("lictor: #{name} already exists - keep your setup, run `lictor doctor`")
+    end
+  end
+  scaffold_files.each do |name, content|
+    dir = File.dirname(File.join(Dir.pwd, name))
+    FileUtils.mkdir_p(dir)
+    File.write(File.join(Dir.pwd, name), content)
+  end
+  # The one example that proves the pipeline: straight from the corpus.
+  FileUtils.mkdir_p("examples")
+  augure_corpus = File.expand_path("../../augure/spec/fixtures/ctf_corpus.json", __dir__)
+  if File.file?(augure_corpus)
+    entry = JSON.parse(File.read(augure_corpus))["suites"]["ropemporium"].find { |e| e["name"] == "ret2win" }
+    File.write("examples/ret2win.facts", entry["facts"]) if entry
+  end
+  puts "scaffolded: lictor.yml, targets.yml, examples/ret2win.facts"
+  puts
+  puts "next:"
+  puts "  1. lictor doctor                     # verify the environment"
+  puts "  2. lictor plan examples/ret2win.facts   # your first decision"
+when "doctor"
+  checks = []
+  checks << ["ruby >= 3.4", RUBY_VERSION >= "3.4" ? nil : "upgrade ruby (mise install ruby@3.4)"]
+  nmap = options[:nmap] || "nmap"
+  nmap_found = system(nmap, "--version", out: File::NULL, err: File::NULL)
+  checks << ["nmap binary", nmap_found ? nil : "install nmap (apt install nmap) or set nmap: in lictor.yml"]
+  profiler = options[:profile_cmd] || Lictor::Profiler::DEFAULT_CMD
+  sibling = File.expand_path("../../augure/profiler/exe/augure-profile", __dir__)
+  # Availability only: missing gems at runtime are ProfilerError's job.
+  profiler_found = [profiler, sibling].find do |c|
+    system("sh", "-c", "command -v '#{c}' >/dev/null 2>&1")
+  end
+  checks << ["augure-profile",
+             profiler_found ? nil : "gem install augure-profiler (or set profile_cmd: in lictor.yml)"]
+  config_path = "lictor.yml"
+  checks << ["lictor.yml", File.file?(config_path) ? nil : "run `lictor init`"]
+  begin
+    Lictor::Gates.allowlist(options[:allowlist] || Lictor::Config.load[:allowlist])
+    checks << ["targets.yml parses (no wildcards)", nil]
+  rescue Lictor::Unauthorized => e
+    checks << ["targets.yml parses (no wildcards)",
+               "#{e.message} - use explicit entries like 192.168.56.10"]
+  end
+  trail_path = options[:trail] || Lictor::Config.load[:trail] || "lictor-trail.jsonl"
+  writable = begin
+    File.open(trail_path, "a") { |f| f.write("") }
+    true
+  rescue StandardError
+    false
+  end
+  checks << ["trail writable: #{trail_path}", writable ? nil : "check directory permissions"]
+
+  failed = false
+  checks.each do |name, problem|
+    if problem
+      failed = true
+      puts "  FAIL  #{name} - fix: #{problem}"
+    else
+      puts "  ok    #{name}"
+    end
+  end
+  if failed
+    n = checks.count { |_, p| p }
+    abort("lictor: doctor found #{n} issue(s) - fixes above (fresh setup? run lictor init)")
+  end
 when "recon"
   # Recon output is CANDIDATES, not authorization: the operator still
   # copies entries into targets.yml and the gates still check them.

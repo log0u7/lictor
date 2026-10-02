@@ -1,0 +1,46 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+require_relative "../lib/lictor"
+
+options = {seed: nil, authorized: false, allowlist: nil, trail: nil, target: nil}
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: lictor plan <facts-file> --allowlist targets.yml [options]"
+  opts.on("-a", "--allowlist PATH", "Target allowlist file (required)") { |v| options[:allowlist] = v }
+  opts.on("--target HOST", "The authorized target for this run") { |v| options[:target] = v }
+  opts.on("--i-am-authorized", "Explicit per-run consent (enables mode reporting)") { options[:authorized] = true }
+  opts.on("-s", "--seed N", Integer, "Seed for reproducible decisions") { |v| options[:seed] = v }
+  opts.on("-t", "--trail PATH", "JSONL trail path (default: lictor-trail.jsonl)") { |v| options[:trail] = v }
+end
+parser.parse!
+
+ARGV.shift == "plan" or abort(parser.to_s)
+path = ARGV.shift or abort(parser.to_s)
+
+begin
+  Lictor::Gates.require_authorized!(options[:authorized], options[:allowlist], target: options[:target])
+  mode = options[:authorized] ? "handoff (authorized run)" : "handoff (default, no automated execution)"
+
+  plan = Lictor::Handoff.plan(facts: File.read(path), seed: options[:seed])
+  trail = Lictor::Trail.new(options[:trail] || "lictor-trail.jsonl")
+  trail.record(run: SecureRandom.uuid, mode: mode, facts_file: path,
+               selected: plan[:selected], applicable: plan[:applicable])
+
+  puts "mode:      #{mode}"
+  puts "applicable: #{plan[:applicable].join(', ')}"
+  puts "selected:   #{plan[:selected]}"
+  if plan[:recipe]
+    puts "recipe:     #{plan[:recipe][:console]}"
+    puts "module:     #{plan[:recipe][:module]}"
+  end
+  plan[:explain][:provenance].each do |tech, provs|
+    provs.each do |p|
+      puts "  #{tech} <- #{p[:rule]} (#{p[:evidence].map { |e| e.join('=') }.join(', ')})"
+    end
+  end
+rescue Lictor::Unauthorized => e
+  abort("lictor: UNAUTHORIZED - #{e.message}")
+rescue Augure::MalformedFact, Augure::UnknownPredicate => e
+  abort("lictor: #{e.message}")
+end

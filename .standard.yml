@@ -1,0 +1,4 @@
+# The in-tree augure checkout (CI) is not this repo's code.
+ignore:
+  - augure/**/*
+  - vendor/**/*

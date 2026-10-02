@@ -49,7 +49,15 @@ gem "augure"                       # published, clean, MIT
 # lictor: bundle from your own checkout, private
 ```
 
-## The workflow
+## The 60-second start
+
+```sh
+lictor init                 # scaffolds lictor.yml, targets.yml, an example
+lictor doctor               # verifies the environment, exact fix per check
+lictor plan examples/ret2win.facts   # your first decision, copy-paste
+```
+
+Then the real workflow:
 
 ```sh
 lictor scan 192.168.56.10 -a targets.yml           # nmap, allowlist-gated, trailed

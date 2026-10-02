@@ -45,9 +45,28 @@ parser = OptionParser.new do |opts|
   opts.on("--failure", "Record a failed outcome (outcome only)") { options[:success] = false }
   opts.on("--technique NAME", "The technique the outcome applies to") { |v| options[:technique] = v }
   opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
+  opts.on("-j", "--json", "Machine payload instead of human output") { options[:json] = true }
   opts.on("-h", "--help", "Show this help") { puts opts; exit 0 }
 end
 parser.parse!
+
+HELP = {
+  "recon" => "recon <nmap.xml>\n    Print allowlist candidates from an nmap XML scan (passive).",
+  "scan" => "scan <host>\n    Run nmap against an allowlisted host (trailed).",
+  "plan" => "plan <binary-or-facts>\n    Profile if ELF (augure-profile), decide, print the handoff recipe.",
+  "outcome" => "outcome <run-id> --success|--failure --technique NAME\n    Record the result; the next plan adapts the priors.",
+  "runs" => "runs\n    List the trailed runs.",
+  "report" => "report [--json] [-o PATH]\n    Render the auditable engagement report.",
+  "init" => "init\n    Scaffold lictor.yml, targets.yml and an example.",
+  "doctor" => "doctor\n    Verify the environment; print the exact fix per check."
+}.freeze
+
+if ARGV[0] == "help"
+  verb = ARGV[1]
+  abort("lictor: no such command '#{verb}' (see lictor --help)") unless HELP[verb]
+  puts HELP[verb]
+  exit 0
+end
 
 options[:trail] ||= "lictor-trail.jsonl"
 options[:technique] = nil unless options.key?(:technique)
@@ -196,16 +215,20 @@ when "plan"
                explain: plan[:explain],
                priors_adapted: Lictor::Priors.adapted?(trail))
 
-  puts "mode:      #{mode}"
-  puts "applicable: #{plan[:applicable].join(', ')}"
-  puts "ranking:    #{plan[:ranking].join(' > ')}"
-  puts "selected:   #{plan[:selected]}"
-  if plan[:recipe]
-    puts "recipe:     #{plan[:recipe][:console]}"
-  end
-  plan[:explain][:provenance].each do |tech, provs|
-    provs.each do |p|
-      puts "  #{tech} <- #{p[:rule]} (#{p[:evidence].map { |e| e.join('=') }.join(', ')})"
+  if options[:json]
+    puts JSON.generate(plan)
+  else
+    puts "mode:      #{mode}"
+    puts "applicable: #{plan[:applicable].join(', ')}"
+    puts "ranking:    #{plan[:ranking].join(' > ')}"
+    puts "selected:   #{plan[:selected]}"
+    if plan[:recipe]
+      puts "recipe:     #{plan[:recipe][:console]}"
+    end
+    plan[:explain][:provenance].each do |tech, provs|
+      provs.each do |p|
+        puts "  #{tech} <- #{p[:rule]} (#{p[:evidence].map { |e| e.join('=') }.join(', ')})"
+      end
     end
   end
 when "outcome"
@@ -225,7 +248,9 @@ when "runs"
          "outcomes=#{r[:outcomes].map { |o| "#{o[:technique]}:#{o[:success] ? 'ok' : 'ko'}" }.join(',')}"
   end
 when "report"
-  if options[:output]
+  if options[:json]
+    puts JSON.generate(runs: trail.runs)
+  elsif options[:output]
     Lictor::Report.to_file(options[:output], trail)
     puts "wrote #{options[:output]}"
   else

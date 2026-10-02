@@ -33,7 +33,7 @@ module Lictor
       # (colon-delimited prefix match, so 192.168.56.1 cannot pass for
       # 192.168.56.10).
       in_scope = entries.include?(target) ||
-                 entries.any? { |e| e.start_with?("#{target}:") }
+        entries.any? { |e| e.start_with?("#{target}:") }
       return true if in_scope
 
       raise Unauthorized, "#{target} is not in the allowlist (#{allowlist_path})"

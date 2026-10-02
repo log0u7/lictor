@@ -46,7 +46,7 @@ RSpec.describe "bin/lictor" do
     list = File.join(dir, "targets.yml")
     File.write(list, "192.168.56.10\n")
     out, _err, status = Open3.capture3(exe, "plan", path, "-a", list,
-                                       "-t", File.join(dir, "trail.jsonl"))
+      "-t", File.join(dir, "trail.jsonl"))
     expect(status.exitstatus).to eq(0)
     expect(out).to include("handoff")
     expect(out).to include("selected:   ret2plt")

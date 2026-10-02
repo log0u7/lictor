@@ -33,7 +33,7 @@ RSpec.describe Lictor::Scanner do
   it "fails loudly when nmap is not installed" do
     expect {
       described_class.run("192.168.56.10", out: File.join(dir, "x.xml"),
-                                       nmap_cmd: File.join(dir, "no-such-nmap"))
+        nmap_cmd: File.join(dir, "no-such-nmap"))
     }.to raise_error(Lictor::ScanError, /nmap/)
   end
 end
@@ -72,7 +72,7 @@ RSpec.describe "bin/lictor scan" do
   it "scans an allowlisted host, trails and prints the inventory" do
     trail = File.join(dir, "trail.jsonl")
     out, _err, status = Open3.capture3(exe, "scan", "192.168.56.10", "-a", allowlist,
-                                       "--nmap", stub_nmap, "-t", trail)
+      "--nmap", stub_nmap, "-t", trail)
     expect(status.exitstatus).to eq(0)
     expect(out).to include("192.168.56.10:22")
 
@@ -83,7 +83,7 @@ RSpec.describe "bin/lictor scan" do
   it "shows the scan in the report" do
     trail = File.join(dir, "trail.jsonl")
     Open3.capture3(exe, "scan", "192.168.56.10", "-a", allowlist,
-                   "--nmap", stub_nmap, "-t", trail)
+      "--nmap", stub_nmap, "-t", trail)
     report = Lictor::Report.from_trail(Lictor::Trail.new(trail))
     expect(report).to include("- scan: 192.168.56.10")
   end

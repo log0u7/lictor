@@ -47,15 +47,16 @@ gem "augure"                       # published, clean, MIT
 
 ## Architecture
 
-```
-nmap (ruby-nmap)  ->  facts  ->  augure decides  ->  lictor acts
-                                                        |
-                                       handoff (default): recipe printed
-                                       rpc (opt-in): msfrpcd via msgpack
-                                                        |
-                              outcome (success, side effects, leaks)
-                                                        |
-                              persisted (sequel) -> audit trail
+```mermaid
+graph LR
+    N["nmap<br/>(ruby-nmap)"] -- "facts" --> A["augure decides<br/>(Datalog + SMT + bandit + MCTS)"]
+    A --> G{"consent gate"}
+    G -- "handoff (default)" --> H["recipe printed<br/>human executes"]
+    G -- "rpc (--i-am-authorized<br/>+ allowlist)" --> MSF["msfrpcd<br/>(msgpack)"]
+    H --> O["outcome: success,<br/>side effects, leaks"]
+    MSF --> O
+    O -- "closed loop" --> A
+    O --> L["persisted trail<br/>(decision -> rule -> module -> outcome)"]
 ```
 
 The closed loop: outcomes become facts, augure re-decides, the planner

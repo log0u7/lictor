@@ -5,7 +5,8 @@ require "optparse"
 require "tmpdir"
 require_relative "../lib/lictor"
 
-options = {seed: nil, allowlist: nil, trail: nil, nmap: nil, output: nil}
+# Config first (lictor.yml in CWD), flags override it.
+options = Lictor::Config.load
 parser = OptionParser.new do |opts|
   opts.banner = <<~USAGE
 
@@ -14,16 +15,19 @@ parser = OptionParser.new do |opts|
     Commands:
       recon <nmap.xml>            print allowlist candidates from an nmap scan
       scan <host>                 run nmap against an allowlisted host
-      plan <facts-file>           decide on facts, print the handoff recipe
+      plan <binary-or-facts>      profile if ELF, decide, print the recipe
       outcome <run-id>            record the result of a run (the closed loop)
       runs                        list the trailed runs
       report                      render the auditable engagement report
 
-    Authorization is the allowlist file: explicit host[:port] entries,
-    written and versioned by the operator. There is no consent flag - a
-    flag proves nothing; the artifact and the trail do.
+    Setup: lictor.yml in the working directory
+      (allowlist: targets.yml / trail: runs.jsonl / nmap: / seed: /
+      profile_cmd:). Flags override the config. Authorization is the
+      allowlist file: explicit host[:port] entries, written and
+      versioned by the operator. There is no consent flag - a flag
+      proves nothing; the artifact and the trail do.
   USAGE
-  opts.on("-a", "--allowlist PATH", "Target allowlist file") { |v| options[:allowlist] = v }
+  opts.on("-a", "--allowlist PATH", "Target allowlist file (overrides lictor.yml)") { |v| options[:allowlist] = v }
   opts.on("-s", "--seed N", Integer, "Seed for reproducible decisions") { |v| options[:seed] = v }
   opts.on("-t", "--trail PATH", "JSONL trail (default: lictor-trail.jsonl)") { |v| options[:trail] = v }
   opts.on("--nmap PATH", "Path to the nmap binary (default: nmap in PATH)") { |v| options[:nmap] = v }
@@ -36,8 +40,11 @@ parser = OptionParser.new do |opts|
 end
 parser.parse!
 
+options[:trail] ||= "lictor-trail.jsonl"
+options[:technique] = nil unless options.key?(:technique)
+options[:success] = nil unless options.key?(:success)
 command = ARGV.shift or abort(parser.to_s)
-trail = Lictor::Trail.new(options[:trail] || "lictor-trail.jsonl")
+trail = Lictor::Trail.new(options[:trail])
 
 case command
 when "recon"

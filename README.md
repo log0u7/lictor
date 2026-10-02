@@ -90,6 +90,29 @@ articles - with a consent gate in front of the only dangerous edge.
 | binary analysis | `augure-profiler` (metasm) | pure Ruby, no subprocess, this repo's sibling |
 | persistence | stdlib JSONL | sequel when queries are actually needed |
 
+### The Ruby-native arsenal (is there life beyond msfconsole?)
+
+Yes - and the irony is that Metasploit IS Ruby. Three paths, verified:
+
+1. **Metasploit via msfrpcd** - the arsenal of ready-made modules, written in
+   Ruby, reachable through its RPC daemon. Not gemifiable (monolithic
+   Rapid7 app), hence the subprocess/RPC boundary. Biggest coverage.
+2. **[Rex gems](https://rubygems.org/gems/rex-core)** - Metasploit's Ruby
+   internals, gemified and ACTIVELY maintained by Rapid7 (rex-core
+   2026-04, rex-arch 2026-05, rex-socket 2026-07, rex-powershell 2026-08,
+   rex-bin_tools 2026-08): ELF parsing, ROP tooling, assembler, raw
+   sockets, payload generation. A pure-Ruby arsenal without the daemon.
+3. **[Ronin 2.1](https://rubygems.org/gems/ronin)** - postmodern's toolkit
+   (the ruby-nmap author - same ecosystem), last release 2025-02:
+   `ronin-exploits` (exploits as Ruby classes), `ronin-payloads`,
+   `ronin-support` (networking, encoding). The most Ruby-idiomatic
+   exploitation framework alive.
+
+Lictor's stance: **msfrpcd stays the default arsenal** (module coverage),
+and the handoff recipe format gains `ronin`/`rex` targets when the lab
+phase starts. The decision layer (augure) does not care which executor
+carries the judgment - the recipe is data.
+
 ## Modern require block (what survived 2012)
 
 ```ruby
@@ -99,6 +122,9 @@ require "nmap/xml"
 require "msgpack"       # msfrpcd RPC (msfrpc-client gem is dead; ~100 LOC)
 require "sequel"        # persistence: no more lost runs
 require "openssl"       # TLS for the RPC channel
+# documented future paths (Ruby-native arsenal, see table above):
+# require "rex/bin_tools"  # ELF + ROP, Rapid7-gemified, 2026-maintained
+# require "ronin/exploits" # exploits as Ruby classes, 2025-02
 
 # Superseded from the aspirational block:
 # swipl        -> augure embeds the reasoner

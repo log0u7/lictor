@@ -18,6 +18,8 @@ jobs:
         with:
           ruby-version: "3.4"
           bundler-cache: true
+      - name: Install nmap (the doctor and the scanner check it)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq nmap
       - name: Lint
         run: bundle exec standardrb
       - name: Tests

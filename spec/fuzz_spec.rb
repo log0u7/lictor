@@ -3,7 +3,12 @@
 require "open3"
 require "json"
 require "tmpdir"
-require_relative "../../augure/profiler/spec/support/binary_builder"
+
+builder = ["../../augure/profiler/spec/support/binary_builder",
+           "../augure/profiler/spec/support/binary_builder"]
+  .map { |p| File.expand_path(p, __dir__) }
+  .find { |p| File.file?(p) }
+require_relative builder
 
 RSpec.describe "bin/lictor fuzz" do
   let(:exe) { File.expand_path("../bin/lictor", __dir__) }

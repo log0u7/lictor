@@ -127,9 +127,13 @@ when "doctor"
   nmap_found = system(nmap, "--version", out: File::NULL, err: File::NULL)
   checks << ["nmap binary", nmap_found ? nil : "install nmap (apt install nmap) or set nmap: in lictor.yml"]
   profiler = options[:profile_cmd] || Lictor::Profiler::DEFAULT_CMD
-  sibling = File.expand_path("../../augure/profiler/exe/augure-profile", __dir__)
+  # Same candidate resolution as init's corpus: dev sibling or CI in-tree.
+  profiler_candidates = [
+    File.expand_path("../../augure/profiler/exe/augure-profile", __dir__),
+    File.expand_path("../augure/profiler/exe/augure-profile", __dir__)
+  ]
   # Availability only: missing gems at runtime are ProfilerError's job.
-  profiler_found = [profiler, sibling].find do |c|
+  profiler_found = [profiler, *profiler_candidates].find do |c|
     system("sh", "-c", "command -v '#{c}' >/dev/null 2>&1")
   end
   checks << ["augure-profile",

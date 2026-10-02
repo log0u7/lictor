@@ -50,7 +50,7 @@ RSpec.describe "bin/lictor" do
     expect(status.exitstatus).to eq(0)
     expect(out).to include("handoff")
     expect(out).to include("selected:   ret2plt")
-    expect(out).to include("msfconsole")
+    expect(out).to include("ronin-exploits")
     expect(JSON.parse(File.read(File.join(dir, "trail.jsonl")))).to have_key("selected")
   end
 end

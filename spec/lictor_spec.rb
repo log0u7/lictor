@@ -49,16 +49,21 @@ end
 RSpec.describe Lictor::Handoff do
   let(:facts) { "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\nplt(\"system\").\ngadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n" }
 
-  it "produces an msfconsole recipe for the decided technique" do
+  it "produces a ronin recipe for the decided technique" do
     recipe = described_class.recipe("ret2plt")
-    expect(recipe[:module]).to eq("exploit/multi/handler")
-    expect(recipe[:console]).to include("msfconsole")
-    expect(recipe[:console]).to include("ret2plt")
+    expect(recipe[:runner]).to eq("ronin")
+    expect(recipe[:mixin]).to eq("Binary")
+    expect(recipe[:console]).to include("ronin-exploits run")
+    expect(recipe[:console]).to include("--technique ret2plt")
   end
 
-  it "returns a manual handoff for techniques without a module mapping" do
-    recipe = described_class.recipe("heap_tcache")
-    expect(recipe[:module]).to eq("manual")
+  it "maps format-string techniques to the FormatString mixin" do
+    expect(described_class.recipe("fmtstr_leak")[:mixin]).to eq("FormatString")
+  end
+
+  it "defers the exploit name to the operator's repos" do
+    recipe = described_class.recipe("ret2plt")
+    expect(recipe[:console]).to include("<exploit-name-from-your-repos>")
   end
 
   it "hands off the full decision with recipes and provenance" do

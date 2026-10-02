@@ -20,9 +20,10 @@ module Lictor
       trail.runs.each do |run|
         lines << "## Run `#{run[:run]}`"
         lines << ""
-        lines << "- mode: #{run[:mode]}"
+        lines << "- scan: #{run[:scanned]} (nmap)" if run[:scanned]
+        lines << "- mode: #{run[:mode]}" if run[:mode]
         lines << "- facts: #{run[:facts_file]}" if run[:facts_file]
-        lines << "- applicable: #{Array(run[:applicable]).join(", ")}"
+        lines << "- applicable: #{Array(run[:applicable]).join(", ")}" if run[:applicable]
         lines << "- selected: **#{run[:selected]}**" if run[:selected]
         if (explain = run[:explain])
           provs = explain[:provenance] || explain["provenance"] || {}

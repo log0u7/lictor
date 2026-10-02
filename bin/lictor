@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "optparse"
+require "tmpdir"
 require_relative "../lib/lictor"
 
 options = {seed: nil, authorized: false, allowlist: nil, trail: nil, target: nil}
@@ -28,6 +29,7 @@ parser = OptionParser.new do |opts|
   opts.on("--success / --failure", "Outcome of the run (for `outcome`)") { options[:success] = true }
   opts.on("--failure", "Record a failed outcome") { options[:success] = false }
   opts.on("--technique NAME", "The technique the outcome applies to") { |v| options[:technique] = v }
+  opts.on("--nmap PATH", "Path to the nmap binary (default: nmap in PATH)") { |v| options[:nmap] = v }
   opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
   opts.on("-h", "--help", "Show this help") { puts opts; exit 0 }
 end
@@ -42,6 +44,26 @@ when "recon"
   # copies entries into targets.yml and the gates still check them.
   xml = ARGV.shift or abort(parser.to_s)
   puts Lictor::Recon.allowlist_candidates(xml)
+when "scan"
+  # A scan is an ACTION: same gates as everything else, and trailed.
+  target = ARGV.shift or abort(parser.to_s)
+  begin
+    Lictor::Gates.require_authorized!(options[:authorized], options[:allowlist], target: target)
+  rescue Lictor::Unauthorized => e
+    abort("lictor: UNAUTHORIZED - #{e.message}")
+  end
+  out_xml = File.join(Dir.mktmpdir("lictor_scan"), "scan.xml")
+  begin
+    targets = Lictor::Scanner.run(target, out: out_xml, nmap_cmd: options[:nmap] || "nmap")
+  rescue Lictor::ScanError => e
+    abort("lictor: #{e.message}")
+  end
+  trail.record(run: SecureRandom.uuid, type: "scan", target: target,
+               nmap_args: [options[:nmap] || "nmap", *Lictor::Scanner::NMAP_ARGS])
+  puts "scanned: #{target}"
+  targets.each do |t|
+    puts "#{t[:host]}:#{t[:port]}  #{t[:service]}#{t[:product] ? " (#{t[:product]} #{t[:version]})" : ''}"
+  end
 when "plan"
   path = ARGV.shift or abort(parser.to_s)
   begin

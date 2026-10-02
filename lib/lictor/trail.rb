@@ -35,6 +35,8 @@ module Lictor
                          .transform_keys(&:to_sym))
         when "outcome"
           run[:outcomes] << {technique: event["technique"], success: event["success"]}
+        when "scan"
+          run[:scanned] = event["target"]
         end
       end
       grouped.values

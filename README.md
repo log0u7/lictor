@@ -48,7 +48,9 @@ gem "augure"                       # published, clean, MIT
 ## The workflow
 
 ```sh
-lictor recon scan.xml                              # candidates from nmap
+lictor scan 192.168.56.10 -a targets.yml --target 192.168.56.10 --i-am-authorized
+                                                   # nmap as a gated action, trailed
+lictor recon scan.xml                              # candidates from an XML scan
 # operator copies candidates into targets.yml (explicit, reviewed)
 augure-profile <binary> -o target.facts            # gem augure-profiler
 lictor plan target.facts -a targets.yml            # handoff: decision + recipe
@@ -56,6 +58,11 @@ lictor outcome <run-id> --success --technique ret2plt   # the closed loop
 lictor runs                                        # the trailed history
 lictor report -o engagement.md                     # the auditable deliverable
 ```
+
+Scanning is an **action**: `lictor scan` runs nmap (subprocess) only against
+an allowlist-checked, consented target, and trails the scan. `lictor recon`
+stays passive - it parses XML the operator produced and prints candidates,
+never authorization.
 
 Every decision ships its rule provenance; every outcome feeds back into
 the bandit priors (`Lictor::Priors.from_trail`), so the next decision on

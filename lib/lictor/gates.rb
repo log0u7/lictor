@@ -26,7 +26,12 @@ module Lictor
 
       entries = allowlist(allowlist_path)
       raise Unauthorized, "an explicit --target is required for an authorized run" if target.nil?
-      unless entries.include?(target)
+      # An entry may name host:port; that authorizes the host itself too
+      # (prefix match, colon-delimited so 192.168.56.1 cannot pass for
+      # 192.168.56.10).
+      host_authorized = entries.include?(target) ||
+        entries.any? { |e| e.start_with?("#{target}:") }
+      unless host_authorized
         raise Unauthorized, "#{target} is not in the allowlist (#{allowlist_path})"
       end
 

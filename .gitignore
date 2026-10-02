@@ -7,3 +7,4 @@
 /.rspec_status
 /spec/reports
 /vendor/bundle
+/Gemfile.lock

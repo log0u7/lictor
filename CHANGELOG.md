@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-03
+
+### Added
+
+- Network facts: service/software_version/remote emitted from nmap
+  scans; remote technique packs match them like binary facts.
+- Fuzzing and triage (augure-profiler): RubyMutator built-in + radamsa
+  optional; GdbBackend (real run covered), RizinBackend, LldbBackend;
+  `lictor fuzz` gated and trailed.
+- Executor interface: ManualExecutor (default, handoff) + RoninExecutor
+  (discovery from the operator's repos; fabricated names refused).
+- `lictor run`: the closed loop - decide, execute, outcome, re-decide -
+  with budgets and interactive confirmation.
+- Consent tokens: `lictor authorize <target>` - human-typed, TTL'd,
+  trail-recorded.
+- lictor-mcp (4th gem): scan/plan/execute/validate_pack tools with
+  server-side gates and token validation.
+- `lictor rule validate|install|list`: teach augure techniques as data
+  (packs), full armor + corpus guard.
+
 ## [Unreleased]
 
 ### Added

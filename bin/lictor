@@ -24,10 +24,13 @@ parser = OptionParser.new do |opts|
     Commands:
       recon <nmap.xml>            print allowlist candidates from an nmap scan
       scan <host>                 run nmap against an allowlisted host
+      fuzz <binary>               fuzz + triage a local binary (discovery layer)
       plan <binary-or-facts>      profile if ELF, decide, print the recipe
+      authorize <target>          mint a short-lived execution consent token
       outcome <run-id>            record the result of a run (the closed loop)
       runs                        list the trailed runs
       report                      render the auditable engagement report
+      rule validate|install|list  teach augure a technique (data-only packs)
 
     Setup: lictor.yml in the working directory
       (allowlist: targets.yml / trail: runs.jsonl / nmap: / seed: /
@@ -48,6 +51,7 @@ parser = OptionParser.new do |opts|
   opts.on("--max-inputs N", Integer, "Fuzz budget: mutated inputs to try (default 50)") { |v| options[:max_inputs] = v }
   opts.on("--mutator NAME", "ruby (default) or radamsa if installed") { |v| options[:mutator] = v }
   opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
+  opts.on("--ttl SECONDS", Integer, "Consent token lifetime (default 900)") { |v| options[:ttl] = v }
   opts.on("-j", "--json", "Machine payload instead of human output") { options[:json] = true }
   opts.on("-h", "--help", "Show this help") { puts opts; exit 0 }
 end
@@ -173,6 +177,20 @@ when "doctor"
     n = checks.count { |_, p| p }
     abort("lictor: doctor found #{n} issue(s) - fixes above (fresh setup? run lictor init)")
   end
+when "authorize"
+  # The human mints an execution consent: interactive, typed, TTL'd.
+  target = ARGV.shift or abort(parser.to_s)
+  begin
+    Lictor::Gates.require_in_scope!(options[:allowlist], target)
+  rescue Lictor::Unauthorized => e
+    abort("lictor: UNAUTHORIZED - #{e.message}")
+  end
+  print "type the target name to authorize execution: "
+  token = Lictor::Consent.issue(trail, target, confirm_input: $stdin.gets.to_s,
+                                ttl_seconds: options[:ttl] || 900)
+  puts "authorized: #{target} (token valid 15 min)"
+  puts "token:      #{token}"
+  puts "hand this token to the executor/agent that runs against #{target}."
 when "recon"
   # Recon output is CANDIDATES, not authorization: the operator still
   # copies entries into targets.yml and the gates still check them.

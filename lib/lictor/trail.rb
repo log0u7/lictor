@@ -37,9 +37,19 @@ module Lictor
         when "profile"
           run[:profiled] = event["binary"]
         when "outcome"
-          run[:outcomes] << {technique: event["technique"], success: event["success"]}
+          run[:outcomes] << {technique: event["technique"], success: event["success"],
+                             executed: event["executed"] || false}
         when "scan"
           run[:scanned] = event["target"]
+        when "fuzz"
+          run[:fuzzed] = event["binary"]
+          run[:crashes] = event["crashes"]
+        when "triage"
+          run[:triage] = {signal: event["signal"], control: event["control"]}
+        when "consent"
+          run[:authorized] = event["target"]
+        when "rule_install"
+          run[:taught] = event["technique"]
         end
       end
       grouped.values

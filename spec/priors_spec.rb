@@ -62,7 +62,7 @@ RSpec.describe Lictor::Trail do
       expect(runs.size).to eq(2)
       expect(runs.first[:run]).to eq("r1")
       expect(runs.first[:selected]).to eq("ret2plt")
-      expect(runs.first[:outcomes]).to eq([{technique: "ret2plt", success: true}])
+      expect(runs.first[:outcomes]).to eq([{technique: "ret2plt", success: true, executed: false}])
       expect(runs.last[:outcomes]).to be_empty
     end
 

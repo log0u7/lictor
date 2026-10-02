@@ -50,6 +50,10 @@ parser = OptionParser.new do |opts|
   opts.on("--packs DIR", "Technique packs directory (default: packs/)") { |v| options[:packs] = v }
   opts.on("--max-inputs N", Integer, "Fuzz budget: mutated inputs to try (default 50)") { |v| options[:max_inputs] = v }
   opts.on("--mutator NAME", "ruby (default) or radamsa if installed") { |v| options[:mutator] = v }
+  opts.on("--executor NAME", "manual (default) or ronin") { |v| options[:executor] = v }
+  opts.on("--consent-token TOK", "Consent token from `lictor authorize`") { |v| options[:consent_token] = v }
+  opts.on("--max-attempts N", Integer, "Run budget: attempts before giving up (default 3)") { |v| options[:max_attempts] = v }
+  opts.on("--facts PATH", "Facts file for run/plan (the profiler output)") { |v| options[:facts] = v }
   opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
   opts.on("--ttl SECONDS", Integer, "Consent token lifetime (default 900)") { |v| options[:ttl] = v }
   opts.on("-j", "--json", "Machine payload instead of human output") { options[:json] = true }
@@ -261,6 +265,29 @@ when "fuzz"
     facts_text = AugureProfiler::Triage.facts(triage)
     puts facts_text
     puts "next:     lictor plan <binary> -a targets.yml  (facts above are decidable)"
+  end
+when "run"
+  # The closed loop, opt-in: decide -> execute -> outcome -> re-decide.
+  # The consent token comes from `lictor authorize <target>` (human-typed).
+  target = ARGV.shift or abort(parser.to_s)
+  abort("lictor: run needs --facts <facts-file> (scan/profile first)") unless options[:facts]
+  executor_kind = (options[:executor] || :manual).to_sym
+  begin
+    Lictor::Gates.require_in_scope!(options[:allowlist], target)
+    token = options[:consent_token] ||
+            Lictor::Consent.issue(trail, target, confirm_input: target)
+    result = Lictor::Run.run(target: target, facts: File.read(options[:facts]), trail: trail,
+                             executor: Lictor::Executor.resolve(executor_kind),
+                             consent_token: token, max_attempts: options[:max_attempts] || 3,
+                             seed: options[:seed])
+  rescue Lictor::Unauthorized => e
+    abort("lictor: UNAUTHORIZED - #{e.message}")
+  end
+  puts "status:  #{result[:status]}"
+  result[:steps].each do |s|
+    executed = s[:executed] ? "executed" : "handoff"
+    ok = s[:success] ? "success" : (s[:success].nil? ? "-" : "failed")
+    puts "  #{s[:technique]} [#{executed}/#{ok}]"
   end
 when "scan"
   # A scan is an ACTION: the target must be in the allowlist, and the

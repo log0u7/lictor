@@ -1,0 +1,7 @@
+services:
+  target:
+    build: ./target
+    ports:
+      - "9999:9999"
+      - "8000:8000"
+    restart: unless-stopped

@@ -34,36 +34,41 @@ module Lictor
 
   # Runs an exploit from the operator's installed ronin repos. The
   # exploit NAME must come from discovery (ronin-exploits list) - a
-  # fabricated name is an ExecutorError. The real run needs a lab; until
-  # one exists this executor is wired and the lab phase plugs in.
+  # fabricated name is an ExecutorError. The ronin subprocess runs
+  # OUTSIDE the caller's bundle (RUBYOPT stripped): the operator
+  # installs ronin-exploits globally (gem install, the lab setup does
+  # it) - the executor does not drag the arsenal into its own bundle.
   class RoninExecutor
+    CLEAN_ENV = {"RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLE_BIN_PATH" => nil}.freeze
+
     def initialize(runner: "ronin-exploits")
       @runner = runner
     end
 
-    # The exploits available in the operator's repos, filtered to the
-    # decided technique.
+    # The exploits available in the operator's repos, matched to the
+    # decided technique by the naming convention
+    # `<name>_<technique>_<nnn>` (ronin-exploits list shows names only).
     def discover(technique)
-      out, _err, status = Open3.capture3(@runner, "list")
+      out, _err, status = Open3.capture3(CLEAN_ENV, @runner, "list")
       raise ExecutorError, "ronin-exploits list failed" unless status.success?
 
-      out.lines.drop(1).filter_map do |line|
-        name, tech = line.split
-        name if tech && tech.strip == technique
+      out.lines.filter_map do |line|
+        name = line.strip
+        name if name.include?(technique)
       end
     end
 
-    def execute(target:, technique:, recipe:, exploit_name:, consent_token: nil)
-      matches = discover(technique)
-      unless matches.include?(exploit_name)
-        raise ExecutorError,
-          "exploit #{exploit_name.inspect} not discovered in your repos (available: #{matches.join(", ")})"
+    def execute(target:, technique:, recipe:, exploit_name: nil, consent_token: nil)
+      exploit_name ||= discover(technique).first
+      unless exploit_name
+        return {executed: false, success: nil,
+                note: "no #{technique} exploit in your repos (ronin-exploits list)"}
       end
 
-      out, _err, status = Open3.capture3(
-        {@runner => @runner, "ROP_TARGET" => target, "ROP_TECHNIQUE" => technique},
-        @runner, "run", exploit_name, "--target", target
-      )
+      host, port = target.split(":", 2)
+      args = ["run", exploit_name, "--param", "host=#{host || target}"]
+      args += ["--param", "port=#{port}"] if port
+      out, _err, status = Open3.capture3(CLEAN_ENV, @runner, *args)
       {executed: true, success: status.success?, exploit: exploit_name, output: out}
     end
   end

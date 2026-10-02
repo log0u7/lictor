@@ -45,6 +45,8 @@ parser = OptionParser.new do |opts|
   opts.on("--failure", "Record a failed outcome (outcome only)") { options[:success] = false }
   opts.on("--technique NAME", "The technique the outcome applies to") { |v| options[:technique] = v }
   opts.on("--packs DIR", "Technique packs directory (default: packs/)") { |v| options[:packs] = v }
+  opts.on("--max-inputs N", Integer, "Fuzz budget: mutated inputs to try (default 50)") { |v| options[:max_inputs] = v }
+  opts.on("--mutator NAME", "ruby (default) or radamsa if installed") { |v| options[:mutator] = v }
   opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
   opts.on("-j", "--json", "Machine payload instead of human output") { options[:json] = true }
   opts.on("-h", "--help", "Show this help") { puts opts; exit 0 }
@@ -215,6 +217,32 @@ when "rule"
     end
   else
     abort("lictor: rule validate|install|list")
+  end
+when "fuzz"
+  # Fuzzing is an ACTION on a local binary: allowlist not required (the
+  # binary is local, no network), but it is TRAILED - and its discoveries
+  # feed the plan.
+  binary = ARGV.shift or abort(parser.to_s)
+  begin
+    require "augure-profiler"
+  rescue LoadError
+    abort("lictor: fuzzing needs the augure-profiler gem (gem install augure-profiler)")
+  end
+  crashes = AugureProfiler::Fuzzer.run(binary, inputs: options[:max_inputs] || 50,
+                                       mutator: (options[:mutator] || :ruby).to_sym)
+  trail.record(run: SecureRandom.uuid, type: "fuzz", binary: binary,
+               inputs: options[:max_inputs] || 50, crashes: crashes.size)
+  if crashes.empty?
+    puts "fuzzed:   #{binary} - no crash (nothing to triage)"
+  else
+    puts "fuzzed:   #{binary} - #{crashes.size} crash(es)"
+    triage = AugureProfiler::Triage.run(binary, crashes.first[:input])
+    trail.record(run: SecureRandom.uuid, type: "triage", binary: binary,
+                 signal: triage[:signal], control: triage[:control].to_s)
+    puts "triage:   #{triage[:signal]} control=#{triage[:control]}"
+    facts_text = AugureProfiler::Triage.facts(triage)
+    puts facts_text
+    puts "next:     lictor plan <binary> -a targets.yml  (facts above are decidable)"
   end
 when "scan"
   # A scan is an ACTION: the target must be in the allowlist, and the

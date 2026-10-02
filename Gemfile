@@ -13,6 +13,7 @@ augure_path = ["../augure", "./augure"]
 raise "augure checkout not found next to the lictor checkout" unless augure_path
 
 gem "augure", path: augure_path
+gem "augure-profiler", path: File.expand_path(File.join(augure_path, "profiler"), __dir__)
 
 group :development, :test do
   gem "rspec", "~> 3.13"

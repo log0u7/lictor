@@ -33,5 +33,22 @@ module Lictor
     def allowlist_candidates(path)
       from_nmap_xml(path).map { |t| "#{t[:host]}:#{t[:port]}" }
     end
+
+    # Network facts for the decision layer: one fact block per open
+    # service. The binary-exploitation vocabulary grows with the service
+    # predicates (service/software_version/remote); technique packs match
+    # them exactly like binary facts.
+    def facts(path)
+      lines = []
+      from_nmap_xml(path).each do |t|
+        lines << "remote(\"true\").\n"
+        lines << "service(\"#{t[:service]}\").\n" if t[:service]
+        if t[:product]
+          version = [t[:product], t[:version]].compact.join(" ")
+          lines << "software_version(\"#{version}\").\n" if t[:version]
+        end
+      end
+      lines.uniq.join
+    end
   end
 end

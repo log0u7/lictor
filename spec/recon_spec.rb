@@ -29,4 +29,14 @@ RSpec.describe Lictor::Recon do
       end
     end
   end
+
+  describe ".facts" do
+    it "emits network facts the augure engine parses" do
+      facts_text = described_class.facts(fixture)
+      facts = Augure::Facts.parse(facts_text)
+      expect(facts.rel("remote")).to eq([["true"]])
+      expect(facts.rel("service")).to include(["ssh"], ["http"], ["ftp"])
+      expect(facts.rel("software_version")).to include(["OpenSSH 8.9p1"])
+    end
+  end
 end

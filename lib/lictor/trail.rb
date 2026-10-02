@@ -23,5 +23,21 @@ module Lictor
     rescue Errno::ENOENT
       []
     end
+
+    # Plan and outcome events grouped per run, in run order.
+    def runs
+      grouped = {}
+      events.each do |event|
+        run = grouped[event["run"]] ||= {run: event["run"], outcomes: []}
+        case event["type"]
+        when "plan"
+          run.merge!(event.slice("mode", "selected", "applicable", "explain", "facts_file")
+                         .transform_keys(&:to_sym))
+        when "outcome"
+          run[:outcomes] << {technique: event["technique"], success: event["success"]}
+        end
+      end
+      grouped.values
+    end
   end
 end

@@ -47,8 +47,8 @@ module Lictor
       }
     end
 
-    def plan(facts:, seed: nil)
-      decision = Augure::Pipeline.analyze(facts: facts, seed: seed)
+    def plan(facts:, seed: nil, priors: nil)
+      decision = Augure::Pipeline.analyze(facts: facts, seed: seed, priors: priors)
       selected = decision[:selected]
       {
         applicable: decision[:applicable],

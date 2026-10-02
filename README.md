@@ -45,6 +45,23 @@ gem "augure"                       # published, clean, MIT
 # lictor: bundle from your own checkout, private
 ```
 
+## The workflow
+
+```sh
+lictor recon scan.xml                              # candidates from nmap
+# operator copies candidates into targets.yml (explicit, reviewed)
+augure-profile <binary> -o target.facts            # gem augure-profiler
+lictor plan target.facts -a targets.yml            # handoff: decision + recipe
+lictor outcome <run-id> --success --technique ret2plt   # the closed loop
+lictor runs                                        # the trailed history
+lictor report -o engagement.md                     # the auditable deliverable
+```
+
+Every decision ships its rule provenance; every outcome feeds back into
+the bandit priors (`Lictor::Priors.from_trail`), so the next decision on
+the same estate carries the engagement's own evidence - the closed loop
+from the articles, trailed end to end.
+
 ## Architecture
 
 ```mermaid

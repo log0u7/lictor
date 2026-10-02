@@ -2,20 +2,31 @@
 
 ## Project
 
-lictor: authorized-ops orchestrator consuming the augure gem. SCAFFOLD
-STAGE - design docs only until augure is stable.
+lictor: authorized-ops orchestrator consuming the augure gem. v1 shipped:
+gates, recon (ruby-nmap), handoff (ronin-first recipes), outcome feedback
+(the closed loop), JSONL trail, engagement reports.
 
 ## Hard rules (enforced in code, in review, everywhere)
 
 1. Every operational mode requires an explicit target allowlist file.
    No allowlist -> `Lictor::Unauthorized`. No defaults, no wildcards.
-2. Automated execution (RPC mode) requires `--i-am-authorized` per run.
-3. Handoff mode (print the msfconsole recipe) is the default and must stay
-   the default in every design and test.
-4. Every action logs decision -> rule -> module -> outcome (sequel).
+2. Any execution beyond printing a recipe requires `--i-am-authorized`
+   AND an allowlist-checked `--target`, per run.
+3. Handoff (print the recipe) is the default and must stay the default.
+4. Every action is trailed: decision -> rule provenance -> recipe ->
+   outcome (JSONL; sequel when queries are actually needed).
 5. Lictor never decides technique selection; it consumes augure.
-6. No exploit code, no payload generation - orchestration of standard
-   tooling only (nmap, msfrpcd).
+   Outcomes feed back through `Lictor::Priors.from_trail`, never by
+   touching augure's internals.
+6. No exploit code, no payload generation - orchestration of the
+   Ruby-native arsenal (ronin-exploits + rex gems) only. The exploit
+   NAME always comes from the operator's ronin repos.
+
+## Commands
+
+- Test: `bundle exec rspec` (all green required, 27+ examples)
+- Lint: `bundle exec standardrb` (zero offenses required)
+- CLI: `bundle exec ruby bin/lictor --help`
 
 ## Workflow
 
@@ -23,3 +34,12 @@ Same as augure: TDD first, conventional commits (English, atomic),
 CHANGELOG [Unreleased] per change, SemVer 0.x, main stays green. Ruby 3.4+
 via mise. No PR/review required during bootstrap (single author); PRs with
 review become the rule once a second contributor lands.
+
+## Gotchas
+
+- augure resolves from `../augure` locally, `./augure` in CI (the Gemfile
+  picks whichever exists; no Gemfile.lock, it is path-dependent).
+- Trail JSON round-trips symbol keys to strings: Trail#runs and
+  Lictor::Report normalize for that.
+- The msfconsole-era tests were migrated; anything mentioning msfrpcd in
+  code is a regression - it is an optional arsenal, not the path.

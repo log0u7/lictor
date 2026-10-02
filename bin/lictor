@@ -6,52 +6,97 @@ require_relative "../lib/lictor"
 
 options = {seed: nil, authorized: false, allowlist: nil, trail: nil, target: nil}
 parser = OptionParser.new do |opts|
-  opts.banner = "Usage: lictor plan <facts-file> --allowlist targets.yml [options]"
-  opts.on("-a", "--allowlist PATH", "Target allowlist file (required)") { |v| options[:allowlist] = v }
+  opts.banner = <<~USAGE
+
+    Usage: lictor <command> [options]
+
+    Commands:
+      recon <nmap.xml>            print allowlist candidates from an nmap scan
+      plan <facts-file>           decide on facts, print the handoff recipe
+      outcome <run-id>            record the result of a run (the closed loop)
+      runs                        list the trailed runs
+      report                      render the auditable engagement report
+
+    Gates: plan requires --allowlist; an authorized run additionally
+    requires --target (allowlist-checked) and --i-am-authorized.
+  USAGE
+  opts.on("-a", "--allowlist PATH", "Target allowlist file") { |v| options[:allowlist] = v }
   opts.on("--target HOST", "The authorized target for this run") { |v| options[:target] = v }
-  opts.on("--i-am-authorized", "Explicit per-run consent (enables mode reporting)") { options[:authorized] = true }
+  opts.on("--i-am-authorized", "Explicit per-run consent") { options[:authorized] = true }
   opts.on("-s", "--seed N", Integer, "Seed for reproducible decisions") { |v| options[:seed] = v }
-  opts.on("-t", "--trail PATH", "JSONL trail path (default: lictor-trail.jsonl)") { |v| options[:trail] = v }
+  opts.on("-t", "--trail PATH", "JSONL trail (default: lictor-trail.jsonl)") { |v| options[:trail] = v }
+  opts.on("--success / --failure", "Outcome of the run (for `outcome`)") { options[:success] = true }
+  opts.on("--failure", "Record a failed outcome") { options[:success] = false }
+  opts.on("--technique NAME", "The technique the outcome applies to") { |v| options[:technique] = v }
+  opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
+  opts.on("-h", "--help", "Show this help") { puts opts; exit 0 }
 end
 parser.parse!
 
-case ARGV.shift
+command = ARGV.shift or abort(parser.to_s)
+trail = Lictor::Trail.new(options[:trail] || "lictor-trail.jsonl")
+
+case command
 when "recon"
   # Recon output is CANDIDATES, not authorization: the operator still
   # copies entries into targets.yml and the gates still check them.
   xml = ARGV.shift or abort(parser.to_s)
   puts Lictor::Recon.allowlist_candidates(xml)
-  exit 0
 when "plan"
-  nil
-else
-  abort(parser.to_s)
-end
-path = ARGV.shift or abort(parser.to_s)
-
-begin
-  Lictor::Gates.require_authorized!(options[:authorized], options[:allowlist], target: options[:target])
+  path = ARGV.shift or abort(parser.to_s)
+  begin
+    Lictor::Gates.require_authorized!(options[:authorized], options[:allowlist], target: options[:target])
+  rescue Lictor::Unauthorized => e
+    abort("lictor: UNAUTHORIZED - #{e.message}")
+  end
   mode = options[:authorized] ? "handoff (authorized run)" : "handoff (default, no automated execution)"
 
-  plan = Lictor::Handoff.plan(facts: File.read(path), seed: options[:seed])
-  trail = Lictor::Trail.new(options[:trail] || "lictor-trail.jsonl")
-  trail.record(run: SecureRandom.uuid, mode: mode, facts_file: path,
-               selected: plan[:selected], applicable: plan[:applicable])
+  begin
+    priors = Lictor::Priors.from_trail(trail)
+    plan = Lictor::Handoff.plan(facts: File.read(path), seed: options[:seed], priors: priors)
+  rescue Augure::MalformedFact, Augure::UnknownPredicate => e
+    abort("lictor: #{e.message}")
+  end
+  trail.record(run: SecureRandom.uuid, type: "plan", mode: mode, facts_file: path,
+               selected: plan[:selected], applicable: plan[:applicable],
+               explain: plan[:explain],
+               priors_adapted: Lictor::Priors.adapted?(trail))
 
   puts "mode:      #{mode}"
   puts "applicable: #{plan[:applicable].join(', ')}"
+  puts "ranking:    #{plan[:ranking].join(' > ')}"
   puts "selected:   #{plan[:selected]}"
   if plan[:recipe]
     puts "recipe:     #{plan[:recipe][:console]}"
-    puts "module:     #{plan[:recipe][:module]}"
   end
   plan[:explain][:provenance].each do |tech, provs|
     provs.each do |p|
       puts "  #{tech} <- #{p[:rule]} (#{p[:evidence].map { |e| e.join('=') }.join(', ')})"
     end
   end
-rescue Lictor::Unauthorized => e
-  abort("lictor: UNAUTHORIZED - #{e.message}")
-rescue Augure::MalformedFact, Augure::UnknownPredicate => e
-  abort("lictor: #{e.message}")
+when "outcome"
+  run_id = ARGV.shift or abort(parser.to_s)
+  if options[:success].nil? || options[:technique].nil?
+    abort("lictor: outcome needs --success or --failure, and --technique NAME")
+  end
+  trail.record(run: run_id, type: "outcome", technique: options[:technique],
+               success: options[:success])
+  puts "recorded: #{run_id} #{options[:technique]} #{options[:success] ? 'success' : 'failure'}"
+  puts "next plan run adapts the priors (the closed loop)"
+when "runs"
+  runs = trail.runs
+  abort("lictor: empty trail") if runs.empty?
+  runs.each do |r|
+    puts "#{r[:run]}  #{r[:mode]}  selected=#{r[:selected]}  " \
+         "outcomes=#{r[:outcomes].map { |o| "#{o[:technique]}:#{o[:success] ? 'ok' : 'ko'}" }.join(',')}"
+  end
+when "report"
+  if options[:output]
+    Lictor::Report.to_file(options[:output], trail)
+    puts "wrote #{options[:output]}"
+  else
+    puts Lictor::Report.from_trail(trail)
+  end
+else
+  abort(parser.to_s)
 end

@@ -15,7 +15,18 @@ parser = OptionParser.new do |opts|
 end
 parser.parse!
 
-ARGV.shift == "plan" or abort(parser.to_s)
+case ARGV.shift
+when "recon"
+  # Recon output is CANDIDATES, not authorization: the operator still
+  # copies entries into targets.yml and the gates still check them.
+  xml = ARGV.shift or abort(parser.to_s)
+  puts Lictor::Recon.allowlist_candidates(xml)
+  exit 0
+when "plan"
+  nil
+else
+  abort(parser.to_s)
+end
 path = ARGV.shift or abort(parser.to_s)
 
 begin

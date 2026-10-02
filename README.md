@@ -48,20 +48,47 @@ gem "augure"                       # published, clean, MIT
 ## Architecture
 
 ```mermaid
-graph LR
-    N["nmap<br/>(ruby-nmap)"] -- "facts" --> A["augure decides<br/>(Datalog + SMT + bandit + MCTS)"]
-    A --> G{"consent gate"}
-    G -- "handoff (default)" --> H["recipe printed<br/>human executes"]
-    G -- "rpc (--i-am-authorized<br/>+ allowlist)" --> MSF["msfrpcd<br/>(msgpack)"]
-    H --> O["outcome: success,<br/>side effects, leaks"]
-    MSF --> O
-    O -- "closed loop" --> A
-    O --> L["persisted trail<br/>(decision -> rule -> module -> outcome)"]
+flowchart LR
+    subgraph recon ["RECON - ruby-nmap 1.0.3"]
+        NMAP["nmap -sV -oX scan.xml<br/>(operator-run)"] --> R["Lictor::Recon<br/>(parses XML, never scans)"]
+        R --> INV["target inventory<br/>host:port candidates"]
+    end
+
+    INV -- "operator copies to targets.yml" --> GATE
+
+    subgraph decide ["DECIDE - the augure SDK"]
+        ELF["target binary"] --> PRF["augure-profiler<br/>metasm: checksec, gadgets"]
+        PRF --> F["facts<br/>nx/pie/plt/gadget/vuln_hint"]
+        F --> A["augure Engine<br/>Datalog rules-as-data"]
+        KB["KnowledgeBase<br/>22 patterns"] -. priors .-> A
+        A --> V["Verifier + Bandit + MCTS"]
+        V --> D["decision + provenance<br/>rule ID, evidence, seed"]
+    end
+
+    subgraph act ["ACT - lictor"]
+        D --> GATE{"consent gate<br/>--i-am-authorized<br/>+ allowlisted --target"}
+        GATE -- "handoff (default)" --> H["recipe printed<br/>msfconsole module + options"]
+        GATE -- "rpc (opt-in, lab-only)" --> M["Lictor::Msfrpc<br/>msgpack over TLS<br/>(msfrpc-client gem dead, 2018)"]
+        H --> O["outcome"]
+        M --> O
+    end
+
+    O --> TR["JSONL trail<br/>decision - rule - module - outcome"]
+    O -. "closed loop: outcomes become facts" .-> F
 ```
 
 The closed loop: outcomes become facts, augure re-decides, the planner
 sees what the leak unlocked. That is the neuro-symbolic pipeline from the
 articles - with a consent gate in front of the only dangerous edge.
+
+**Gem choices, verified 2026-10:**
+
+| Need | Gem | Why |
+|---|---|---|
+| nmap XML parsing | [ruby-nmap 1.0.3](https://rubygems.org/gems/ruby-nmap) (postmodern, 703k dl) | the maintained standard; parses XML without running nmap |
+| Metasploit RPC | raw `msgpack` 1.8.5 (524M dl, maintained 2026-09) | `msfrpc-client` gem is dead (last release 2018); the RPC protocol is msgpack over HTTP/SSL, ~100 LOC |
+| binary analysis | `augure-profiler` (metasm) | pure Ruby, no subprocess, this repo's sibling |
+| persistence | stdlib JSONL | sequel when queries are actually needed |
 
 ## Modern require block (what survived 2012)
 

@@ -26,4 +26,5 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "augure", ">= 0.1.0"
+  spec.add_dependency "ruby-nmap", "~> 1.0"
 end

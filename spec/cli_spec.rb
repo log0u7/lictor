@@ -30,6 +30,15 @@ RSpec.describe "bin/lictor" do
     expect(err).to include("not in the allowlist")
   end
 
+  it "emits allowlist candidates from an nmap XML scan (no gates: candidates only)" do
+    xml = File.expand_path("fixtures/nmap_scan.xml", __dir__)
+    out, _err, status = Open3.capture3(exe, "recon", xml)
+    expect(status.exitstatus).to eq(0)
+    expect(out).to include("192.168.56.10:22")
+    expect(out).to include("192.168.56.11:21")
+    expect(out).not_to include("192.168.56.10:4444") # closed port
+  end
+
   it "hands off the decision with a recipe and trails it" do
     dir = Dir.mktmpdir
     path = File.join(dir, "target.facts")

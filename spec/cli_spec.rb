@@ -19,15 +19,15 @@ RSpec.describe "bin/lictor" do
     expect(err).to include("UNAUTHORIZED")
   end
 
-  it "refuses targets outside the allowlist" do
+  it "refuses a wildcard allowlist" do
     dir = Dir.mktmpdir
     path = File.join(dir, "target.facts")
     File.write(path, facts_text)
     list = File.join(dir, "targets.yml")
-    File.write(list, "192.168.56.10\n")
-    _out, err, status = Open3.capture3(exe, "plan", path, "-a", list, "--target", "10.9.9.9", "--i-am-authorized")
+    File.write(list, "*.lab.local\n")
+    _out, err, status = Open3.capture3(exe, "plan", path, "-a", list)
     expect(status.exitstatus).not_to eq(0)
-    expect(err).to include("not in the allowlist")
+    expect(err).to include("wildcards")
   end
 
   it "emits allowlist candidates from an nmap XML scan (no gates: candidates only)" do
@@ -39,18 +39,23 @@ RSpec.describe "bin/lictor" do
     expect(out).not_to include("192.168.56.10:4444") # closed port
   end
 
-  it "hands off the decision with a recipe and trails it" do
+  it "hands off the decision with a recipe and trails it (no consent flag needed)" do
     dir = Dir.mktmpdir
     path = File.join(dir, "target.facts")
     File.write(path, facts_text)
     list = File.join(dir, "targets.yml")
     File.write(list, "192.168.56.10\n")
-    out, _err, status = Open3.capture3(exe, "plan", path, "-a", list, "--target", "192.168.56.10",
-      "--i-am-authorized", "-t", File.join(dir, "trail.jsonl"))
+    out, _err, status = Open3.capture3(exe, "plan", path, "-a", list,
+                                       "-t", File.join(dir, "trail.jsonl"))
     expect(status.exitstatus).to eq(0)
     expect(out).to include("handoff")
     expect(out).to include("selected:   ret2plt")
     expect(out).to include("ronin-exploits")
     expect(JSON.parse(File.read(File.join(dir, "trail.jsonl")))).to have_key("selected")
+  end
+
+  it "has no consent flag anywhere" do
+    out, _err, _status = Open3.capture3(exe, "--help")
+    expect(out).not_to include("i-am-authorized")
   end
 end

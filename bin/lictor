@@ -5,7 +5,7 @@ require "optparse"
 require "tmpdir"
 require_relative "../lib/lictor"
 
-options = {seed: nil, authorized: false, allowlist: nil, trail: nil, target: nil}
+options = {seed: nil, allowlist: nil, trail: nil, nmap: nil, output: nil}
 parser = OptionParser.new do |opts|
   opts.banner = <<~USAGE
 
@@ -13,23 +13,23 @@ parser = OptionParser.new do |opts|
 
     Commands:
       recon <nmap.xml>            print allowlist candidates from an nmap scan
+      scan <host>                 run nmap against an allowlisted host
       plan <facts-file>           decide on facts, print the handoff recipe
       outcome <run-id>            record the result of a run (the closed loop)
       runs                        list the trailed runs
       report                      render the auditable engagement report
 
-    Gates: plan requires --allowlist; an authorized run additionally
-    requires --target (allowlist-checked) and --i-am-authorized.
+    Authorization is the allowlist file: explicit host[:port] entries,
+    written and versioned by the operator. There is no consent flag - a
+    flag proves nothing; the artifact and the trail do.
   USAGE
   opts.on("-a", "--allowlist PATH", "Target allowlist file") { |v| options[:allowlist] = v }
-  opts.on("--target HOST", "The authorized target for this run") { |v| options[:target] = v }
-  opts.on("--i-am-authorized", "Explicit per-run consent") { options[:authorized] = true }
   opts.on("-s", "--seed N", Integer, "Seed for reproducible decisions") { |v| options[:seed] = v }
   opts.on("-t", "--trail PATH", "JSONL trail (default: lictor-trail.jsonl)") { |v| options[:trail] = v }
-  opts.on("--success / --failure", "Outcome of the run (for `outcome`)") { options[:success] = true }
-  opts.on("--failure", "Record a failed outcome") { options[:success] = false }
-  opts.on("--technique NAME", "The technique the outcome applies to") { |v| options[:technique] = v }
   opts.on("--nmap PATH", "Path to the nmap binary (default: nmap in PATH)") { |v| options[:nmap] = v }
+  opts.on("--success", "Record a successful outcome (outcome only)") { options[:success] = true }
+  opts.on("--failure", "Record a failed outcome (outcome only)") { options[:success] = false }
+  opts.on("--technique NAME", "The technique the outcome applies to") { |v| options[:technique] = v }
   opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
   opts.on("-h", "--help", "Show this help") { puts opts; exit 0 }
 end
@@ -45,10 +45,11 @@ when "recon"
   xml = ARGV.shift or abort(parser.to_s)
   puts Lictor::Recon.allowlist_candidates(xml)
 when "scan"
-  # A scan is an ACTION: same gates as everything else, and trailed.
+  # A scan is an ACTION: the target must be in the allowlist, and the
+  # scan is trailed.
   target = ARGV.shift or abort(parser.to_s)
   begin
-    Lictor::Gates.require_authorized!(options[:authorized], options[:allowlist], target: target)
+    Lictor::Gates.require_in_scope!(options[:allowlist], target)
   rescue Lictor::Unauthorized => e
     abort("lictor: UNAUTHORIZED - #{e.message}")
   end
@@ -67,11 +68,11 @@ when "scan"
 when "plan"
   path = ARGV.shift or abort(parser.to_s)
   begin
-    Lictor::Gates.require_authorized!(options[:authorized], options[:allowlist], target: options[:target])
+    Lictor::Gates.allowlist(options[:allowlist]) # the scope artifact must exist and be clean
   rescue Lictor::Unauthorized => e
     abort("lictor: UNAUTHORIZED - #{e.message}")
   end
-  mode = options[:authorized] ? "handoff (authorized run)" : "handoff (default, no automated execution)"
+  mode = "handoff (prints a recipe; executes nothing)"
 
   begin
     priors = Lictor::Priors.from_trail(trail)

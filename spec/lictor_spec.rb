@@ -24,25 +24,25 @@ RSpec.describe Lictor::Gates do
     end
   end
 
-  describe ".require_authorized!" do
-    it "raises without the explicit consent flag" do
-      expect { described_class.require_authorized!(false, allowlist_path) }
-        .to raise_error(Lictor::Unauthorized, /--i-am-authorized/)
-    end
-
+  describe ".require_in_scope!" do
     it "raises when the target is not on the allowlist" do
-      expect { described_class.require_authorized!(true, allowlist_path, target: "10.9.9.9") }
+      expect { described_class.require_in_scope!(allowlist_path, "10.9.9.9") }
         .to raise_error(Lictor::Unauthorized, /10\.9\.9\.9 is not in the allowlist/)
     end
 
-    it "requires an explicit target for an authorized run" do
-      expect { described_class.require_authorized!(true, allowlist_path) }
-        .to raise_error(Lictor::Unauthorized, /explicit --target/)
+    it "passes for an exact entry" do
+      expect(described_class.require_in_scope!(allowlist_path, "192.168.56.10")).to eq(true)
     end
 
-    it "passes for an allowlisted target" do
-      expect(described_class.require_authorized!(true, allowlist_path, target: "192.168.56.10")).to eq(true)
+    it "a host:port entry authorizes the host (colon-delimited)" do
+      expect(described_class.require_in_scope!(allowlist_path, "192.168.56.11")).to eq(true)
+      expect { described_class.require_in_scope!(allowlist_path, "192.168.56.1") }
+        .to raise_error(Lictor::Unauthorized)
     end
+  end
+
+  it "has no consent flag: the allowlist artifact and the trail are the controls" do
+    expect(described_class).not_to respond_to(:require_authorized!)
   end
 end
 

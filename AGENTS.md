@@ -8,11 +8,16 @@ gates, recon (ruby-nmap), handoff (ronin-first recipes), outcome feedback
 
 ## Hard rules (enforced in code, in review, everywhere)
 
-1. Every operational mode requires an explicit target allowlist file.
-   No allowlist -> `Lictor::Unauthorized`. No defaults, no wildcards.
-2. Any execution beyond printing a recipe requires `--i-am-authorized`
-   AND an allowlist-checked `--target`, per run.
-3. Handoff (print the recipe) is the default and must stay the default.
+1. Authorization = the allowlist artifact: explicit host[:port] entries,
+   written and versioned by the operator. Wildcards structurally rejected.
+   No target outside the file - ever.
+2. NO consent flag. It was removed as security theater: a flag can be
+   typed by reflex, by a script, or by anyone with shell access. The
+   controls are the artifact and the trail. A future execute command
+   confirms interactively (show the recipe, type the target) - never a
+   flag.
+3. Handoff (print the recipe) is the default; `plan` executes nothing,
+   so it needs no more than a valid allowlist file.
 4. Every action is trailed: decision -> rule provenance -> recipe ->
    outcome (JSONL; sequel when queries are actually needed).
 5. Lictor never decides technique selection; it consumes augure.
@@ -22,9 +27,13 @@ gates, recon (ruby-nmap), handoff (ronin-first recipes), outcome feedback
    Ruby-native arsenal (ronin-exploits + rex gems) only. The exploit
    NAME always comes from the operator's ronin repos.
 
+6. No exploit code, no payload generation - orchestration of the
+   Ruby-native arsenal (ronin-exploits + rex gems) only. The exploit
+   NAME always comes from the operator's ronin repos.
+
 ## Commands
 
-- Test: `bundle exec rspec` (all green required, 27+ examples)
+- Test: `bundle exec rspec` (all green required, 40+ examples)
 - Lint: `bundle exec standardrb` (zero offenses required)
 - CLI: `bundle exec ruby bin/lictor --help`
 

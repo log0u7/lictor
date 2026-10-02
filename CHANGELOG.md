@@ -9,10 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `lictor scan`: nmap as a gated, trailed action against an allowlist-
-  checked target (subprocess; --nmap override for testing). Gate entries
-  in host:port form now authorize the host itself (colon-delimited prefix
-  match). Scans appear in `runs` and in the engagement report.
+- `lictor scan`: nmap as a gated, trailed action against an allowlisted
+  host (subprocess; --nmap override for testing). Scans appear in
+  `runs` and in the engagement report.
+
+### Removed
+
+- `--i-am-authorized` and `--target` flags: security theater. A flag
+  can be typed by reflex, by a script, or by anyone with shell access -
+  it proves nothing and taxes the legitimate user. Authorization is the
+  allowlist artifact (explicit host[:port] entries, colon-delimited
+  prefix match so .1 cannot pass for .10) plus the trail. A future
+  execute command will confirm interactively (show the recipe, type the
+  target), never through a flag.
 
 ## [0.1.0] - 2026-10-02
 

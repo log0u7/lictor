@@ -16,17 +16,21 @@ Lictor orchestrates reconnaissance and exploitation tooling (nmap, the
 Ruby-native arsenal: ronin-exploits + rex gems) against targets. That
 capability is gated, in code, not in promises:
 
-1. **No targets without an allowlist.** Every operational mode requires a
-   target allowlist file (`targets.yml`) that you wrote, naming hosts you
-   are authorized to touch. Wildcards rejected. The tool refuses to run
-   against anything not in the file.
-2. **No execution without explicit consent.** RPC mode (automated
-   execution) requires `--i-am-authorized` on the command line. Not a
-   config file, not an env var: a flag typed by a human, per run.
-3. **Handoff is the default.** Without the flag, Lictor prints the recipe
-   (msfconsole module, options, payload selection) and a human runs it.
-   Same decisions, zero automated fire.
-4. **Everything is logged.** Decision -> rule -> module -> outcome, one
+1. **Authorization is the allowlist artifact.** Every operational mode
+   requires a target allowlist file (`targets.yml`) that you wrote,
+   naming hosts you are authorized to touch - explicit host[:port]
+   entries, wildcards structurally rejected. Like the scope section of
+   an engagement contract: written, reviewed, versioned.
+2. **No consent flag. A flag proves nothing** - it can be typed by
+   reflex, by a script, or by anyone with shell access. The controls
+   are the artifact and the trail. When a future command executes
+   exploits, its confirmation is interactive: show what will run,
+   against what, and type the target to confirm - friction with
+   information, not flag theater.
+3. **Handoff is the default.** `plan` prints the recipe (ronin mixin,
+   technique, provenance) and a human runs it. It executes nothing, so
+   it needs no more than the allowlist.
+4. **Everything is logged.** Decision -> rule -> recipe -> outcome, one
    line per action, persisted. An engagement you cannot replay is an
    engagement you cannot defend.
 5. **Lictor executes; it never decides.** Technique selection belongs to
@@ -48,8 +52,7 @@ gem "augure"                       # published, clean, MIT
 ## The workflow
 
 ```sh
-lictor scan 192.168.56.10 -a targets.yml --target 192.168.56.10 --i-am-authorized
-                                                   # nmap as a gated action, trailed
+lictor scan 192.168.56.10 -a targets.yml           # nmap, allowlist-gated, trailed
 lictor recon scan.xml                              # candidates from an XML scan
 # operator copies candidates into targets.yml (explicit, reviewed)
 augure-profile <binary> -o target.facts            # gem augure-profiler
@@ -59,8 +62,8 @@ lictor runs                                        # the trailed history
 lictor report -o engagement.md                     # the auditable deliverable
 ```
 
-Scanning is an **action**: `lictor scan` runs nmap (subprocess) only against
-an allowlist-checked, consented target, and trails the scan. `lictor recon`
+Scanning is an **action**: `lictor scan` runs nmap (subprocess) only
+against a host the allowlist names, and trails the scan. `lictor recon`
 stays passive - it parses XML the operator produced and prints candidates,
 never authorization.
 

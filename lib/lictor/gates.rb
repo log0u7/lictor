@@ -1,41 +1,42 @@
 # frozen_string_literal: true
 
-require "augure"
-
 module Lictor
-  # The authorization gates. Nothing in Lictor runs without an allowlist
-  # naming hosts the operator is explicitly authorized to touch, and no
-  # automated execution happens without the per-run consent flag.
+  # The authorization model. There is no consent flag: a flag can be typed
+  # by reflex, by script, or by anyone with shell access - it proves
+  # nothing. The controls are real artifacts:
+  #
+  #   1. the allowlist file: explicit host[:port] entries, written, read
+  #      and versioned by the operator. THE scope document.
+  #   2. the trail: every action recorded, attributable.
+  #
+  # Anything beyond scope is Unauthorized. When a future command executes
+  # exploits, its confirmation is interactive (show the recipe, type the
+  # target to confirm) - friction with information, not flag theater.
   module Gates
     module_function
 
     def allowlist(path)
+      raise Unauthorized, "an allowlist file is required" unless path
+
       entries = File.readlines(path).map(&:strip).reject { |l| l.empty? || l.start_with?("#") }
       wildcards = entries.select { |l| l.include?("*") || l.include?("?") }
-      raise Unauthorized, "wildcards are not allowed in the target allowlist: #{wildcards.join(", ")}" if wildcards.any?
+      if wildcards.any?
+        raise Unauthorized, "wildcards are not allowed in the target allowlist: #{wildcards.join(", ")}"
+      end
 
       entries
     end
 
-    def require_authorized!(consent_flag, allowlist_path, target: nil)
-      unless consent_flag
-        raise Unauthorized, "automated execution requires --i-am-authorized on this run " \
-                            "(handoff mode prints recipes instead)"
-      end
-      raise Unauthorized, "a target allowlist file is required" unless allowlist_path
-
+    def require_in_scope!(allowlist_path, target)
       entries = allowlist(allowlist_path)
-      raise Unauthorized, "an explicit --target is required for an authorized run" if target.nil?
       # An entry may name host:port; that authorizes the host itself too
-      # (prefix match, colon-delimited so 192.168.56.1 cannot pass for
+      # (colon-delimited prefix match, so 192.168.56.1 cannot pass for
       # 192.168.56.10).
-      host_authorized = entries.include?(target) ||
-        entries.any? { |e| e.start_with?("#{target}:") }
-      unless host_authorized
-        raise Unauthorized, "#{target} is not in the allowlist (#{allowlist_path})"
-      end
+      in_scope = entries.include?(target) ||
+                 entries.any? { |e| e.start_with?("#{target}:") }
+      return true if in_scope
 
-      true
+      raise Unauthorized, "#{target} is not in the allowlist (#{allowlist_path})"
     end
   end
 end

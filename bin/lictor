@@ -109,8 +109,8 @@ when "init"
   # Same resolution as the Gemfile: dev sibling or CI in-tree checkout.
   FileUtils.mkdir_p("examples")
   corpus_candidates = [
-    File.expand_path("../../augure/spec/fixtures/ctf_corpus.json", __dir__),
-    File.expand_path("../augure/spec/fixtures/ctf_corpus.json", __dir__)
+    File.expand_path("../../augure/lib/augure/ctf_corpus.json", __dir__),
+    File.expand_path("../augure/lib/augure/ctf_corpus.json", __dir__)
   ]
   augure_corpus = corpus_candidates.find { |p| File.file?(p) }
   if augure_corpus

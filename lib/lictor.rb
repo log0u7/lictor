@@ -3,6 +3,7 @@
 require "securerandom"
 require_relative "lictor/version"
 require_relative "lictor/config"
+require_relative "lictor/acquisition"
 require_relative "lictor/consent"
 require_relative "lictor/gates"
 require_relative "lictor/recon"

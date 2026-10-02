@@ -54,6 +54,10 @@ parser = OptionParser.new do |opts|
   opts.on("--consent-token TOK", "Consent token from `lictor authorize`") { |v| options[:consent_token] = v }
   opts.on("--max-attempts N", Integer, "Run budget: attempts before giving up (default 3)") { |v| options[:max_attempts] = v }
   opts.on("--facts PATH", "Facts file for run/plan (the profiler output)") { |v| options[:facts] = v }
+  opts.on("--from URL", "Acquire the binary from an http(s) URL") { |v| options[:from] = v }
+  opts.on("--bin PATH", "Acquire the binary from a local path") { |v| options[:bin] = v }
+  opts.on("--input PATH", "Crash input for verify (the fuzzer's discovery)") { |v| options[:input] = v }
+  opts.on("--triage-backend NAME", "gdb (default), rizin or lldb") { |v| options[:triage_backend] = v }
   opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
   opts.on("--ttl SECONDS", Integer, "Consent token lifetime (default 900)") { |v| options[:ttl] = v }
   opts.on("-j", "--json", "Machine payload instead of human output") { options[:json] = true }
@@ -240,6 +244,49 @@ when "rule"
   else
     abort("lictor: rule validate|install|list")
   end
+when "verify"
+  # The differential: the fuzzer's crash input goes to the REMOTE
+  # service. If the remote faults like the local model, the model is
+  # remote-verified (the facts carry the confidence level).
+  target = ARGV.shift or abort(parser.to_s)
+  abort("lictor: verify needs --input <crash-input-file> (lictor fuzz discovers it)") unless options[:input]
+  begin
+    Lictor::Gates.require_in_scope!(options[:allowlist], target)
+  rescue Lictor::Unauthorized => e
+    abort("lictor: UNAUTHORIZED - #{e.message}")
+  end
+  # Remote crash detection: deliver the input, then read until the
+  # connection dies. A crashed child dies IN vuln_copy: the normal path
+  # prints "hello" first, the crash path does not. A reset = death too.
+  require "socket"
+  host, port = target.split(":", 2)
+  reply = +""
+  reset_seen = false
+  begin
+    sock = TCPSocket.new(host, port.to_i)
+    sock.gets("\n") if sock.wait_readable(2)
+    sock.write(File.binread(options[:input]))
+    loop do
+      chunk = sock.readpartial(1024)
+      reply += chunk
+    end
+  rescue Errno::ECONNRESET, Errno::EPIPE, EOFError
+    reset_seen = true
+  rescue IO::TimeoutError, Errno::ETIMEDOUT
+    nil
+  end
+  crashed = (reset_seen || reply.empty?) && !reply.include?("hello")
+  trail.record(run: SecureRandom.uuid, type: "verify", target: target,
+               input: options[:input], remote_crashed: crashed)
+  if crashed
+    puts "remote-verified: the remote service faulted on the same input -"
+    puts "  the local model (offsets, gadgets) is representative. The facts"
+    puts "  gained verified(\"remote\")."
+    File.open(File.join(Dir.pwd, "target.facts"), "a") { |f| f.puts 'verified("remote").' }
+  else
+    puts "not verified: the remote survived - the local model may not apply"
+    puts "  (version drift? a different build?). Do not trust the offsets."
+  end
 when "fuzz"
   # Fuzzing is an ACTION on a local binary: allowlist not required (the
   # binary is local, no network), but it is TRAILED - and its discoveries
@@ -247,6 +294,7 @@ when "fuzz"
   binary = ARGV.shift or abort(parser.to_s)
   begin
     require "augure-profiler"
+    binary = File.expand_path(binary)
   rescue LoadError
     abort("lictor: fuzzing needs the augure-profiler gem (gem install augure-profiler)")
   end
@@ -258,7 +306,14 @@ when "fuzz"
     puts "fuzzed:   #{binary} - no crash (nothing to triage)"
   else
     puts "fuzzed:   #{binary} - #{crashes.size} crash(es)"
-    triage = AugureProfiler::Triage.run(binary, crashes.first[:input])
+    # The LONGEST crash input is the most robust across environments
+    # (it smashes past any offset): the shortest may be a marginal,
+    # layout-dependent crash - exactly what `verify` is there to catch.
+    robust = crashes.max_by { |c| c[:input].bytesize }
+    crash_file = File.join(Dir.pwd, "crash-input.bin")
+    File.binwrite(crash_file, robust[:input])
+    puts "saved:    #{crash_file} (the longest crash input - robust for verify)"
+    triage = AugureProfiler::Triage.run(binary, robust[:input])
     trail.record(run: SecureRandom.uuid, type: "triage", binary: binary,
                  signal: triage[:signal], control: triage[:control].to_s)
     puts "triage:   #{triage[:signal]} control=#{triage[:control]}"
@@ -289,6 +344,18 @@ when "run"
     ok = s[:success] ? "success" : (s[:success].nil? ? "-" : "failed")
     puts "  #{s[:technique]} [#{executed}/#{ok}]"
   end
+when "acquire"
+  # The nmap -> binary bridge: local copy or http download, ELF-checked,
+  # profiled, trailed.
+  target = ARGV.shift or abort(parser.to_s)
+  source = options[:from] || (options[:bin] && "local:#{options[:bin]}") ||
+           abort("lictor: acquire needs --from <url> or --bin <path>")
+  result = Lictor::Acquisition.acquire(target, source: source, trail: trail,
+                                       out_dir: Dir.pwd,
+                                       profiler_cmd: options[:profile_cmd])
+  puts "acquired:   #{result[:binary_path]}"
+  puts "facts:      #{result[:facts_path]} (#{result[:facts].lines.size} facts)"
+  puts "next:       lictor plan target.facts -a targets.yml"
 when "scan"
   # A scan is an ACTION: the target must be in the allowlist, and the
   # scan is trailed.

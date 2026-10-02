@@ -19,10 +19,8 @@ sleep 1
 echo "=== 1. scan (nmap, gated, trailed) ==="
 (cd "$WORK" && "$L" scan 127.0.0.1 -a targets.yml) | head -4
 
-echo "=== 2. acquire + profile the binary ==="
-curl -s http://127.0.0.1:8000/vuln_service -o "$WORK/vuln_service"
-chmod +x "$WORK/vuln_service"
-(cd "$WORK" && "$P" vuln_service -o target.facts) | tail -1
+echo "=== 2. acquire (nmap -> binary bridge: http, ELF-checked, profiled, trailed) ==="
+(cd "$WORK" && "$L" acquire 127.0.0.1:8000 --from http://127.0.0.1:8000/vuln_service -a targets.yml)
 
 echo "=== 3. decide (augure: propose, verify, explain) ==="
 (cd "$WORK" && "$L" plan target.facts -a targets.yml) | head -7

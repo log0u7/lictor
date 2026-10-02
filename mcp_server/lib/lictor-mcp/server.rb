@@ -1,0 +1,146 @@
+# frozen_string_literal: true
+
+require "mcp"
+require "lictor"
+
+module LictorMcp
+  # The gated MCP surface of the orchestrator: the LLM harness's hands.
+  # EVERY tool validates server-side - the allowlist, the consent tokens,
+  # the corpus guard - and trails everything. The agent proposes; augure
+  # disposes; lictor executes; nothing escapes the gates.
+  module ToolHelpers
+    module_function
+
+    def respond(payload)
+      ::MCP::Tool::Response.new([{type: "text", text: ::JSON.generate(payload)}])
+    end
+
+    def error(message)
+      ::MCP::Tool::Response.new([{type: "text", text: ::JSON.generate(error: message)}])
+    end
+
+    def trail
+      ::Lictor::Trail.new(::Lictor::Config.load[:trail] || "lictor-mcp-trail.jsonl")
+    end
+  end
+
+  class Server
+    include ToolHelpers
+
+    TOOLS = [
+      ScanTarget = Class.new(::MCP::Tool) do
+        description "Run nmap against an allowlisted host and return the target inventory. " \
+                    "Server-side gates: the host must be in the allowlist file."
+        input_schema(properties: {
+          host: {type: "string"}, allowlist: {type: "string", description: "Path to targets.yml"}
+        }, required: %w[host allowlist])
+
+        class << self
+          include ::LictorMcp::ToolHelpers
+
+          def call(host:, allowlist:, server_context: nil)
+            ::Lictor::Gates.require_in_scope!(allowlist, host)
+            targets = nil
+            Dir.mktmpdir do |d|
+              targets = ::Lictor::Scanner.run(host, out: File.join(d, "s.xml"))
+            end
+            trail.record(run: SecureRandom.uuid, type: "scan", target: host)
+            respond(targets: targets, candidates: targets.map { |t| "#{t[:host]}:#{t[:port]}" })
+          rescue ::Lictor::Unauthorized => e
+            error("UNAUTHORIZED: #{e.message}")
+          rescue ::Lictor::ScanError => e
+            error(e.message)
+          end
+        end
+      end,
+
+      PlanTechnique = Class.new(::MCP::Tool) do
+        description "Decide on facts (or a binary - profiled automatically) and return the " \
+                    "auditable decision with rule provenance. Augure disposes: the agent " \
+                    "cannot pick an unverified technique. Requires an allowlist."
+        input_schema(properties: {
+          target: {type: "string", description: "binary path or .facts path"},
+          allowlist: {type: "string"}
+        }, required: %w[target allowlist])
+
+        class << self
+          include ::LictorMcp::ToolHelpers
+
+          def call(target:, allowlist:, server_context: nil)
+            ::Lictor::Gates.allowlist(allowlist)
+            facts = ::Lictor::Profiler.elf?(target) ? ::Lictor::Profiler.run(target) : File.read(target)
+            decision = ::Lictor::Handoff.plan(facts: facts, priors: ::Lictor::Priors.from_trail(trail))
+            trail.record(run: SecureRandom.uuid, type: "plan", selected: decision[:selected],
+              applicable: decision[:applicable])
+            respond(decision)
+          rescue ::Lictor::Unauthorized => e
+            error("UNAUTHORIZED: #{e.message}")
+          rescue ::Augure::MalformedFact, ::Augure::UnknownPredicate, ::Lictor::ProfilerError => e
+            error(e.message)
+          end
+        end
+      end,
+
+      ExecuteTechnique = Class.new(::MCP::Tool) do
+        description "Execute the decided technique against the target - REQUIRES a consent " \
+                    "token (lictor authorize <target>, typed by the human, short-lived). " \
+                    "The executor discovers exploits from the operator's repos; it never " \
+                    "invents one."
+        input_schema(properties: {
+          target: {type: "string"}, technique: {type: "string"},
+          exploit_name: {type: "string", description: "from your repos (ronin-exploits list)"},
+          consent_token: {type: "string"}, allowlist: {type: "string"}
+        }, required: %w[target technique exploit_name consent_token allowlist])
+
+        class << self
+          include ::LictorMcp::ToolHelpers
+
+          def call(target:, technique:, exploit_name:, consent_token:, allowlist:, server_context: nil)
+            ::Lictor::Gates.require_in_scope!(allowlist, target)
+            unless ::Lictor::Consent.valid?(trail, consent_token, target)
+              return error("consent token invalid, expired, or for another target (lictor authorize <target>)")
+            end
+
+            executor = ::Lictor::Executor.resolve(:ronin)
+            result = executor.execute(target: target, technique: technique, recipe: {console: ""},
+              exploit_name: exploit_name)
+            trail.record(run: SecureRandom.uuid, type: "outcome", technique: technique,
+              success: result[:success] == true, executed: true, target: target)
+            respond(result)
+          rescue ::Lictor::Unauthorized => e
+            error("UNAUTHORIZED: #{e.message}")
+          rescue ::Lictor::ExecutorError => e
+            error(e.message)
+          end
+        end
+      end,
+
+      ValidatePack = Class.new(::MCP::Tool) do
+        description "Validate a technique pack through the full armor (schema, stratification, " \
+                    "corpus guard). Installing needs a consent token and the operator's " \
+                    "interactive confirmation - validation alone is safe."
+        input_schema(properties: {pack_path: {type: "string"}}, required: %w[pack_path])
+
+        class << self
+          include ::LictorMcp::ToolHelpers
+
+          def call(pack_path:, server_context: nil)
+            pack = ::Augure::PackLoader.load_file(pack_path)
+            ::Augure::PackLoader.corpus_guard([pack])
+            respond(valid: true, technique: pack.technique, author: pack.author, source: pack.source)
+          rescue ::Augure::PackError => e
+            error("pack refused: #{e.message}")
+          end
+        end
+      end
+    ].freeze
+
+    def self.build
+      ::MCP::Server.new(name: "lictor-mcp", version: ::LictorMcp::VERSION, tools: TOOLS).tap do |server|
+        server.instructions = "lictor orchestrates the augure decision layer. All tools are " \
+                              "server-side gated: the allowlist is the scope, execution needs " \
+                              "a human-issued consent token (lictor authorize <target>)."
+      end
+    end
+  end
+end

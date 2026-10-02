@@ -3,6 +3,7 @@
 source "https://rubygems.org"
 
 gemspec
+gemspec path: "mcp_server", name: "lictor-mcp"
 
 # augure is not published yet; resolve the sibling mono-repo checkout.
 # Locally it lives next to lictor; in CI it is checked out inside the tree.

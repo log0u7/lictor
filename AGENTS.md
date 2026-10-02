@@ -2,9 +2,11 @@
 
 ## Project
 
-lictor: authorized-ops orchestrator consuming the augure gem. v1 shipped:
-gates, recon (ruby-nmap), handoff (ronin-first recipes), outcome feedback
-(the closed loop), JSONL trail, engagement reports.
+lictor: the orchestrator that carries out augure's judgments - v0.2.0
+ships: gates, recon (ruby-nmap), fuzzing/triage (augure-profiler),
+handoff + ronin execution (consent-gated), the closed loop (outcome ->
+priors), JSONL trail, engagement reports, the gated MCP surface
+(lictor-mcp).
 
 ## Hard rules (enforced in code, in review, everywhere)
 

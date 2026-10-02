@@ -1,90 +1,99 @@
 # lictor
 
-**Authorized-ops orchestrator for the augure decision layer.**
+**The orchestrator that carries out augure's judgments: nmap, fuzzing,
+profiling, execution - consent-gated, trail-everything, handoff by
+default.**
 
 > *Lictor (n.): the magistrate's attendant who carried the fasces and
 > executed judgments. He did not judge. He executed what was judged.*
 
-**STATUS: scaffold. augure (the decision layer) ships first. Lictor is built
-against a stable `augure` gem. Until then, everything here is design.**
+[![CI](https://github.com/log0u7/lictor/actions/workflows/ci.yml/badge.svg)](https://github.com/log0u7/lictor/actions/workflows/ci.yml)
+[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.4-ruby.svg)](https://www.ruby-lang.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
----
+**v0.2.0** - pairs with [augure](https://github.com/log0u7/augure), the
+auditable exploitation decision layer. augure decides; lictor executes;
+nothing escapes the gates.
 
-## THE RULES - read before anything else
+## Why lictor
 
-Lictor orchestrates reconnaissance and exploitation tooling (nmap, the
-Ruby-native arsenal: ronin-exploits + rex gems) against targets. That
-capability is gated, in code, not in promises:
+Most automation in offensive tooling is a black box: it fires and you
+find out why afterwards - or never. lictor inverts that:
 
-1. **Authorization is the allowlist artifact.** Every operational mode
-   requires a target allowlist file (`targets.yml`) that you wrote,
-   naming hosts you are authorized to touch - explicit host[:port]
-   entries, wildcards structurally rejected. Like the scope section of
-   an engagement contract: written, reviewed, versioned.
-2. **No consent flag. A flag proves nothing** - it can be typed by
-   reflex, by a script, or by anyone with shell access. The controls
-   are the artifact and the trail. When a future command executes
-   exploits, its confirmation is interactive: show what will run,
-   against what, and type the target to confirm - friction with
-   information, not flag theater.
-3. **Handoff is the default.** `plan` prints the recipe (ronin mixin,
-   technique, provenance) and a human runs it. It executes nothing, so
-   it needs no more than the allowlist.
-4. **Everything is logged.** Decision -> rule -> recipe -> outcome, one
-   line per action, persisted. An engagement you cannot replay is an
-   engagement you cannot defend.
-5. **Lictor executes; it never decides.** Technique selection belongs to
-   [augure](https://github.com/log0u7/augure), the auditable decision
-   layer. Lictor feeds it facts and carries out its judgments.
+- every technique choice comes from a **verified rule with its
+  evidence** (augure's explain payload: rule ID, facts, seeded draw);
+- every action is **trailed** - one JSONL line, attributable, replayable;
+- the dangerous edge - execution - is gated by an **explicit, typed
+  human consent**;
+- and when no human is in the loop, the default executor is the handoff:
+  it prints the recipe and runs nothing.
 
-## Not on RubyGems
+Solo, deterministic, for pipelines. The same gates when an LLM agent
+drives it through MCP. The brakes are not a mode - they are the design.
 
-Lictor is distributed as a source checkout for a reason: an orchestrator
-around pentest tooling has no business being one `gem install` away from
-anyone. Bundle it from this repo:
+## The 60-second demo
 
-```ruby
-# Gemfile
-gem "augure"                       # published, clean, MIT
-# lictor: bundle from your own checkout, private
-```
-
-## The 60-second start
+The lab ships a vulnerable docker target and a tested exploit:
 
 ```sh
-lictor init                 # scaffolds lictor.yml, targets.yml, an example
-lictor doctor               # verifies the environment, exact fix per check
-lictor plan examples/ret2win.facts   # your first decision, copy-paste
+sh lab/demo.sh
 ```
 
-Then the real workflow:
+The real output:
 
-```sh
-lictor scan 192.168.56.10 -a targets.yml           # nmap, allowlist-gated, trailed
-lictor recon scan.xml                              # candidates from an XML scan
-# operator copies candidates into targets.yml (explicit, reviewed)
-lictor plan <binary> -a targets.yml                # ELF? profiles it (augure-profiler),
-                                                   # then decides + prints the recipe
-lictor plan target.facts -a targets.yml            # facts file accepted unchanged
-lictor outcome <run-id> --success --technique ret2plt   # the closed loop
-lictor runs                                        # the trailed history
-lictor report -o engagement.md                     # the auditable deliverable
+```
+=== 1. scan (nmap, gated, trailed) ===
+scanned: 127.0.0.1
+127.0.0.1:8000  http (SimpleHTTPServer 0.6)
+127.0.0.1:9999  abyss
+=== 3. decide (augure: propose, verify, explain) ===
+applicable: ret2func
+selected:   ret2func
+  ret2func <- app_ret2func (vuln=sof, pie=false, target_function=true)
+=== 5. run (the closed loop with the ronin executor) ===
+status:  success
+  ret2func [executed/success]
+=== 6. the auditable report ===
+- outcome: **success** (ret2func)
 ```
 
-`plan` detects the ELF magic: a binary goes through the profiler
-subcontract (`augure-profile`, gem `augure-profiler` - profiling is
-trailed), a `.facts` file passes through unchanged. One command from
-binary to decision.
+The chain in full: **scan → acquire → (fuzz → triage) → verify → plan →
+authorize → run → outcome → report** - every step trailed, the decision
+explained rule-by-rule, the execution consent-gated.
 
-Scanning is an **action**: `lictor scan` runs nmap (subprocess) only
-against a host the allowlist names, and trails the scan. `lictor recon`
-stays passive - it parses XML the operator produced and prints candidates,
-never authorization.
+## Capabilities
 
-Every decision ships its rule provenance; every outcome feeds back into
-the bandit priors (`Lictor::Priors.from_trail`), so the next decision on
-the same estate carries the engagement's own evidence - the closed loop
-from the articles, trailed end to end.
+| Command | What it does |
+|---|---|
+| `init` / `doctor` | Scaffold the engagement setup; verify the environment (exact fix per check). |
+| `scan <host>` | nmap against an allowlisted host - gated, trailed. |
+| `acquire <target>` | The nmap → binary bridge: local copy or http download, ELF-checked, profiled, trailed. |
+| `fuzz <binary>` | Fuzz + triage a local binary: the fact **discovery** layer. Length sweep + mutations; gdb/rizin/lldb backends. |
+| `verify <target>` | The differential: the crash input faults the remote like the local model → the facts become `remote-verified`. |
+| `plan <binary-or-facts>` | Profile if ELF, decide (augure), print the recipe. |
+| `authorize <target>` | Mint a short-lived execution consent - **typed by the human**. |
+| `run <target>` | The closed loop: decide, execute, outcome, re-decide - budgeted. |
+| `outcome <run-id>` | Record the result; the next decision adapts the priors. |
+| `report` | The auditable engagement report (markdown, provenance included). |
+| `rule validate/install/list` | Teach augure a new technique - as data, through the armor. |
+
+## The consent model
+
+There is no consent flag. A flag can be typed by reflex, by a script,
+or by anyone with shell access - it proves nothing. The controls are
+real artifacts:
+
+1. **The allowlist file is the scope document.** Explicit `host[:port]`
+   entries, written and versioned by the operator. Wildcards are
+   structurally rejected. Nothing outside the file runs - ever.
+2. **Execution requires a consent token** - `lictor authorize <target>`,
+   typed by the human, short-lived, recorded in the trail. An agent
+   cannot mint one.
+3. **Handoff is the default.** `plan` prints the recipe and executes
+   nothing; `run` with the ronin executor is opt-in and budgeted.
+4. **The trail is append-only.** Decision → rule provenance → action →
+   outcome. An engagement you cannot replay is an engagement you cannot
+   defend.
 
 ## Architecture
 
@@ -92,7 +101,7 @@ from the articles, trailed end to end.
 flowchart LR
     subgraph recon ["RECON - ruby-nmap 1.0.3"]
         NMAP["nmap -sV -oX scan.xml<br/>(operator-run)"] --> R["Lictor::Recon<br/>(parses XML, never scans)"]
-        R --> INV["target inventory<br/>host:port candidates"]
+        R --> INV["target inventory<br/>+ service/version facts"]
     end
 
     INV -- "operator copies to targets.yml" --> GATE
@@ -107,9 +116,9 @@ flowchart LR
     end
 
     subgraph act ["ACT - lictor (Ruby-native arsenal)"]
-        D --> GATE{"consent gate<br/>--i-am-authorized<br/>+ allowlisted --target"}
-        GATE -- "handoff (default)" --> H["recipe printed<br/>ronin-exploits run + mixin hint<br/>(Binary / FormatString)"]
-        GATE -- "opt-in, lab-only" --> RN["ronin-exploits in-process<br/>+ rex gems (arch, bin_tools)<br/>gem install, no daemon"]
+        D --> GATE{"consent gate<br/>allowlist-checked target<br/>+ human-typed token"}
+        GATE -- "handoff (default)" --> H["recipe printed<br/>ronin mixin + technique"]
+        GATE -- "opt-in, budgeted" --> RN["ronin-exploits in-process<br/>+ rex gems<br/>gem install, no daemon"]
         H --> O["outcome"]
         RN --> O
     end
@@ -118,77 +127,62 @@ flowchart LR
     O -. "closed loop: outcomes become facts" .-> F
 ```
 
-The closed loop: outcomes become facts, augure re-decides, the planner
-sees what the leak unlocked. That is the neuro-symbolic pipeline from the
-articles - with a consent gate in front of the only dangerous edge.
-
-**Gem choices, verified 2026-10:**
+## The Ruby-native arsenal
 
 | Need | Gem | Why |
 |---|---|---|
 | nmap XML parsing | [ruby-nmap 1.0.3](https://rubygems.org/gems/ruby-nmap) (postmodern, 703k dl) | the maintained standard; parses XML without running nmap |
-| exploitation runtime | [ronin-exploits 1.1.1](https://rubygems.org/gems/ronin-exploits) (2025-02) + [ronin 2.1.1](https://rubygems.org/gems/ronin) | exploits as Ruby classes, mixins = the technique vocabulary (Binary, FormatString, RemoteTCP); no daemon, `gem install` |
-| primitives | [rex-bin_tools 0.1.17](https://rubygems.org/gems/rex-bin_tools), [rex-arch 0.1.20](https://rubygems.org/gems/rex-arch), [rex-socket 0.1.71](https://rubygems.org/gems/rex-socket) (Rapid7, 2026-maintained) | msf's Ruby internals gemified: ELF/ROP tooling, assembly, raw sockets |
-| binary analysis | `augure-profiler` (metasm) | pure Ruby, no subprocess, this repo's sibling |
+| exploitation runtime | [ronin-exploits 1.1.1](https://rubygems.org/gems/ronin-exploits) + [ronin 2.1.1](https://rubygems.org/gems/ronin) | exploits as Ruby classes, mixins = the technique vocabulary; no daemon, `gem install` |
+| primitives | [rex-bin_tools](https://rubygems.org/gems/rex-bin_tools), [rex-arch](https://rubygems.org/gems/rex-arch), [rex-socket](https://rubygems.org/gems/rex-socket) (Rapid7, 2026-maintained) | msf's Ruby internals gemified: ELF/ROP, assembly, raw sockets |
+| binary analysis | `augure-profiler` (metasm) | pure Ruby, no subprocess, augure's sibling gem |
+| fuzzing | built-in `RubyMutator` (zero-dep) + radamsa optional | the discovery layer for binaries with no write-up |
 | persistence | stdlib JSONL | sequel when queries are actually needed |
 
-**Why not Metasploit?** It IS Ruby - but a monolithic Rapid7 app you must
-install (and drive via the dead 2018 `msfrpc-client` gem or raw msgpack).
-`ronin` + `rex` install as gems and carry the same primitives natively.
-Metasploit stays available as an optional module arsenal behind msfrpcd
-if a specific module is ever needed - but it is no longer on lictor's
-critical path.
+**Why not Metasploit?** It IS Ruby - but a monolithic Rapid7 app you
+must install and drive through a dead RPC gem. `ronin` + `rex` install
+as gems and carry the same primitives natively. Metasploit remains an
+optional module arsenal behind msfrpcd when a specific ready-made
+module is worth the install - but it is not on lictor's critical path.
 
-### The Ruby-native arsenal (is there life beyond msfconsole?)
+## The MCP surface: when an LLM agent drives
 
-Yes - and the irony is that Metasploit IS Ruby. Three paths, verified:
-
-1. **[Ronin 2.1](https://rubygems.org/gems/ronin)** - postmodern's toolkit
-   (the ruby-nmap author - same ecosystem), last release 2025-02:
-   `ronin-exploits` (exploits as Ruby classes, mixins = the technique
-   vocabulary), `ronin-payloads`, `ronin-support` (networking, encoding).
-   The most Ruby-idiomatic exploitation framework alive. **Default.**
-2. **[Rex gems](https://rubygems.org/gems/rex-core)** - Metasploit's Ruby
-   internals, gemified and ACTIVELY maintained by Rapid7 (rex-core
-   2026-04, rex-arch 2026-05, rex-socket 2026-07, rex-powershell 2026-08,
-   rex-bin_tools 2026-08): ELF parsing, ROP tooling, assembler, raw
-   sockets, payload generation. The primitives, without the daemon.
-3. **Metasploit via msfrpcd** - the optional arsenal of ready-made
-   modules, written in Ruby but shipped as a monolithic Rapid7 app.
-   Worth the install only when a specific ready-made module is.
-
-Lictor's stance: **ronin + rex are the default arsenal** - `gem install`,
-no daemon, no Metasploit tree. Metasploit remains an optional module
-arsenal behind msfrpcd when a specific ready-made module is worth the
-install. The decision layer (augure) does not care which executor carries
-the judgment - the recipe is data.
-
-## Modern require block (what survived 2012)
-
-```ruby
-require "augure"          # the decider (Datalog + SMT + bandit + MCTS + explain)
-require "nmap/xml"        # recon (ruby-nmap: parses XML, never scans)
-require "ronin/exploits"  # the runner: mixins = technique vocabulary (2025-02)
-require "rex/bin_tools"   # primitives: ELF + ROP (Rapid7, 2026-maintained)
-require "rex/arch"        # assembly primitives
-require "sequel"          # persistence: no more lost runs (when queries come)
-require "openssl"         # TLS when a remote target is engaged
-
-# Superseded from the aspirational block:
-# swipl        -> augure embeds the reasoner
-# darwinning   -> dead, unlicensed; the bandit lives in augure
-# eventmachine -> dormant since 2018; threads suffice
-# msf/core     -> monolithic app; replaced by ronin + rex gems (no daemon)
-# msfrpc-client-> dead 2018; msf stays an OPTIONAL arsenal behind msfrpcd
-```
+[lictor-mcp](mcp_server/) exposes four tools over stdio - `scan_target`,
+`plan_technique`, `execute_technique`, `validate_pack` - and validates
+**server-side**: the allowlist, the consent tokens, the corpus guard.
+The agent proposes; augure disposes; lictor executes; the gates hold
+either way. Agents teach augure new techniques through the same armor:
+see [augure's pack format](https://github.com/log0u7/augure/blob/main/docs/pack-format.md)
+and the [augure-operator skill](https://github.com/log0u7/augure/tree/main/skills/augure-operator).
 
 ## Acceptable use
 
-Lictor exists for **authorized security work**: engagements with a signed
-scope, labs you own, CTF environments. The gates are load-bearing; bypassing
-them is the one contribution that will be rejected on sight. No
-contribution adds exploit code - Lictor orchestrates existing, standard
-tooling; the exploit knowledge lives in Metasploit, not here.
+Lictor exists for **authorized security work**: engagements with a
+signed scope, labs you own, CTF environments. The gates are
+load-bearing; bypassing them is the one contribution that will be
+rejected on sight. Lictor writes no exploit code - it orchestrates the
+operator's chosen tooling; the knowledge lives in the repos, not here.
+
+## Install
+
+Lictor is distributed as a source checkout for a reason: an orchestrator
+around pentest tooling has no business being one `gem install` away
+from anyone. Bundle it from this repo:
+
+```ruby
+# Gemfile
+gem "augure"                       # published, clean, MIT
+# lictor + lictor-mcp: bundle from your own checkout, private
+```
+
+## Documentation
+
+| I want to... | Read |
+|---|---|
+| run the demo end to end | [the lab](lab/README.md) |
+| understand the consent model | [THE RULES in this README](#the-consent-model) |
+| see what augure decides and why | [augure's README](https://github.com/log0u7/augure) |
+| write the auditability story | [augure's auditability page](https://github.com/log0u7/augure/blob/main/docs/auditability.md) |
+| teach augure a technique | [the pack format](https://github.com/log0u7/augure/blob/main/docs/pack-format.md) |
 
 ## License
 

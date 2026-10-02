@@ -4,8 +4,8 @@ require "open3"
 require "json"
 require "tmpdir"
 
-builder = ["../../augure/profiler/spec/support/binary_builder",
-           "../augure/profiler/spec/support/binary_builder"]
+builder = ["../../augure/profiler/spec/support/binary_builder.rb",
+           "../augure/profiler/spec/support/binary_builder.rb"]
   .map { |p| File.expand_path(p, __dir__) }
   .find { |p| File.file?(p) }
 require_relative builder

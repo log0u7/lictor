@@ -133,6 +133,38 @@ module LictorMcp
             error("pack refused: #{e.message}")
           end
         end
+      end,
+      SuggestFacts = Class.new(::MCP::Tool) do
+        description "Submit hypothesis facts on top of an existing fact base; the closed " \
+                    "schema is the whitelist (no applicable() exists to forge), augure " \
+                    "re-decides on the merged base, and the delta comes back. The trail " \
+                    "records who proposed what and what changed. Requires an allowlist."
+        input_schema(properties: {
+          facts_path: {type: "string", description: "path to the base .facts file"},
+          suggested_facts: {type: "string", description: "hypothesis facts, one predicate(\"atom\"). per line"},
+          allowlist: {type: "string"}
+        }, required: %w[facts_path suggested_facts allowlist])
+
+        class << self
+          include ::LictorMcp::ToolHelpers
+
+          def call(facts_path:, suggested_facts:, allowlist:, server_context: nil)
+            ::Lictor::Gates.allowlist(allowlist)
+            result = ::Lictor::Suggestion.apply(base_facts: File.read(facts_path),
+              suggested: suggested_facts, trail: trail, target: facts_path)
+            respond(target: facts_path, delta: {
+              added: result[:added],
+              applicable_before: result[:applicable_before],
+              applicable_after: result[:applicable_after],
+              selected_before: result[:selected_before],
+              selected_after: result[:selected_after]
+            })
+          rescue ::Lictor::Unauthorized => e
+            error("UNAUTHORIZED: #{e.message}")
+          rescue ::Augure::MalformedFact, ::Augure::UnknownPredicate => e
+            error(e.message)
+          end
+        end
       end
     ].freeze
 

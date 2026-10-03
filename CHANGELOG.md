@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Lictor::Suggestion` + the `suggest_facts` MCP tool: the agent
+  enriches the fact base with hypothesis facts. The closed schema is
+  the whitelist (no applicable() exists to forge), augure re-decides
+  on the merged base, the delta comes back to the agent, and the trail
+  records who proposed what and what changed.
 - Taught techniques finally participate in decisions: `plan`, `run`
   and the MCP plan tool load the packs directory (config `packs:`,
   default `packs/`), the full armor runs at load time, and pack priors

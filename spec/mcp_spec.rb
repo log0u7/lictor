@@ -14,7 +14,8 @@ RSpec.describe LictorMcp::Server do
 
   it "exposes the four gated tools" do
     expect(server.tools.values.map(&:tool_name))
-      .to contain_exactly("scan_target", "plan_technique", "execute_technique", "validate_pack")
+      .to contain_exactly("scan_target", "plan_technique", "execute_technique", "validate_pack",
+        "suggest_facts")
   end
 
   it "scan refuses a host outside the allowlist (server-side gate)" do
@@ -48,6 +49,26 @@ RSpec.describe LictorMcp::Server do
     response = server.handle_json(rpc(1, "plan_technique", {target: facts, allowlist: list}))
     decision = JSON.parse(JSON.parse(response).dig("result", "content", 0, "text"))
     expect(decision["selected"] || decision[:selected]).to eq("ret2plt")
+  end
+
+  it "suggest_facts returns the decision delta and refuses off-schema facts" do
+    dir = Dir.mktmpdir
+    list = File.join(dir, "targets.yml")
+    File.write(list, "192.168.56.10\n")
+    facts = File.join(dir, "target.facts")
+    File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n")
+    response = server.handle_json(rpc(1, "suggest_facts", {
+      facts_path: facts, allowlist: list,
+      suggested_facts: "plt(\"system\").\ngadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n"
+    }))
+    delta = JSON.parse(JSON.parse(response).dig("result", "content", 0, "text"))["delta"]
+    expect(delta["added"].size).to eq(3)
+    expect(delta["applicable_after"]).to include("ret2plt")
+
+    forged = server.handle_json(rpc(2, "suggest_facts", {
+      facts_path: facts, allowlist: list, suggested_facts: "applicable(ret2plt).\n"
+    }))
+    expect(JSON.parse(forged).dig("result", "content", 0, "text")).to include("unknown predicate")
   end
 
   it "validate_pack accepts the canon pack (sibling checkout)" do

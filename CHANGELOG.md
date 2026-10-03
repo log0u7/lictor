@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `lictor acquire` surfaces the profiler's stderr in the failure
+  message (the profiling subprocess used to die silently and the error
+  said nothing).
+- The gemspecs build identically from any working directory: `files`
+  globs anchor to `__dir__` and lictor-mcp reads its version from
+  `lib/lictor-mcp/version.rb`.
+
 ### Added
 
 - `lictor acquire`: the nmap -> binary bridge - local copy or http
@@ -19,11 +28,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The lab: four vulnerable services, four fact bases, four different
   decisions (ret2func / ret2plt / shellcode / fmtstr_write) with one
   lab exploit each; demo.sh replays the whole chain for all four.
+- A CI release workflow: a `v*` tag builds the two gems and pushes
+  them to rubygems.org with a scoped key from a secret.
 
 ## [0.2.0] - 2026-10-03
 
 ### Added
 
+- `lictor plan <binary>`: ELF magic detection profiles the binary
+  through the augure-profile subprocess (trailed), then decides. A
+  `.facts` file passes through unchanged. One command from binary to
+  decision.
+- `lictor scan`: nmap as a gated, trailed action against an allowlisted
+  host (subprocess; --nmap override for testing). Scans appear in
+  `runs` and in the engagement report.
 - Network facts: service/software_version/remote emitted from nmap
   scans; remote technique packs match them like binary facts.
 - Fuzzing and triage (augure-profiler): RubyMutator built-in + radamsa
@@ -39,18 +57,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   server-side gates and token validation.
 - `lictor rule validate|install|list`: teach augure techniques as data
   (packs), full armor + corpus guard.
-
-## [Unreleased]
-
-### Added
-
-- `lictor plan <binary>`: ELF magic detection profiles the binary
-  through the augure-profile subprocess (trailed), then decides. A
-  `.facts` file passes through unchanged. One command from binary to
-  decision.
-- `lictor scan`: nmap as a gated, trailed action against an allowlisted
-  host (subprocess; --nmap override for testing). Scans appear in
-  `runs` and in the engagement report.
 
 ### Removed
 

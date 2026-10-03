@@ -9,7 +9,7 @@ require_relative "trail"
 
 module Lictor
   # The closed loop, driven: decide (augure) -> execute the plan's next
-  # step (executor, consent-gated) -> outcome -> priors -> re-decide,
+  # step (executor, consent token required) -> outcome -> priors -> re-decide,
   # until a shell, or the budget runs out. Every step is trailed. The
   # handoff executor makes the whole loop safe by construction: it
   # "executes" by printing.

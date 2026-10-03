@@ -1,5 +1,7 @@
 # lictor
 
+![lictor - the fasces of fiber, the trail behind, the open door ahead](docs/art/lictor-v1.png)
+
 **The orchestrator that carries out augure's judgments: nmap, fuzzing,
 profiling, execution - every action recorded, handoff by default.**
 

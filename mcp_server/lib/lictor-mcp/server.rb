@@ -69,7 +69,8 @@ module LictorMcp
           def call(target:, allowlist:, server_context: nil)
             ::Lictor::Gates.allowlist(allowlist)
             facts = ::Lictor::Profiler.elf?(target) ? ::Lictor::Profiler.run(target) : File.read(target)
-            decision = ::Lictor::Handoff.plan(facts: facts, priors: ::Lictor::Priors.from_trail(trail))
+            packs = ::Lictor::TechniquePacks.load(::Lictor::Config.load[:packs] || "packs")
+            decision = ::Lictor::Handoff.plan(facts: facts, priors: ::Lictor::Priors.from_trail(trail), packs: packs)
             trail.record(run: SecureRandom.uuid, type: "plan", selected: decision[:selected],
               applicable: decision[:applicable])
             respond(decision)

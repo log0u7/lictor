@@ -1,0 +1,9 @@
+#!/bin/sh
+# Serve the four binaries over http (acquisition) + the four services.
+cd /opt/target
+python3 -m http.server 8000 --bind 0.0.0.0 &
+socat TCP-LISTEN:9999,reuseaddr,fork EXEC:/opt/target/ret2func,stderr &
+socat TCP-LISTEN:9998,reuseaddr,fork EXEC:/opt/target/ret2plt,stderr &
+socat TCP-LISTEN:9997,reuseaddr,fork EXEC:/opt/target/shellcode,stderr &
+socat TCP-LISTEN:9996,reuseaddr,fork EXEC:/opt/target/fmtstr,stderr &
+wait

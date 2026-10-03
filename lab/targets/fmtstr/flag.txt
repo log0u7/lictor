@@ -1,0 +1,1 @@
+FLAG{the_format_is_the_weapon}

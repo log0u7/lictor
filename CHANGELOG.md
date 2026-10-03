@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Taught techniques finally participate in decisions: `plan`, `run`
+  and the MCP plan tool load the packs directory (config `packs:`,
+  default `packs/`), the full armor runs at load time, and pack priors
+  fill the gaps of the prior table without ever clobbering an
+  outcome-adapted entry - the loop keeps learning on top.
 - `lictor acquire`: the nmap -> binary bridge - local copy or http
   download, ELF-checked before profiling, recorded. The demo's manual
   curl is gone.

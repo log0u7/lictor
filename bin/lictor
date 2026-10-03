@@ -334,6 +334,7 @@ when "run"
     result = Lictor::Run.run(target: target, facts: File.read(options[:facts]), trail: trail,
                              executor: Lictor::Executor.resolve(executor_kind),
                              consent_token: token, max_attempts: options[:max_attempts] || 3,
+                             packs: Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs"),
                              seed: options[:seed])
   rescue Lictor::Unauthorized => e
     abort("lictor: UNAUTHORIZED - #{e.message}")
@@ -394,7 +395,8 @@ when "plan"
       facts = File.read(input)
     end
     priors = Lictor::Priors.from_trail(trail)
-    plan = Lictor::Handoff.plan(facts: facts, seed: options[:seed], priors: priors)
+    packs = Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs")
+    plan = Lictor::Handoff.plan(facts: facts, seed: options[:seed], priors: priors, packs: packs)
   rescue Lictor::ProfilerError => e
     abort("lictor: #{e.message}")
   rescue Augure::MalformedFact, Augure::UnknownPredicate => e

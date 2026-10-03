@@ -17,7 +17,7 @@ module Lictor
     module_function
 
     def run(target:, facts:, trail:, consent_token:, executor: nil, max_attempts: 3,
-      seed: nil, priors: nil)
+      seed: nil, priors: nil, packs: nil)
       unless consent_token && Consent.valid?(trail, consent_token, target)
         raise Unauthorized, "execution requires a valid consent token for the exact target (lictor authorize <target>)"
       end
@@ -26,7 +26,7 @@ module Lictor
       attempts = []
 
       max_attempts.times do
-        decision = Handoff.plan(facts: facts, seed: seed, priors: Priors.from_trail(trail))
+        decision = Handoff.plan(facts: facts, seed: seed, priors: Priors.from_trail(trail), packs: packs)
         technique = decision[:selected]
         break if technique.nil?
 

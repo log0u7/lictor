@@ -7,14 +7,17 @@ require "fileutils"
 RSpec.describe "installed packs influence decisions" do
   let(:dir) { Dir.mktmpdir }
   let(:trail) { Lictor::Trail.new(File.join(dir, "t.jsonl")) }
-  let(:packs_dir) do
-    canon = ["../../augure/packs/ret2csu_v2.yml", "../augure/packs/ret2csu_v2.yml"]
+  def augure_packs_dir
+    ["../../augure/packs", "../augure/packs"]
       .map { |p| File.expand_path(p, __dir__) }
-      .find { |p| File.file?(p) }
-    skip "augure canon pack not found" unless canon
+      .find { |d| Dir.exist?(d) }
+  end
+
+  let(:packs_dir) do
+    skip "augure packs not found" unless augure_packs_dir
     d = File.join(dir, "packs")
     FileUtils.mkdir_p(d)
-    FileUtils.cp(canon, d)
+    FileUtils.cp(File.join(augure_packs_dir, "ret2csu_v2.yml"), d)
     d
   end
   let(:csu_facts) do
@@ -72,18 +75,18 @@ RSpec.describe "installed packs influence decisions" do
     end
     result = Lictor::Run.run(target: "192.168.56.10", facts: brop_facts, trail: trail,
       executor: executor.new, consent_token: token, seed: 42,
-      packs: Lictor::TechniquePacks.load(File.expand_path("../../augure/packs", __dir__)))
+      packs: Lictor::TechniquePacks.load(augure_packs_dir))
     expect(result[:steps].first[:technique]).to eq("brop")
   end
 
   it "the MCP plan tool picks up the packs directory from the project config" do
     require "lictor-mcp"
-    canon = File.expand_path("../augure/packs/ret2csu_v2.yml", __dir__)
+    canon = File.join(augure_packs_dir, "ret2csu_v2.yml")
     skip "augure canon pack not found" unless File.file?(canon)
     project = Dir.mktmpdir
     FileUtils.mkdir_p(File.join(project, "packs"))
     FileUtils.cp(canon, File.join(project, "packs"))
-    File.write(File.join(project, "lictor.yml"), {packs: "packs"}.to_yaml)
+    File.write(File.join(project, "lictor.yml"), "packs: packs\n")
     list = File.join(project, "targets.yml")
     File.write(list, "192.168.56.10\n")
     facts = File.join(project, "target.facts")

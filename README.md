@@ -23,8 +23,9 @@ find out why afterwards - or never. lictor inverts that:
 - every technique choice comes from a **verified rule with its
   evidence** (augure's explain payload: rule ID, facts, seeded draw);
 - every action is **trailed** - one JSONL line, attributable, replayable;
-- the dangerous edge - execution - waits for an **explicit, typed
-  human consent**;
+- the dangerous edge - execution - requires explicit, typed human
+  consent: the operator runs `lictor authorize <target>` and types the
+  target name.
 - and when no human is in the loop, the default executor is the handoff:
   it prints the recipe and runs nothing.
 

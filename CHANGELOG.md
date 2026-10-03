@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `lictor acquire`: the nmap -> binary bridge - local copy or http
+  download, ELF-checked before profiling, recorded. The demo's manual
+  curl is gone.
+- `lictor verify`: the differential - the fuzzer's longest crash input
+  goes to the remote service; the remote faults like the local model =
+  the facts gain `verified("remote")` (modeled-from-ELF vs
+  remote-verified).
+- The lab: four vulnerable services, four fact bases, four different
+  decisions (ret2func / ret2plt / shellcode / fmtstr_write) with one
+  lab exploit each; demo.sh replays the whole chain for all four.
+
 ## [0.2.0] - 2026-10-03
 
 ### Added

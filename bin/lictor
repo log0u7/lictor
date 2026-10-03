@@ -378,6 +378,19 @@ when "scan"
   targets.each do |t|
     puts "#{t[:host]}:#{t[:port]}  #{t[:service]}#{t[:product] ? " (#{t[:product]} #{t[:version]})" : ''}"
   end
+when "suggest"
+  facts_path = ARGV.shift or abort(parser.to_s)
+  suggested = ARGV.shift or abort("lictor: suggest <facts-file> \"fact(\\\"atom\\\").\\n...\" - the suggestion text")
+  begin
+    result = Lictor::Suggestion.apply(base_facts: File.read(facts_path), suggested: suggested,
+      trail: trail, target: facts_path, seed: options[:seed],
+      packs: Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs"))
+  rescue Augure::MalformedFact, Augure::UnknownPredicate => e
+    abort("lictor: #{e.message}")
+  end
+  puts "added:      #{result[:added].inspect}"
+  puts "applicable: #{result[:applicable_before].join(', ')}  ->  #{result[:applicable_after].join(', ')}"
+  puts "selected:   #{result[:selected_before].inspect}  ->  #{result[:selected_after].inspect}"
 when "plan"
   input = ARGV.shift or abort(parser.to_s)
   begin

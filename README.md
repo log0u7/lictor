@@ -67,10 +67,12 @@ status:  success
 - outcome: **success** (ret2func)
 ```
 
-The full chain is: **scan → acquire → (fuzz → triage) → verify → plan →
-authorize → run → outcome → report** - every step is recorded in the
-trail, the decision is explained rule-by-rule, execution needs a token
-the operator typed.
+The full chain is: **scan → acquire → (fuzz → triage) → verify →
+suggest → plan → authorize → run → outcome → report** - every step is
+recorded in the trail, the decision is explained rule-by-rule,
+execution needs a token the operator typed. `suggest` is the agent's
+own step: propose observations as facts, get the decision delta back
+(see [docs/how-to-llm-suggestions.md](docs/how-to-llm-suggestions.md)).
 
 ## Capabilities
 
@@ -156,8 +158,9 @@ module is worth the install - but it is not on lictor's critical path.
 
 ## The MCP surface: when an LLM agent drives
 
-[lictor-mcp](mcp_server/) exposes four tools over stdio - `scan_target`,
-`plan_technique`, `execute_technique`, `validate_pack` - and validates
+[lictor-mcp](mcp_server/) exposes five tools over stdio - `scan_target`,
+`plan_technique`, `execute_technique`, `suggest_facts`, `validate_pack` -
+and validates
 **server-side**: the allowlist, the consent tokens, the corpus guard.
 The agent proposes; augure disposes; lictor executes - and the checks
 run server-side, so the agent cannot weaken them. Agents teach augure new techniques through the same armor:

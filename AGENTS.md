@@ -15,9 +15,9 @@ priors), JSONL trail, engagement reports, the gated MCP surface
    No target outside the file - ever.
 2. NO consent flag. It was removed as security theater: a flag can be
    typed by reflex, by a script, or by anyone with shell access. The
-   controls are the artifact and the trail. A future execute command
-   confirms interactively (show the recipe, type the target) - never a
-   flag.
+   controls are the artifact and the trail. Execution confirms
+   interactively (`lictor run` shows the recipe, the operator types the
+   target; `lictor authorize` mints the token) - never a flag.
 3. Handoff (print the recipe) is the default; `plan` executes nothing,
    so it needs no more than a valid allowlist file.
 4. Every action is trailed: decision -> rule provenance -> recipe ->
@@ -29,13 +29,9 @@ priors), JSONL trail, engagement reports, the gated MCP surface
    Ruby-native arsenal (ronin-exploits + rex gems) only. The exploit
    NAME always comes from the operator's ronin repos.
 
-6. No exploit code, no payload generation - orchestration of the
-   Ruby-native arsenal (ronin-exploits + rex gems) only. The exploit
-   NAME always comes from the operator's ronin repos.
-
 ## Commands
 
-- Test: `bundle exec rspec` (all green required, 40+ examples)
+- Test: `bundle exec rspec` (all green required, 104+ examples)
 - Lint: `bundle exec standardrb` (zero offenses required)
 - CLI: `bundle exec ruby bin/lictor --help`
 

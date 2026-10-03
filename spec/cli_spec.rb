@@ -59,3 +59,29 @@ RSpec.describe "bin/lictor" do
     expect(out).not_to include("i-am-authorized")
   end
 end
+
+RSpec.describe "lictor suggest" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail) { File.join(dir, "t.jsonl") }
+
+  it "merges suggested facts, prints the delta and trails the suggestion" do
+    facts = File.join(dir, "target.facts")
+    File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n")
+    out, _err, status = Open3.capture3(File.expand_path("../bin/lictor", __dir__),
+      "suggest", facts, "plt(\"system\").\nvuln_hint(\"unsafe_func:gets\").\n", "-t", trail)
+    expect(status.exitstatus).to eq(0)
+    expect(out).to include("added:")
+    expect(out).to include("ret2plt")
+    event = JSON.parse(File.readlines(trail).last)
+    expect(event["type"]).to eq("suggest")
+  end
+
+  it "refuses off-schema suggestions loudly" do
+    facts = File.join(dir, "target.facts")
+    File.write(facts, "nx(\"true\").\n")
+    _out, err, status = Open3.capture3(File.expand_path("../bin/lictor", __dir__),
+      "suggest", facts, "applicable(ret2plt).\n", "-t", File.join(dir, "t.jsonl"))
+    expect(status.exitstatus).to eq(1)
+    expect(err).to include("unknown predicate")
+  end
+end

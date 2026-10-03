@@ -31,8 +31,11 @@ module Lictor
       end
 
       cmd = profiler_cmd || "augure-profile"
-      out, _err, status = Open3.capture3(cmd, binary_path)
-      raise AcquisitionError, "profiling failed: #{out}" unless status.success?
+      out, err, status = Open3.capture3(cmd, binary_path)
+      unless status.success?
+        raise AcquisitionError,
+          "profiling failed: #{[out, err].map(&:strip).reject(&:empty?).join(" | ")}"
+      end
 
       facts_path = File.join(out_dir, "target.facts")
       File.write(facts_path, out)

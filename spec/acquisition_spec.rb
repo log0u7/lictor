@@ -58,4 +58,14 @@ RSpec.describe Lictor::Acquisition do
         trail: trail, out_dir: dir)
     }.to raise_error(Lictor::AcquisitionError, /not an ELF|service packs|service facts/i)
   end
+
+  it "surfaces the profiler stderr when profiling fails" do
+    bad = File.join(dir, "bad_profiler")
+    File.write(bad, "#!/bin/sh\necho 'augure-profile: boom: parse error' >&2\nexit 1\n")
+    File.chmod(0o755, bad)
+    expect {
+      described_class.acquire("127.0.0.1:9999", source: "local:#{binary}",
+        trail: trail, out_dir: dir, profiler_cmd: bad)
+    }.to raise_error(Lictor::AcquisitionError, /boom: parse error/)
+  end
 end

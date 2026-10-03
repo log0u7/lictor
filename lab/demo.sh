@@ -21,16 +21,16 @@ sleep 1
 echo "=== 1. scan (nmap finds the services, recorded in the trail) ==="
 (cd "$WORK" && "$L" scan 127.0.0.1 -a targets.yml) | head -6
 
-echo
-echo "=== 2..5. per target: acquire -> decide -> authorize -> run ==="
 # target:port  binary  (the binaries are served over http)
+STEP=2
 for entry in "127.0.0.1:9999 ret2func" "127.0.0.1:9998 ret2plt" \
 	"127.0.0.1:9997 shellcode" "127.0.0.1:9996 fmtstr"; do
 	set -- $entry
 	TGT=$1
 	BIN=$2
 	echo
-	echo "--- target $TGT ($BIN) ---"
+	echo "=== $STEP. target $TGT ($BIN): acquire -> decide -> authorize -> run ==="
+	STEP=$((STEP + 1))
 
 	echo "[acquire] the binary: downloaded, ELF-checked, profiled, recorded"
 	(cd "$WORK" && "$L" acquire "$TGT" --from "http://127.0.0.1:8000/$BIN" -a targets.yml) | head -2

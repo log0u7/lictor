@@ -42,27 +42,37 @@ The lab ships a vulnerable docker target and a tested exploit:
 sh lab/demo.sh
 ```
 
-The real output (the demo runs FOUR targets - four fact bases, four
-different decisions; here is the first one end to end):
+The real output (the demo numbers its steps: the scan, one numbered
+section per target - acquire -> decide -> authorize -> run - then the
+report; here are the scan and the first target end to end):
 
 ```
 === 1. scan (nmap finds the services, recorded in the trail) ===
 scanned: 127.0.0.1
 127.0.0.1:8000  http (SimpleHTTPServer 0.6)
 127.0.0.1:9999  abyss
---- target 127.0.0.1:9999 (ret2func) ---
+
+=== 2. target 127.0.0.1:9999 (ret2func): acquire -> decide -> authorize -> run ===
 [acquire] the binary: downloaded, ELF-checked, profiled, recorded
-acquired:   /tmp/.../ret2func
 facts:      /tmp/.../target.facts (44 facts)
 [decide] augure reads the facts and ranks the verified techniques:
 applicable: ret2func
 selected:   ret2func
+recipe:     ronin-exploits run <exploit-name-from-your-repos> --technique ret2func # mixin: ...Binary
   ret2func <- app_ret2func (vuln=sof, pie=false, target_function=true)
 [authorize] the operator types the target; the token lasts 15 min:
-  token: a316c174...
+  token: ca3fb0b8...
 [run] the closed loop (the executor discovers the exploit in the repos):
 status:  success
   ret2func [executed/success]
+
+=== 3. target 127.0.0.1:9998 (ret2plt): acquire -> decide -> authorize -> run ===
+... the same four sub-steps, a different fact base, a different decision ...
+
+=== 4. target 127.0.0.1:9997 (shellcode): acquire -> decide -> authorize -> run ===
+=== 5. target 127.0.0.1:9996 (fmtstr): acquire -> decide -> authorize -> run ===
+... four targets, four decisions, one trail ...
+
 === 6. the auditable engagement report (all four targets) ===
 - outcome: **success** (ret2func)
 ```

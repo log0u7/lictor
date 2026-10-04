@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The dynamic layer: `lictor harvest` turns the service's banner into
+  leaked_address facts (the addresses observed live), the builder's
+  `[qword, leak:win]` slot builds on them - the chain works even when
+  the static win_symbol is absent.
 - The closed loop feeds itself: the run enriches the facts from the
   static frame read (the sink becomes the vuln_hint, the winning
   symbol becomes the target fact), scaffolds the exploit when

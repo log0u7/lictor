@@ -7,19 +7,16 @@ cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 
 WORK=$(mktemp -d)
-# The scope: the four lab targets.
-printf '127.0.0.1:9996\n127.0.0.1:9997\n127.0.0.1:9998\n127.0.0.1:9999\n' >"$WORK/targets.yml"
-printf 'allowlist: targets.yml\ntrail: demo-trail.jsonl\n' >"$WORK/lictor.yml"
+printf 'trail: demo-trail.jsonl\n' >"$WORK/lictor.yml"
 
 L="$ROOT/bin/lictor"
-P="$ROOT/../augure/profiler/exe/augure-profile"
 
 echo "=== 0. the lab is up (docker compose up -d --build) ==="
 docker compose -f lab/docker-compose.yml up -d --build >/dev/null
 sleep 1
 
 echo "=== 1. scan (nmap finds the services, recorded in the trail) ==="
-(cd "$WORK" && "$L" scan 127.0.0.1 -a targets.yml) | head -6
+(cd "$WORK" && "$L" scan 127.0.0.1) | head -6
 
 # target:port  binary  (the binaries are served over http)
 STEP=2
@@ -29,23 +26,21 @@ for entry in "127.0.0.1:9999 ret2func" "127.0.0.1:9998 ret2plt" \
 	TGT=$1
 	BIN=$2
 	echo
-	echo "=== $STEP. target $TGT ($BIN): acquire -> decide -> authorize -> run ==="
+	echo "=== $STEP. target $TGT ($BIN): acquire -> decide -> build -> run ==="
 	STEP=$((STEP + 1))
 
 	echo "[acquire] the binary: downloaded, ELF-checked, profiled, recorded"
-	(cd "$WORK" && "$L" acquire "$TGT" --from "http://127.0.0.1:8000/$BIN" -a targets.yml) | head -2
+	(cd "$WORK" && "$L" acquire "$TGT" --from "http://127.0.0.1:8000/$BIN") | head -2
 
 	echo "[decide] augure reads the facts and ranks the verified techniques:"
-	(cd "$WORK" && "$L" plan target.facts -a targets.yml) | head -6
+	(cd "$WORK" && "$L" plan target.facts) | head -6
 
-	echo "[authorize] the operator types the target; the token lasts 15 min:"
-	TOKEN=$(echo "$TGT" | (cd "$WORK" && "$L" authorize "$TGT" -a targets.yml) |
-		grep "token:" | awk '{print $2}')
-	echo "  token: $(echo "$TOKEN" | cut -c1-8)..."
+	echo "[build] the offset is MEASURED (cyclic pattern under the debugger):"
+	(cd "$WORK" && "$L" build "$BIN" --facts target.facts -o payload.bin) | head -4
 
 	echo "[run] the closed loop (the executor discovers the exploit in the repos):"
-	echo "$TGT" | (cd "$WORK" && "$L" run "$TGT" --facts target.facts \
-		-a targets.yml --executor ronin --consent-token "$TOKEN" --max-attempts 2) | head -4
+	(cd "$WORK" && "$L" run "$TGT" --facts target.facts \
+		--executor ronin --payload payload.bin --max-attempts 2) | head -4
 done
 
 echo

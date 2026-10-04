@@ -9,3 +9,7 @@
 /vendor/bundle
 /Gemfile.lock
 lictor-mcp-trail.jsonl
+lictor-trail.jsonl
+demo-trail.jsonl
+runs.jsonl
+*.jsonl.bak

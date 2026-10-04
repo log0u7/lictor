@@ -10,7 +10,6 @@ RSpec.describe "bin/lictor init" do
     dir = Dir.mktmpdir
     out, _err, status = Open3.capture3(exe, "init", chdir: dir)
     expect(status.exitstatus).to eq(0)
-    expect(File.read(File.join(dir, "targets.yml"))).to include("192.168.56.10")
     expect(File.file?(File.join(dir, "examples/ret2win.facts"))).to be(true)
     expect(out).to include("lictor doctor")
     expect(out).to include("lictor plan examples/ret2win.facts")

@@ -65,14 +65,14 @@ end
 parser.parse!
 
 HELP = {
-  "recon" => "recon <nmap.xml>\n    Print allowlist candidates from an nmap XML scan (passive).",
-  "scan" => "scan <host>\n    Run nmap against an allowlisted host (trailed).",
+  "recon" => "recon <nmap.xml>\n    Print service candidates from an nmap XML scan (passive).",
+  "scan" => "scan <host>\n    Run nmap against a target (trailed).",
   "plan" => "plan <binary-or-facts>\n    Profile if ELF (augure-profile), decide, print the handoff recipe.",
   "outcome" => "outcome <run-id> --success|--failure --technique NAME\n    Record the result; the next plan adapts the priors.",
   "runs" => "runs\n    List the trailed runs.",
   "report" => "report [--json] [-o PATH]\n    Render the auditable engagement report.",
   "rule" => "rule validate|install|list <pack.yml>\n    Teach augure a technique: data-only pack, validated + corpus-guarded.\n    install is interactive and trailed.",
-  "init" => "init\n    Scaffold lictor.yml, targets.yml and an example.",
+  "init" => "init\n    Scaffold lictor.yml and an example facts file.",
   "doctor" => "doctor\n    Verify the environment; print the exact fix per check."
 }.freeze
 
@@ -94,12 +94,6 @@ def scaffold_files
     "lictor.yml" => <<~YML,
       # lictor setup - flags override these values
       trail: lictor-trail.jsonl
-    YML
-    "targets.yml" => <<~YML
-      # The scope document: explicit host[:port] entries you are
-      # authorized to touch. Wildcards are rejected. Copy candidates
-      # from `lictor recon scan.xml` after checking the contract.
-      192.168.56.10
     YML
   }
 end
@@ -129,7 +123,7 @@ when "init"
     entry = JSON.parse(File.read(augure_corpus))["suites"]["ropemporium"].find { |e| e["name"] == "ret2win" }
     File.write("examples/ret2win.facts", entry["facts"]) if entry
   end
-  puts "scaffolded: lictor.yml, targets.yml, examples/ret2win.facts"
+  puts "scaffolded: lictor.yml, examples/ret2win.facts"
   puts
   puts "next:"
   puts "  1. lictor doctor                     # verify the environment"
@@ -154,12 +148,7 @@ when "doctor"
              profiler_found ? nil : "gem install augure-profiler (or set profile_cmd: in lictor.yml)"]
   config_path = "lictor.yml"
   checks << ["lictor.yml", File.file?(config_path) ? nil : "run `lictor init`"]
-  begin
-    checks << ["targets.yml parses (no wildcards)", nil]
-  rescue Lictor::Unauthorized => e
-    checks << ["targets.yml parses (no wildcards)",
-               "#{e.message} - use explicit entries like 192.168.56.10"]
-  end
+
   trail_path = options[:trail] || Lictor::Config.load[:trail] || "lictor-trail.jsonl"
   writable = begin
     File.open(trail_path, "a") { |f| f.write("") }

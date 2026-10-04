@@ -80,7 +80,7 @@ inheritance - with every number auditable instead of assumed:
   so and the run says failed.
 
 ```sh
-lictor build ret2func --facts target.facts -a targets.yml -o payload.bin
+lictor build ret2func --facts target.facts -o payload.bin
 # technique:  ret2func
 # offset:     16  (measured: cyclic pattern under the debugger)
 # ret:        win_symbol:win@4198870

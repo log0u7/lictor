@@ -36,23 +36,27 @@ lab/
 
 ```sh
 sh setup.sh        # ronin toolchain + local repo
-sh demo.sh         # scan, then per target: acquire -> decide -> authorize -> run
+sh demo.sh         # scan, then per target: acquire -> decide -> build -> run
 ```
 
 What demo.sh does, per target:
 
-1. `lictor scan 127.0.0.1 -a targets.yml` - nmap finds the four
+1. `lictor scan 127.0.0.1` - nmap finds the four
    services; the scan is recorded.
 2. `lictor acquire 127.0.0.1:80xx --from http://...` - the binary is
    downloaded, ELF-checked, profiled, recorded (the nmap → binary
    bridge).
-3. `lictor plan target.facts -a targets.yml` - augure reads the fact
+3. `lictor plan target.facts` - augure reads the fact
    base and ranks: **a different technique per target**, with the rule
    provenance.
-4. `lictor authorize 127.0.0.1:xxxx` - the operator TYPES the target;
-   a short-lived token is recorded (15 min).
-5. `lictor run ... --executor ronin --consent-token <tok>` - the
-   executor DISCOVERS the lab exploit in the operator's repos (never
+4. `lictor build <binary> --facts target.facts` - the offset is
+   MEASURED (the cyclic pattern under the debugger) and the payload is
+   assembled: measured padding + the fact-sourced return address.
+5. `lictor run ... --executor ronin --payload payload.bin` - the closed
+   loop; the executor discovers the exploit in the repos and runs it.
+   The mirror is the analysis target: the local service gets profiled
+   and built against, `lictor verify` proves the remote faults like the
+   local model before anything runs against the remote.   executor DISCOVERS the lab exploit in the operator's repos (never
    invented), runs it; the outcome is recorded.
 6. `lictor report` - the auditable engagement report covering all four.
 

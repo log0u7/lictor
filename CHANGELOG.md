@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **v0.3.0: the operator is the authorization.** The gates and the
+  consent tokens are GONE - no allowlist file, no tokens, no typed
+  confirmations (the review caught `run` minting its own consent with
+  the target as its own confirmation). The README carries the
+  authorized-use disclaimer; the trail is the record. `lictor init`
+  scaffolds the trail only; the doctor checks the environment only.
+- The demo and every doc reflect the current commands: the harvest act
+  replaces the consent act, the chain is
+  scan → mirror → (fuzz → triage) → verify → suggest → plan → build →
+  run → outcome → report.
+
 ### Fixed
 
 - `lictor acquire` surfaces the profiler's stderr in the failure

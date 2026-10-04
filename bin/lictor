@@ -55,6 +55,8 @@ parser = OptionParser.new do |opts|
   opts.on("--payload FILE", "Send a pre-built payload (from `lictor build`) with run") { |v| options[:payload] = v }
   opts.on("--payload-file FILE", "Custom shellcode/payload bytes for build") { |v| options[:payload_file] = v }
   opts.on("--out FILE", "Output path for build (default payload.bin)") { |v| options[:out] = v }
+  opts.on("--repo-dir DIR", "Exploit scaffold destination directory (default: .)") { |v| options[:repo_dir] = v }
+  opts.on("--author NAME", "The scaffolded exploit's author line") { |v| options[:author] = v }
   opts.on("--max-attempts N", Integer, "Run budget: attempts before giving up (default 3)") { |v| options[:max_attempts] = v }
   opts.on("--facts PATH", "Facts file for run/plan (the profiler output)") { |v| options[:facts] = v }
   opts.on("--from URL", "Acquire the binary from an http(s) URL") { |v| options[:from] = v }
@@ -395,6 +397,29 @@ when "suggest"
   puts "added:      #{result[:added].inspect}"
   puts "applicable: #{result[:applicable_before].join(', ')}  ->  #{result[:applicable_after].join(', ')}"
   puts "selected:   #{result[:selected_before].inspect}  ->  #{result[:selected_after].inspect}"
+when "exploit"
+  sub = ARGV.shift
+  abort("lictor: exploit <scaffold> ... - only scaffold is implemented") unless sub == "scaffold"
+  technique = ARGV.shift or abort(parser.to_s)
+  binary = ARGV.shift or abort(parser.to_s)
+  begin
+    facts_path = options[:facts] ||
+                 abort("lictor: exploit scaffold needs --facts <facts-file>")
+    result = Lictor::PayloadBuilder.build(binary: binary, facts: File.read(facts_path),
+      technique: technique, out: options[:out] || "payload.bin",
+      payload_file: options[:payload_file])
+    repo_dir = File.expand_path(options[:repo_dir] || ".")
+    FileUtils.mkdir_p(repo_dir)
+    dest = Lictor::ExploitScaffold.scaffold(technique: technique, constants: result,
+      repo_dir: repo_dir, author: options[:author] || "lictor scaffold")
+    trail.record(run: SecureRandom.uuid, type: "scaffold", technique: technique,
+      offset: result[:offset], offset_source: result[:offset_source],
+      ret: result[:ret_source], file: dest)
+    puts "scaffolded: #{dest}"
+    puts "review it, commit it, then ronin-exploits finds it by name"
+  rescue Lictor::PayloadBuilder::BuildError, Lictor::ExploitScaffold::ScaffoldError => e
+    abort("lictor: #{e.message}")
+  end
 when "build"
   input = ARGV.shift or abort(parser.to_s)
   facts_path = options[:facts]

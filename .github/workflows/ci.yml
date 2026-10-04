@@ -23,7 +23,7 @@ jobs:
       - name: Lint
         run: bundle exec standardrb
       - name: Tests
-        run: bundle exec rspec
+        run: timeout --signal=QUIT 6m bundle exec rspec --profile
 
   gitleaks:
     runs-on: ubuntu-latest

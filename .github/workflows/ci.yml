@@ -25,6 +25,8 @@ jobs:
       - name: gdb timing probe (one-off)
         run: |
           set -x
+          ls augure/profiler/spec/support/ || true
+          pwd
           time (echo | gdb -batch -ex run /bin/true)
           time bundle exec ruby -I../augure/profiler/lib -e '
             require "augure-profiler"

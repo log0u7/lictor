@@ -19,6 +19,8 @@ RSpec.describe Lictor::PayloadBuilder do
             "gadget(\"ret_align\", 4196100).\n"
     result = described_class.build(binary: binary, facts: facts, technique: "ret2func", out: out)
     expect(result[:offset]).to eq(16)
+    expect(result[:offset_source]).to eq("static-frame")
+    expect(result[:sink]).to eq("strcpy")
     expect(result[:ret_source]).to include("win_symbol:win")
     body = File.binread(out)
     expect(body).not_to include([4196100].pack("Q<")) # offset 16: already aligned, no gadget

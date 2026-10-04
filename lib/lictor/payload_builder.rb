@@ -26,13 +26,26 @@ module Lictor
       # measurement runs it under the debugger, it must be executable
       FileUtils.chmod(0o755, binary) unless File.executable?(binary)
       arch = AugureProfiler.arch(binary)
-      offset = AugureProfiler::Triage.offset(binary)
-      raise BuildError, "no measured offset - the return is not controlled under the debugger" unless offset
+      # The static read is primary (no execution, no debugger); the
+      # cyclic pattern under the debugger verifies or falls back.
+      static = begin
+        AugureProfiler::StaticOffset.offset(binary)
+      rescue
+        nil
+      end
+      offset = static&.dig(:offset)
+      offset_source = offset ? "static-frame" : nil
+      unless offset
+        offset = AugureProfiler::Triage.offset(binary)
+        offset_source = "gdb-cyclic" if offset
+      end
+      raise BuildError, "no measured offset - static analysis found no controlled return and the debugger did not either" unless offset
 
       width = (arch == :x64) ? "Q<" : "L<"
       body, ret, ret_source = assemble(facts, technique, offset, arch, width, payload_file)
       File.binwrite(out, body)
-      {path: out, offset: offset, ret: ret, ret_source: ret_source, arch: arch, size: body.bytesize}
+      {path: out, offset: offset, offset_source: offset_source, sink: static&.dig(:sink),
+       ret: ret, ret_source: ret_source, arch: arch, size: body.bytesize}
     end
 
     def assemble(facts, technique, offset, arch, width, payload_file)

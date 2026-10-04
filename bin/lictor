@@ -397,6 +397,17 @@ when "suggest"
   puts "added:      #{result[:added].inspect}"
   puts "applicable: #{result[:applicable_before].join(', ')}  ->  #{result[:applicable_after].join(', ')}"
   puts "selected:   #{result[:selected_before].inspect}  ->  #{result[:selected_after].inspect}"
+when "harvest"
+  target = ARGV.shift or abort(parser.to_s)
+  begin
+    Lictor::Gates.allowlist(options[:allowlist] || Lictor::Config.load[:allowlist])
+    result = Lictor::Harvest.harvest(target, trail: trail,
+      timeout: options[:timeout] || 5, read_bytes: 512)
+    puts "leaked:     #{result[:addresses].map { |k, v| "#{k}=#{format('0x%x', v)}" }.join(', ')}"
+    puts "facts:      merge them with lictor suggest or append to the target facts"
+  rescue Lictor::Harvest::HarvestError => e
+    abort("lictor: #{e.message}")
+  end
 when "exploit"
   sub = ARGV.shift
   abort("lictor: exploit <scaffold> ... - only scaffold is implemented") unless sub == "scaffold"

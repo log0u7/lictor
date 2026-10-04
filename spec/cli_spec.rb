@@ -171,3 +171,19 @@ RSpec.describe "lictor draft" do
     expect(err).to include("already cover")
   end
 end
+
+RSpec.describe "lictor harvest" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail) { File.join(dir, "t.jsonl") }
+
+  it "turns the banner into leaked_address facts" do
+    facts = File.join(dir, "target.facts")
+    File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n")
+    out, _err, status = Open3.capture3(File.expand_path("../bin/lictor", __dir__),
+      "harvest", "127.0.0.1:9999", "-a", File.join(dir, "targets.yml"), "-t", trail)
+    skip "the lab is down" unless status.exitstatus.zero?
+    expect(out).to include("win")
+    event = JSON.parse(File.readlines(trail).last)
+    expect(event["type"]).to eq("harvest")
+  end
+end

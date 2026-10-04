@@ -8,6 +8,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # The runner's gdb stalls ~90-180s per batch run (debuginfod is
+    # env-disabled and still slow there - a runner-side quirk under
+    # investigation); the suite stays green, just slower.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
       - uses: actions/checkout@v5
@@ -22,29 +26,8 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq nmap gdb
       - name: Lint
         run: bundle exec standardrb
-      - name: gdb timing probe (one-off)
-        run: |
-          time (echo | gdb -batch -ex run /bin/true)
-          timeout 90 bundle exec ruby -e '
-            $stdout.sync = true
-            require "augure-profiler"
-            puts "profiler loaded"
-            gem_path = Bundler.load.specs.find { |s| s.name == "augure-profiler" }.full_gem_path
-            require File.join(gem_path, "spec/support/binary_builder")
-            puts "builder loaded"
-            t0 = Time.now
-            b = ProfilerBinaryBuilder.vulnerable
-            puts "fixture=#{(Time.now - t0).round(2)}s #{b}"
-            t1 = Time.now
-            sweep = AugureProfiler::Fuzzer.run(b, inputs: 40, max_len: 1024)
-            puts "sweep=#{(Time.now - t1).round(2)}s crashes=#{sweep.size} first=#{sweep.first&.dig(:input)&.bytesize}"
-            t2 = Time.now
-            r = AugureProfiler::Triage.run(b, AugureProfiler::Triage.cyclic(80))
-            puts "gdb=#{(Time.now - t2).round(2)}s signal=#{r[:signal].inspect} rip=#{r.dig(:registers, "rip").inspect}"
-          '
-
       - name: Tests
-        run: timeout --signal=QUIT 6m bundle exec rspec --profile
+        run: bundle exec rspec --profile
 
   gitleaks:
     runs-on: ubuntu-latest

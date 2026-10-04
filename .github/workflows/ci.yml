@@ -38,7 +38,7 @@ jobs:
             puts "gdb=#{(Time.now - t1).round(2)}s signal=#{r[:signal].inspect} rip=#{r.dig(:registers, "rip").inspect}"
           '
 
-    - name: Tests
+      - name: Tests
         run: timeout --signal=QUIT 6m bundle exec rspec --profile
 
   gitleaks:

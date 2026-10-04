@@ -90,13 +90,14 @@ module LictorMcp
         input_schema(properties: {
           target: {type: "string"}, technique: {type: "string"},
           exploit_name: {type: "string", description: "from your repos (ronin-exploits list)"},
-          consent_token: {type: "string"}, allowlist: {type: "string"}
+          consent_token: {type: "string"}, allowlist: {type: "string"},
+          payload_file: {type: "string", description: "a pre-built payload from lictor build"}
         }, required: %w[target technique exploit_name consent_token allowlist])
 
         class << self
           include ::LictorMcp::ToolHelpers
 
-          def call(target:, technique:, exploit_name:, consent_token:, allowlist:, server_context: nil)
+          def call(target:, technique:, exploit_name:, consent_token:, allowlist:, payload_file: nil, server_context: nil)
             ::Lictor::Gates.require_in_scope!(allowlist, target)
             unless ::Lictor::Consent.valid?(trail, consent_token, target)
               return error("consent token invalid, expired, or for another target (lictor authorize <target>)")
@@ -104,7 +105,7 @@ module LictorMcp
 
             executor = ::Lictor::Executor.resolve(:ronin)
             result = executor.execute(target: target, technique: technique, recipe: {console: ""},
-              exploit_name: exploit_name)
+              exploit_name: exploit_name, payload: payload_file)
             trail.record(run: SecureRandom.uuid, type: "outcome", technique: technique,
               success: result[:success] == true, executed: true, target: target)
             respond(result)

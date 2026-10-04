@@ -15,6 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /opt/target
 COPY targets/ret2func/flag.txt /opt/target/ret2func.flag
+# The services open flag.txt relative to their shared cwd (/opt/target):
+# without it the win path prints "no flag file" and a ronin exit code
+# still lies about the success.
+COPY targets/ret2func/flag.txt /opt/target/flag.txt
 COPY targets/ret2plt/flag.txt  /opt/target/ret2plt.flag
 COPY targets/shellcode/flag.txt /opt/target/shellcode.flag
 COPY targets/fmtstr/flag.txt  /opt/target/fmtstr.flag

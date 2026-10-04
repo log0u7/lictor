@@ -17,7 +17,7 @@ module Lictor
     module_function
 
     def run(target:, facts:, trail:, consent_token:, executor: nil, max_attempts: 3,
-      seed: nil, priors: nil, packs: nil)
+      seed: nil, priors: nil, packs: nil, payload: nil)
       unless consent_token && Consent.valid?(trail, consent_token, target)
         raise Unauthorized, "execution requires a valid consent token for the exact target (lictor authorize <target>)"
       end
@@ -31,7 +31,7 @@ module Lictor
         break if technique.nil?
 
         result = executor.execute(target: target, technique: technique,
-          recipe: decision[:recipe])
+          recipe: decision[:recipe], payload: payload)
         attempt = {
           technique: technique, executed: result[:executed],
           success: result[:success], exploit: result[:exploit], handoff: result[:handoff]

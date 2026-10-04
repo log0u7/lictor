@@ -52,6 +52,9 @@ parser = OptionParser.new do |opts|
   opts.on("--mutator NAME", "ruby (default) or radamsa if installed") { |v| options[:mutator] = v }
   opts.on("--executor NAME", "manual (default) or ronin") { |v| options[:executor] = v }
   opts.on("--consent-token TOK", "Consent token from `lictor authorize`") { |v| options[:consent_token] = v }
+  opts.on("--payload FILE", "Send a pre-built payload (from `lictor build`) with run") { |v| options[:payload] = v }
+  opts.on("--payload-file FILE", "Custom shellcode/payload bytes for build") { |v| options[:payload_file] = v }
+  opts.on("--out FILE", "Output path for build (default payload.bin)") { |v| options[:out] = v }
   opts.on("--max-attempts N", Integer, "Run budget: attempts before giving up (default 3)") { |v| options[:max_attempts] = v }
   opts.on("--facts PATH", "Facts file for run/plan (the profiler output)") { |v| options[:facts] = v }
   opts.on("--from URL", "Acquire the binary from an http(s) URL") { |v| options[:from] = v }
@@ -335,6 +338,7 @@ when "run"
                              executor: Lictor::Executor.resolve(executor_kind),
                              consent_token: token, max_attempts: options[:max_attempts] || 3,
                              packs: Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs"),
+                             payload: options[:payload],
                              seed: options[:seed])
   rescue Lictor::Unauthorized => e
     abort("lictor: UNAUTHORIZED - #{e.message}")
@@ -391,6 +395,34 @@ when "suggest"
   puts "added:      #{result[:added].inspect}"
   puts "applicable: #{result[:applicable_before].join(', ')}  ->  #{result[:applicable_after].join(', ')}"
   puts "selected:   #{result[:selected_before].inspect}  ->  #{result[:selected_after].inspect}"
+when "build"
+  input = ARGV.shift or abort(parser.to_s)
+  facts_path = options[:facts]
+  unless facts_path
+    abort("lictor: build needs --facts <facts-file> (scan/profile first)") unless File.file?("target.facts")
+    facts_path = "target.facts"
+  end
+  begin
+    Lictor::Gates.allowlist(options[:allowlist]) if options[:allowlist]
+    decision = Lictor::Handoff.plan(facts: File.read(facts_path), seed: options[:seed],
+      priors: Lictor::Priors.from_trail(trail),
+      packs: Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs"))
+    technique = decision[:selected] or abort("lictor: build needs a selected technique - plan decided nothing")
+    result = Lictor::PayloadBuilder.build(binary: input, facts: File.read(facts_path),
+      technique: technique, out: options[:out] || "payload.bin",
+      payload_file: options[:payload_file])
+    trail.record(run: SecureRandom.uuid, type: "build", technique: technique,
+      offset: result[:offset], ret: result[:ret_source], arch: result[:arch].to_s,
+      size: result[:size], out: result[:path])
+    puts "technique:  #{technique}"
+    puts "offset:     #{result[:offset]}  (measured: cyclic pattern under the debugger)"
+    puts "ret:        #{result[:ret_source]}"
+    puts "payload:    #{result[:path]} (#{result[:size]} bytes, arch #{result[:arch]})"
+  rescue Lictor::PayloadBuilder::BuildError => e
+    abort("lictor: #{e.message}")
+  rescue Augure::MalformedFact, Augure::UnknownPredicate => e
+    abort("lictor: #{e.message}")
+  end
 when "plan"
   input = ARGV.shift or abort(parser.to_s)
   begin

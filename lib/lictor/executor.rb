@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "open3"
+require "tmpdir"
 
 module Lictor
   # The execution layer. The interface is uniform; the implementations
@@ -23,7 +24,7 @@ module Lictor
 
   # The default: augure decided, lictor prints, a human runs.
   class ManualExecutor
-    def execute(target:, technique:, recipe:, exploit_name: nil)
+    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
       {
         executed: false,
         success: nil,
@@ -39,7 +40,23 @@ module Lictor
   # installs ronin-exploits globally (gem install, the lab setup does
   # it) - the executor does not drag the arsenal into its own bundle.
   class RoninExecutor
-    CLEAN_ENV = {"RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLE_BIN_PATH" => nil}.freeze
+    # A MINIMAL environment: under `bundle exec` any surviving bundler
+    # hook (RUBYOPT's -rbundler/setup, a BUNDLE_* var, even the Gemfile
+    # of the working directory) freezes the gem set to lictor's bundle -
+    # and ronin-exploits is deliberately not in it, so the binstub dies
+    # in Gem.activate_bin_path. HOME + the current ruby's bindir (where
+    # `gem install` puts binstubs, plus mise shims when present) + the
+    # system dirs: that is all the arsenal needs.
+    CLEAN_ENV = {
+      "HOME" => ENV["HOME"].to_s,
+      "PATH" => [
+        File.dirname(RbConfig.ruby),
+        ENV["PATH"].to_s.split(":").find { |d| File.exist?(File.join(d, "mise")) },
+        "/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"
+      ].compact.join(":"),
+      "LANG" => ENV["LANG"].to_s,
+      "TERM" => ENV["TERM"].to_s
+    }.freeze
 
     def initialize(runner: "ronin-exploits")
       @runner = runner
@@ -49,7 +66,7 @@ module Lictor
     # decided technique by the naming convention
     # `<name>_<technique>_<nnn>` (ronin-exploits list shows names only).
     def discover(technique)
-      out, _err, status = Open3.capture3(CLEAN_ENV, @runner, "list")
+      out, _err, status = Open3.capture3(CLEAN_ENV, @runner, "list", unsetenv_others: true)
       raise ExecutorError, "ronin-exploits list failed" unless status.success?
 
       out.lines.filter_map do |line|
@@ -58,7 +75,7 @@ module Lictor
       end
     end
 
-    def execute(target:, technique:, recipe:, exploit_name: nil, consent_token: nil)
+    def execute(target:, technique:, recipe:, exploit_name: nil, consent_token: nil, payload: nil)
       exploit_name ||= discover(technique).first
       unless exploit_name
         return {executed: false, success: nil,
@@ -68,7 +85,17 @@ module Lictor
       host, port = target.split(":", 2)
       args = ["run", exploit_name, "--param", "host=#{host || target}"]
       args += ["--param", "port=#{port}"] if port
-      out, _err, status = Open3.capture3(CLEAN_ENV, @runner, *args)
+      args += ["--param", "payload_file=#{File.expand_path(payload)}"] if payload
+      # A neutral cwd: a Gemfile in the working directory pulls the
+      # subprocess back into a bundle context where ronin-exploits
+      # "is not included in the bundle".
+      out, _err, status = nil
+      Dir.chdir(Dir.tmpdir) do
+        # unsetenv_others: true = the env -i semantics - Open3 would
+        # otherwise MERGE CLEAN_ENV into the (bundler-contaminated)
+        # parent environment.
+        out, _err, status = Open3.capture3(CLEAN_ENV, @runner, *args, unsetenv_others: true)
+      end
       {executed: true, success: status.success?, exploit: exploit_name, output: out}
     end
   end

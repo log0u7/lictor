@@ -31,7 +31,7 @@ priors), JSONL trail, engagement reports, the gated MCP surface
 
 ## Commands
 
-- Test: `bundle exec rspec` (all green required, 104+ examples)
+- Test: `bundle exec rspec` (all green required, 108+ examples)
 - Lint: `bundle exec standardrb` (zero offenses required)
 - CLI: `bundle exec ruby bin/lictor --help`
 

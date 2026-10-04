@@ -69,7 +69,7 @@ RSpec.describe "installed packs influence decisions" do
     brop_facts = "remote(\"true\").\nverified(\"remote\").\nnx(\"true\").\n"
     token = Lictor::Consent.issue(trail, "192.168.56.10", confirm_input: "192.168.56.10\n")
     executor = Class.new do
-      def execute(target:, technique:, recipe:, exploit_name: nil)
+      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
         {executed: true, success: true, technique: technique}
       end
     end

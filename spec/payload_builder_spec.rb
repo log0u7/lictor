@@ -56,3 +56,32 @@ RSpec.describe Lictor::PayloadBuilder do
     }.to raise_error(Lictor::PayloadBuilder::BuildError, /layout/)
   end
 end
+
+RSpec.describe "the leaked-address slot" do
+  let(:pb) { Lictor::PayloadBuilder }
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) do
+    builder = ["../../augure/profiler/spec/support/binary_builder.rb",
+      "../augure/profiler/spec/support/binary_builder.rb"]
+      .map { |p| File.expand_path(p, __dir__) }
+      .find { |p| File.file?(p) }
+    require_relative builder
+    ProfilerBinaryBuilder.vulnerable
+  end
+  let(:out) { File.join(dir, "payload.bin") }
+
+  it "builds from the addresses the service leaked" do
+    facts = "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
+            "leaked_address(\"win\", 4196182).\n"
+    result = pb.build(binary: binary, facts: facts, technique: "banner_leak", out: out)
+    expect(result[:ret_source]).to include("leaked_address:win@4196182")
+    expect(File.binread(out)).to eq(("A" * 16).b + [4196182].pack("Q<"))
+  end
+
+  it "refuses when the service never leaked" do
+    facts = "nx(\"true\").\n"
+    expect {
+      pb.build(binary: binary, facts: facts, technique: "banner_leak", out: out)
+    }.to raise_error(Lictor::PayloadBuilder::BuildError, /harvest/)
+  end
+end

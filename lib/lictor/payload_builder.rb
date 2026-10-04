@@ -102,6 +102,12 @@ module Lictor
         raise BuildError, "no #{type} gadget in the facts" unless gadget
 
         [gadget[1], "gadget:#{type}@#{gadget[1]}"]
+      when /\Aleak:(.+)\z/
+        name = Regexp.last_match(1)
+        leak = facts["leaked_address"]&.find { |n, _| n == name }
+        raise BuildError, "no leaked_address(\"#{name}\") fact - harvest the service first" unless leak
+
+        [leak[1], "leaked_address:#{name}@#{leak[1]}"]
       else
         raise BuildError, "unknown address reference #{ref.inspect} (win | gadget:TYPE)"
       end

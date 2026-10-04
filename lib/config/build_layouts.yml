@@ -32,3 +32,9 @@ shellcode:
     - [padding, measured_offset, sled]
     - [qword, gadget:jmp_rsp]
     - [shellcode, sh]
+
+banner_leak:
+  arch: any
+  layout:
+    - [padding, measured_offset]
+    - [qword, leak:win]

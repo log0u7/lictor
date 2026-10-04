@@ -94,7 +94,7 @@ RSpec.describe "lictor exploit scaffold" do
     content = File.read(File.join(repo, file))
     expect(content).to include("MEASURED (static-frame)")
     expect(content).to include("win_symbol:win@4196182")
-    expect(content).to include("register \"lab_ret2func_001\"")
+    expect(content).to include('register "lab_ret2func_001"')
     event = JSON.parse(File.readlines(trail).last)
     expect(event["type"]).to eq("scaffold")
   end
@@ -166,5 +166,40 @@ RSpec.describe "lictor harvest" do
     expect(out).to include("win")
     event = JSON.parse(File.readlines(trail).last)
     expect(event["type"]).to eq("harvest")
+  end
+end
+
+RSpec.describe "the hostile-target defenses" do
+  let(:dir) { Dir.mktmpdir }
+
+  it "the scaffold refuses a technique that would carry code into the filename or the template" do
+    facts = File.join(dir, "target.facts")
+    File.write(facts, "nx(\"true\").\n")
+    repo = File.join(dir, "repo")
+    FileUtils.mkdir_p(repo)
+    binary = ["../../augure/profiler/spec/support/binary_builder.rb",
+      "../augure/profiler/spec/support/binary_builder.rb"]
+      .map { |p| File.expand_path(p, __dir__) }
+      .find { |p| File.file?(p) }
+    require_relative binary
+    bin = ProfilerBinaryBuilder.vulnerable
+    _out, err, status = Open3.capture3(File.expand_path("../bin/lictor", __dir__),
+      "exploit", "scaffold", "evil\nFile.write('pwned','x')", bin, "--facts", facts, "--repo-dir", repo, "-t", File.join(dir, "t.jsonl"))
+    expect(status.exitstatus).to eq(1)
+    expect(err).to include("[a-z0-9_]+")
+    expect(Dir.children(repo)).to be_empty
+  end
+
+  it "build refuses a non-ELF binary before anything executes" do
+    facts = File.join(dir, "target.facts")
+    File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
+      "win_symbol(\"win\", 4196182).\ngadget(\"ret_align\", 4196100).\n" \
+      "vuln_hint(\"unsafe_func:strcpy\").\ntarget_function(\"true\").\n")
+    notelf = File.join(dir, "notelf")
+    File.write(notelf, "just text")
+    _out, err, status = Open3.capture3(File.expand_path("../bin/lictor", __dir__),
+      "build", notelf, "--facts", facts, "-t", File.join(dir, "t.jsonl"))
+    expect(status.exitstatus).to eq(1)
+    expect(err).to include("not an ELF")
   end
 end

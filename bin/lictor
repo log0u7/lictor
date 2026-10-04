@@ -368,6 +368,7 @@ when "exploit"
   sub = ARGV.shift
   abort("lictor: exploit <scaffold> ... - only scaffold is implemented") unless sub == "scaffold"
   technique = ARGV.shift or abort(parser.to_s)
+  abort("lictor: the technique must match [a-z0-9_]+ (it becomes a filename and lands in generated code)") unless technique =~ /\A[a-z0-9_]+\z/
   binary = ARGV.shift or abort(parser.to_s)
   begin
     facts_path = options[:facts] ||

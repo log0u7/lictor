@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "open3"
+require "timeout"
+require "timeout"
 require "tmpdir"
 
 module Lictor
@@ -24,7 +26,7 @@ module Lictor
 
   # The default: augure decided, lictor prints, a human runs.
   class ManualExecutor
-    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
+    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, timeout: nil)
       {
         executed: false,
         success: nil,
@@ -75,7 +77,7 @@ module Lictor
       end
     end
 
-    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
+    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, timeout: nil)
       exploit_name ||= discover(technique).first
       unless exploit_name
         return {executed: false, success: nil,
@@ -94,7 +96,13 @@ module Lictor
         # unsetenv_others: true = the env -i semantics - Open3 would
         # otherwise MERGE CLEAN_ENV into the (bundler-contaminated)
         # parent environment.
-        out, _err, status = Open3.capture3(CLEAN_ENV, @runner, *args, unsetenv_others: true)
+        # the timeout kills the SERVER's wait, the child may linger: a
+        # black-holed target must not hang the stdio loop forever
+        out, _err, status = Timeout.timeout(timeout || 300) do
+          Open3.capture3(CLEAN_ENV, @runner, *args, unsetenv_others: true)
+        end
+      rescue Timeout::Error, SignalException
+        raise ExecutorError, "the runner timed out - a black-holed target hangs the loop"
       end
       {executed: true, success: status.success?, exploit: exploit_name, output: out}
     end

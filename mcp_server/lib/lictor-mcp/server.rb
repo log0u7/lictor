@@ -221,7 +221,11 @@ module LictorMcp
             })
           rescue ::Lictor::Unauthorized => e
             error("UNAUTHORIZED: #{e.message}")
-          rescue ::Augure::MalformedFact, ::Augure::UnknownPredicate => e
+          rescue ::Augure::MalformedFact => e
+            # the parse error embeds the offending line: a file named by
+            # the caller must not leak its content through the error
+            error(e.message.sub(/line \d+: malformed fact .*/, "line ?"))
+          rescue ::Augure::UnknownPredicate => e
             error(e.message)
           end
         end

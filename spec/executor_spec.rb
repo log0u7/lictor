@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "lictor"
+require "timeout"
 require "tmpdir"
 
 RSpec.describe Lictor::Executor do
@@ -88,5 +89,18 @@ RSpec.describe Lictor::RoninExecutor do
     result = executor.execute(target: "192.168.56.10:9999", technique: "heap_tcache", recipe: recipe)
     expect(result[:executed]).to be(false)
     expect(result[:note]).to include("no heap_tcache exploit")
+  end
+end
+
+RSpec.describe "the executor timeout" do
+  it "kills a black-holed runner instead of hanging forever" do
+    sleeper = File.join(Dir.mktmpdir, "sleep.sh")
+    File.write(sleeper, "#!/bin/sh\nsleep 300\n")
+    File.chmod(0o755, sleeper)
+    exec = Lictor::Executor.resolve(:ronin)
+    exec.instance_variable_set(:@runner, sleeper)
+    expect {
+      exec.execute(target: "127.0.0.1:9", technique: "x", recipe: {console: ""}, exploit_name: "whatever", timeout: 1)
+    }.to raise_error(Lictor::ExecutorError)
   end
 end

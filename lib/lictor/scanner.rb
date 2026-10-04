@@ -15,7 +15,10 @@ module Lictor
     module_function
 
     def run(target, out:, nmap_cmd: "nmap", extra_args: [])
-      _, stderr, status = Open3.capture3(nmap_cmd, *NMAP_ARGS, *extra_args, "-oX", out, target)
+      require "timeout"
+      _, stderr, status = Timeout.timeout(600) do
+        Open3.capture3(nmap_cmd, *NMAP_ARGS, *extra_args, "-oX", out, target)
+      end
       unless status.success?
         reason = stderr.lines.first&.strip || "exit #{status.exitstatus}"
         raise ScanError, "nmap failed on #{target}: #{reason} (is nmap installed?)"

@@ -24,6 +24,14 @@ module Lictor
     # arch:, size:}.
     def build(binary:, facts:, technique:, out:, payload_file: nil)
       facts = Augure::Facts.parse(facts) if facts.is_a?(String)
+      # The ELF check FIRST: nothing executes - statically or under the
+      # debugger - until the file is a real ELF.
+      binary = File.expand_path(binary)
+      raise BuildError, "#{binary} is not an ELF - nothing executes, statically or under a debugger" unless elf?(binary)
+
+      # the acquired copy comes through File.binwrite (0644): the offset
+      # measurement runs it under the debugger, it must be executable
+      FileUtils.chmod(0o755, binary) unless File.executable?(binary)
       begin
         static = AugureProfiler::StaticOffset.offset(binary)
       rescue
@@ -76,7 +84,12 @@ module Lictor
           ret_source ||= source
           body << [value].pack(width)
         when "shellcode"
-          sc = payload_file ? File.binread(payload_file) : AugureProfiler::Shellcode.generate(shellcode_klass(arch), (slot[1] || "sh").to_sym)
+          sc = if payload_file
+            File.binread(payload_file)
+          else
+            AugureProfiler::Shellcode.generate(shellcode_klass(arch),
+              (slot[1] || "sh").to_sym)
+          end
           body << sc.b
         else
           raise BuildError, "unknown build slot #{slot[0].inspect}"
@@ -111,6 +124,12 @@ module Lictor
       else
         raise BuildError, "unknown address reference #{ref.inspect} (win | gadget:TYPE)"
       end
+    end
+
+    def elf?(path)
+      File.open(path, "rb") { |f| f.read(4) == "\x7fELF" }
+    rescue
+      false
     end
 
     def shellcode_klass(arch)

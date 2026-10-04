@@ -53,6 +53,6 @@ RSpec.describe Lictor::PayloadBuilder do
     }.to raise_error(Lictor::PayloadBuilder::BuildError, /win_symbol/)
     expect {
       described_class.build(binary: binary, facts: "nx(\"true\").\n", technique: "ret2libc", out: out)
-    }.to raise_error(Lictor::PayloadBuilder::BuildError, /template/)
+    }.to raise_error(Lictor::PayloadBuilder::BuildError, /layout/)
   end
 end

@@ -1,0 +1,34 @@
+# The build layouts: how a decided technique becomes bytes. Data, not
+# code - a pack can add or override a layout for its own techniques
+# (pack `build:` sections follow the same slot vocabulary and pass the
+# same armor).
+#
+# Slots:
+#   [padding, measured_offset]        - the measured offset, as filler
+#   [qword, win]                      - the win_symbol address, 8 bytes
+#   [qword, gadget:TYPE]              - the address of that gadget type
+#   [dword, ...]                      - the same, 4 bytes (x86)
+#   [shellcode, sh|bash]              - the assembled stub
+#   [shellcode, file]                 - the operator-provided payload file
+#
+# resolved at build time from the facts + the measurement; anything the
+# facts cannot supply is a loud BuildError, never a guessed byte.
+
+ret2func:
+  arch: any
+  layout:
+    - [padding, measured_offset]
+    - [qword, win]
+
+ret2win:
+  arch: any
+  layout:
+    - [padding, measured_offset]
+    - [qword, win]
+
+shellcode:
+  arch: any
+  layout:
+    - [padding, measured_offset, sled]
+    - [qword, gadget:jmp_rsp]
+    - [shellcode, sh]

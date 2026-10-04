@@ -2,7 +2,6 @@
 
 require "open3"
 require "timeout"
-require "timeout"
 require "tmpdir"
 
 module Lictor

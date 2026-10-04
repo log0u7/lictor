@@ -132,3 +132,42 @@ RSpec.describe "lictor exploit scaffold" do
     expect(Dir.children(repo)).to include("lab_ret2func_002.rb")
   end
 end
+
+RSpec.describe "lictor draft" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail) { File.join(dir, "t.jsonl") }
+  let(:binary) do
+    builder = ["../../augure/profiler/spec/support/binary_builder.rb",
+      "../augure/profiler/spec/support/binary_builder.rb"]
+      .map { |p| File.expand_path(p, __dir__) }
+      .find { |p| File.file?(p) }
+    require_relative builder
+    ProfilerBinaryBuilder.vulnerable
+  end
+
+  it "drafts a pack in staging when nothing applies, validated by the armor" do
+    facts = File.join(dir, "exotic.facts")
+    File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
+      "allocator(\"tcache\").\nglibc_minor(39).\nseccomp(\"true\").\n")
+    staging = File.join(dir, "staging")
+    _out, err, status = Open3.capture3(File.expand_path("../bin/lictor", __dir__),
+      "draft", facts, binary, "--repo-dir", staging, "-t", trail)
+    expect(status.exitstatus).to eq(0), err
+    file = Dir.children(staging).first
+    expect(file).to match(/\Aautodraft_strcpy\.yml\z/)
+    event = JSON.parse(File.readlines(trail).last)
+    expect(event["type"]).to eq("pack_draft")
+    expect(event["status"]).to eq("valid")
+  end
+
+  it "says so instead of drafting when built-ins cover the facts" do
+    facts = File.join(dir, "covered.facts")
+    File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
+      "win_symbol(\"win\", 4196182).\nvuln_hint(\"unsafe_func:strcpy\").\ntarget_function(\"true\").\n")
+    staging = File.join(dir, "staging2")
+    _out, err, status = Open3.capture3(File.expand_path("../bin/lictor", __dir__),
+      "draft", facts, binary, "--repo-dir", staging, "-t", trail)
+    expect(status.exitstatus).to eq(1)
+    expect(err).to include("already cover")
+  end
+end

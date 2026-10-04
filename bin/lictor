@@ -420,6 +420,30 @@ when "exploit"
   rescue Lictor::PayloadBuilder::BuildError, Lictor::ExploitScaffold::ScaffoldError => e
     abort("lictor: #{e.message}")
   end
+when "draft"
+  facts_path = ARGV.shift or abort(parser.to_s)
+  binary = ARGV.shift
+  begin
+    measurements = {}
+    if binary && File.file?(binary)
+      static = AugureProfiler::StaticOffset.offset(binary) rescue nil
+      measurements[:sink] = static&.dig(:sink)
+      measurements[:offset] = static&.dig(:offset)
+      measurements[:offset_source] = static&.dig(:offset) ? "static-frame" : nil
+    end
+    measurements[:run_id] = options[:run_id] || "manual"
+    staging = options[:repo_dir] || "staging"
+    result = Lictor::PackDraft.draft(facts: File.read(facts_path),
+      measurements: measurements, staging_dir: File.expand_path(staging))
+    abort("lictor: the built-in techniques already cover these facts - no draft needed") if result.nil?
+    trail.record(run: SecureRandom.uuid, type: "pack_draft", technique: result[:technique],
+      status: result[:status], file: result[:path])
+    puts "draft:    #{result[:path]} (#{result[:technique]})"
+    puts "armor:    #{result[:status]}"
+    puts "staging:  review it, then lictor rule install once it is yours"
+  rescue Lictor::PackDraft::DraftError => e
+    abort("lictor: #{e.message}")
+  end
 when "build"
   input = ARGV.shift or abort(parser.to_s)
   facts_path = options[:facts]

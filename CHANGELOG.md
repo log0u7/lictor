@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   run → outcome → report.
 
 ### Fixed
+- `lictor build` never consulted pack `build:` sections: `layout_for` read packs but `build()` passed none, and `augure::Pack` had no `build` accessor at all (the pack DSL wrote a section nothing could read). Armor check 8 on the augure side validates the optional `build:` (own technique, slot vocabulary); the builder accepts `packs:` and the CLI passes the loaded packs. A pack teaching a NEW technique now materializes its own layout.
+- The `dword` slot packed with the arch width (8 bytes on x64): a partial-overwrite layout emitted the wrong payload. `dword` is 4 bytes whatever the arch; `qword` is the pointer width.
 
 - `lictor acquire` surfaces the profiler's stderr in the failure
   message (the profiling subprocess used to die silently and the error

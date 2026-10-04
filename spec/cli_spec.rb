@@ -203,3 +203,32 @@ RSpec.describe "the hostile-target defenses" do
     expect(err).to include("not an ELF")
   end
 end
+
+RSpec.describe "lictor run auto-scaffold via the CLI" do
+  let(:exe) { File.expand_path("../bin/lictor", __dir__) }
+
+  it "forwards --bin and --repo-dir so the flagship feature actually runs" do
+    dir = Dir.mktmpdir
+    builder = ["../../augure/profiler/spec/support/binary_builder.rb",
+      "../augure/profiler/spec/support/binary_builder.rb"]
+      .map { |p| File.expand_path(p, __dir__) }
+      .find { |p| File.file?(p) }
+    require_relative builder
+    binary = ProfilerBinaryBuilder.vulnerable
+    repo = File.join(dir, "repo", "exploits")
+    FileUtils.mkdir_p(repo)
+    facts = File.join(dir, "target.facts")
+    File.write(facts,
+      "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
+      "win_symbol(\"win\", 4196182).\ngadget(\"ret_align\", 4196100).\n" \
+      "target_function(\"true\").\n")
+
+    out, err, status = Open3.capture3(exe, "run", "192.168.56.10",
+      "--facts", facts, "--bin", binary, "--repo-dir", repo,
+      "-t", File.join(dir, "trail.jsonl"), "--max-attempts", "2")
+    expect(status.exitstatus).to eq(0), "run failed: #{err[0, 200]}"
+    expect(File.exist?(File.join(repo, "lab_ret2func_001.rb"))).to be(true),
+      "the auto-scaffold never fired from the CLI: #{out[0, 200]}"
+    expect(File.read(File.join(dir, "trail.jsonl"))).to include("\"scaffold\"")
+  end
+end

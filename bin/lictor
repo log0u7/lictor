@@ -55,7 +55,7 @@ parser = OptionParser.new do |opts|
   opts.on("--max-attempts N", Integer, "Run budget: attempts before giving up (default 3)") { |v| options[:max_attempts] = v }
   opts.on("--facts PATH", "Facts file for run/plan (the profiler output)") { |v| options[:facts] = v }
   opts.on("--from URL", "Acquire the binary from an http(s) URL") { |v| options[:from] = v }
-  opts.on("--bin PATH", "Acquire the binary from a local path") { |v| options[:bin] = v }
+  opts.on("--bin PATH", "Local binary: the acquire source, or the mirror for run auto-scaffold") { |v| options[:bin] = v }
   opts.on("--input PATH", "Crash input for verify (the fuzzer's discovery)") { |v| options[:input] = v }
   opts.on("--triage-backend NAME", "gdb (default), rizin or lldb") { |v| options[:triage_backend] = v }
   opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
@@ -296,7 +296,9 @@ when "run"
                              max_attempts: options[:max_attempts] || 3,
                              packs: Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs"),
                              payload: options[:payload],
-                             seed: options[:seed])
+                             seed: options[:seed],
+                             binary: options[:bin],
+                             repo_dir: options[:repo_dir])
   puts "status:  #{result[:status]}"
   result[:steps].each do |s|
     executed = s[:executed] ? "executed" : "handoff"
@@ -415,7 +417,8 @@ when "build"
     technique = decision[:selected] or abort("lictor: build needs a selected technique - plan decided nothing")
     result = Lictor::PayloadBuilder.build(binary: input, facts: File.read(facts_path),
       technique: technique, out: options[:out] || "payload.bin",
-      payload_file: options[:payload_file])
+      payload_file: options[:payload_file],
+      packs: Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs"))
     trail.record(run: SecureRandom.uuid, type: "build", technique: technique,
       offset: result[:offset], ret: result[:ret_source], arch: result[:arch].to_s,
       size: result[:size], out: result[:path])

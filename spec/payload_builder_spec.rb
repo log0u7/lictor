@@ -85,3 +85,47 @@ RSpec.describe "the leaked-address slot" do
     }.to raise_error(Lictor::PayloadBuilder::BuildError, /harvest/)
   end
 end
+
+RSpec.describe "the pack build: section" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+
+  it "a pack technique builds with ITS layout: gadget chain then win" do
+    out = File.join(dir, "p.bin")
+    facts = "nx(\"true\").\npie(\"false\").\nwin_symbol(\"win\", 4196182).\ngadget(\"ret_align\", 4196100).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "chain_probe", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_chain_probe", "head" => %w[applicable chain_probe],
+                   "conditions" => [["fact", "target_function", "true"]]}],
+      "kb" => [{"id" => "x1", "description" => "x", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "chain_probe",
+                  "layout" => [["padding"], ["qword", "gadget:ret_align"], ["qword", "win"]]}
+    )
+    result = Lictor::PayloadBuilder.build(binary: binary, facts: facts,
+      technique: "chain_probe", out: out, packs: [pack])
+    body = File.binread(out)
+    expect(body).to eq(("A" * 16).b + [4196100].pack("Q<") + [4196182].pack("Q<"))
+    expect(result[:ret_source]).to include("gadget:ret_align")
+  end
+
+  it "a pack teaching a NEW technique gets its layout from the pack" do
+    out = File.join(dir, "n.bin")
+    facts = "nx(\"true\").\npie(\"false\").\nwin_symbol(\"win\", 4196182).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "fancy_probe", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_fancy", "head" => %w[applicable fancy_probe],
+                   "conditions" => [["fact", "target_function", "true"]]}],
+      "kb" => [{"id" => "f1", "description" => "f", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "fancy_probe",
+                  "layout" => [["padding"], ["dword", "win"]]}
+    )
+    Lictor::PayloadBuilder.build(binary: binary, facts: facts,
+      technique: "fancy_probe", out: out, packs: [pack])
+    # the dword slot is 4 bytes wide even on x64 (the width per slot)
+    expect(File.binread(out)).to eq(("A" * 16).b + [4196182].pack("L<"))
+  end
+end

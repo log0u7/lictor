@@ -135,6 +135,80 @@ module LictorMcp
           end
         end
       end,
+      BuildPayload = Class.new(::MCP::Tool) do
+        description "Assemble the payload for the decided technique: the offset is " \
+                    "MEASURED (static frame read, the debugger as fallback), the return " \
+                    "address comes from the facts, the shellcode is assembly source. " \
+                    "Writes a payload file and trails the build."
+        input_schema(properties: {
+          binary: {type: "string", description: "the acquired local ELF copy"},
+          facts_path: {type: "string", description: "the .facts file"},
+          technique: {type: "string", description: "defaults to the plan's selection"},
+          allowlist: {type: "string"},
+          payload_file: {type: "string", description: "custom shellcode/payload bytes"}
+        }, required: %w[binary facts_path allowlist])
+
+        class << self
+          include ::LictorMcp::ToolHelpers
+
+          def call(binary:, facts_path:, allowlist:, technique: nil, payload_file: nil, server_context: nil)
+            ::Lictor::Gates.allowlist(allowlist)
+            facts = ::File.read(facts_path)
+            packs = ::Lictor::TechniquePacks.load(::Lictor::Config.load[:packs] || "packs")
+            technique ||= ::Lictor::Handoff.plan(facts: facts, packs: packs)[:selected]
+            raise ::Lictor::PayloadBuilder::BuildError, "no technique selected - plan decided nothing" unless technique
+
+            result = ::Lictor::PayloadBuilder.build(binary: binary, facts: facts,
+              technique: technique, out: ::File.join(::Dir.tmpdir, "lictor-payload-#{::Process.pid}.bin"),
+              payload_file: payload_file)
+            trail.record(run: ::SecureRandom.uuid, type: "build", technique: technique,
+              offset: result[:offset], offset_source: result[:offset_source],
+              ret: result[:ret_source], size: result[:size], out: result[:path])
+            respond(result)
+          rescue ::Lictor::Unauthorized => e
+            error("UNAUTHORIZED: #{e.message}")
+          rescue ::Lictor::PayloadBuilder::BuildError, ::Augure::MalformedFact, ::Augure::UnknownPredicate => e
+            error(e.message)
+          end
+        end
+      end,
+
+      ScaffoldExploit = Class.new(::MCP::Tool) do
+        description "Draft a ronin exploit for the decided technique, carrying the measured " \
+                    "constants: the file lands in the staging directory and the OPERATOR " \
+                    "reviews and commits it. The exploit NAME follows the discovery convention."
+        input_schema(properties: {
+          binary: {type: "string"},
+          facts_path: {type: "string"},
+          technique: {type: "string"},
+          staging_dir: {type: "string", description: "where the draft lands (operator-reviewed)"}
+        }, required: %w[binary facts_path technique staging_dir])
+
+        class << self
+          include ::LictorMcp::ToolHelpers
+
+          def call(binary:, facts_path:, technique:, staging_dir:, server_context: nil)
+            # No allowlist gate: the scaffold touches no target - the
+            # staging directory IS the control (the operator reviews
+            # before anything is committed anywhere), and the trail
+            # records the draft.
+            facts = ::File.read(facts_path)
+            result = ::Lictor::PayloadBuilder.build(binary: binary, facts: facts,
+              technique: technique, out: ::File.join(::Dir.tmpdir, "lictor-payload-#{::Process.pid}.bin"))
+            dest = ::Lictor::ExploitScaffold.scaffold(technique: technique, constants: result,
+              repo_dir: staging_dir, author: "lictor-mcp scaffold (operator review required)")
+            trail.record(run: ::SecureRandom.uuid, type: "scaffold", technique: technique,
+              offset: result[:offset], ret: result[:ret_source], file: dest)
+            respond(scaffolded: dest, review: "the operator reads and commits this file")
+          rescue ::Lictor::Unauthorized => e
+            error("UNAUTHORIZED: #{e.message}")
+          rescue ::Lictor::PayloadBuilder::BuildError, ::Lictor::ExploitScaffold::ScaffoldError,
+            ::Augure::MalformedFact, ::Augure::UnknownPredicate => e
+            error(e.message)
+          end
+        end
+      end,
+
       SuggestFacts = Class.new(::MCP::Tool) do
         description "Submit hypothesis facts on top of an existing fact base; the closed " \
                     "schema is the whitelist (no applicable() exists to forge), augure " \

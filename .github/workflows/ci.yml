@@ -24,15 +24,11 @@ jobs:
         run: bundle exec standardrb
       - name: gdb timing probe (one-off)
         run: |
-          set -x
-          ls augure/profiler/spec/support/ || true
-          pwd
           time (echo | gdb -batch -ex run /bin/true)
-          time bundle exec ruby -I../augure/profiler/lib -e '
+          bundle exec ruby -e '
             require "augure-profiler"
-            require "augure-profiler/fuzzer"
-            bb = ["../augure/profiler/spec/support/binary_builder", "./augure/profiler/spec/support/binary_builder"].map { |p| File.expand_path(p) }.find { |p| File.file?(p) }
-            require bb
+            gem_path = Bundler.load.specs.find { |s| s.name == "augure-profiler" }.full_gem_path
+            require File.join(gem_path, "spec/support/binary_builder")
             t0 = Time.now
             sweep = AugureProfiler::Fuzzer.run(ProfilerBinaryBuilder.vulnerable, inputs: 40, max_len: 1024)
             puts "sweep=#{(Time.now - t0).round(2)}s crashes=#{sweep.size} first=#{sweep.first&.dig(:input)&.bytesize}"

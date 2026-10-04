@@ -46,6 +46,7 @@ module Lictor
         # binary is in hand: scaffold it (measured constants), trail it,
         # and the NEXT attempt discovers it. The operator still reviews
         # the file - the loop does not invent craft, it drafts it.
+        scaffolded_now = false
         if !result[:executed] && binary && repo_dir
           build = PayloadBuilder.build(binary: binary, facts: facts,
             technique: technique, out: File.join(repo_dir, "payload.bin"))
@@ -54,23 +55,36 @@ module Lictor
           trail.record(run: SecureRandom.uuid, type: "scaffold", technique: technique,
             offset: build[:offset], offset_source: build[:offset_source],
             ret: build[:ret_source], file: dest)
+          scaffolded_now = true
         end
         attempt = {
           technique: technique, executed: result[:executed],
           success: result[:success], exploit: result[:exploit], handoff: result[:handoff]
         }
         attempts << attempt
-        trail.record(run: SecureRandom.uuid, type: "outcome", technique: technique,
-          success: result[:success] == true, executed: result[:executed],
-          target: target)
+        # The outcome feeds the priors ONLY when something actually ran:
+        # a handoff attempt (the safe default) never attempted anything,
+        # and recording it as a failure systematically downgrades the
+        # decided technique for every future decision.
+        if result[:executed]
+          trail.record(run: SecureRandom.uuid, type: "outcome", technique: technique,
+            success: result[:success] == true, executed: true,
+            target: target)
+        end
         break if result[:success] == true
 
         # Failed execution: avoid repeating the same technique with the
         # same evidence - the failed outcome feeds the priors next round.
+        # A handoff also stops: the recipe is identical, nothing was
+        # attempted. But a fresh auto-scaffold CHANGED the repos: the
+        # next attempt discovers it, so the loop continues.
+        break unless result[:executed] || scaffolded_now
       end
 
       status = if attempts.any? && attempts.last[:success] == true
         "success"
+      elsif attempts.any? && attempts.none? { |a| a[:executed] }
+        "handoff"
       else
         "budget-exhausted"
       end

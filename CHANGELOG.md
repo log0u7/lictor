@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   run → outcome → report.
 
 ### Fixed
+- The safe default poisoned the learning: a handoff attempt (manual executor, nothing executed) was recorded as `success: false`, and `Priors.from_trail` counted it - every handoff-only run systematically downgraded the decided technique for all future decisions. The outcome is trailed only when something actually ran; a handoff run stops after one recipe (nothing changes between attempts) with status `handoff`; a fresh auto-scaffold still continues the loop (the next attempt discovers the draft).
 - `lictor build` never consulted pack `build:` sections: `layout_for` read packs but `build()` passed none, and `augure::Pack` had no `build` accessor at all (the pack DSL wrote a section nothing could read). Armor check 8 on the augure side validates the optional `build:` (own technique, slot vocabulary); the builder accepts `packs:` and the CLI passes the loaded packs. A pack teaching a NEW technique now materializes its own layout.
 - The `dword` slot packed with the arch width (8 bytes on x64): a partial-overwrite layout emitted the wrong payload. `dword` is 4 bytes whatever the arch; `qword` is the pointer width.
 

@@ -110,3 +110,40 @@ RSpec.describe "the run's auto-scaffold" do
     expect(scaffolded["offset_source"]).to eq("static-frame")
   end
 end
+
+RSpec.describe "the manual executor does not poison the priors" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail_path) { File.join(dir, "t.jsonl") }
+  let(:trail) { Lictor::Trail.new(trail_path) }
+  let(:facts_text) do
+    "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\nplt(\"system\").\n" \
+      "gadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n"
+  end
+
+  it "a handoff run records NO outcome event (nothing was attempted)" do
+    executor = Class.new do
+      def execute(**)
+        {executed: false, success: nil, handoff: "print the recipe, execute nothing"}
+      end
+    end
+    result = Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
+      executor: executor.new, max_attempts: 2, seed: 42)
+    events = File.file?(trail_path) ? File.readlines(trail_path).map { |l| JSON.parse(l) } : []
+    expect(events.map { |e| e["type"] }).not_to include("outcome")
+    expect(result[:status]).to eq("handoff")
+    expect(result[:steps].size).to eq(1) # one recipe, nothing changes between handoff attempts
+  end
+
+  it "the priors stay at the defaults after a handoff-only run" do
+    executor = Class.new do
+      def execute(**)
+        {executed: false, success: nil, handoff: "handoff"}
+      end
+    end
+    Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
+      executor: executor.new, max_attempts: 2, seed: 42)
+    defaults = Lictor::Priors.from_trail(Lictor::Trail.new(File.join(dir, "empty.jsonl")))
+    after = Lictor::Priors.from_trail(trail)
+    expect(after["ret2plt"]).to eq(defaults["ret2plt"])
+  end
+end

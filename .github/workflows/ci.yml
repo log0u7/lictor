@@ -22,7 +22,23 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq nmap gdb
       - name: Lint
         run: bundle exec standardrb
-      - name: Tests
+      - name: gdb timing probe (one-off)
+        run: |
+          set -x
+          time (echo | gdb -batch -ex run /bin/true)
+          time bundle exec ruby -I../augure/profiler/lib -e '
+            require "augure-profiler"
+            require "augure-profiler/fuzzer"
+            require_relative "../augure/profiler/spec/support/binary_builder"
+            t0 = Time.now
+            sweep = AugureProfiler::Fuzzer.run(ProfilerBinaryBuilder.vulnerable, inputs: 40, max_len: 1024)
+            puts "sweep=#{(Time.now - t0).round(2)}s crashes=#{sweep.size} first=#{sweep.first&.dig(:input)&.bytesize}"
+            t1 = Time.now
+            r = AugureProfiler::Triage.run(ProfilerBinaryBuilder.vulnerable, AugureProfiler::Triage.cyclic(80))
+            puts "gdb=#{(Time.now - t1).round(2)}s signal=#{r[:signal].inspect} rip=#{r.dig(:registers, "rip").inspect}"
+          '
+
+    - name: Tests
         run: timeout --signal=QUIT 6m bundle exec rspec --profile
 
   gitleaks:

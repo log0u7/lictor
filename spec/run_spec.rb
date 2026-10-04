@@ -74,3 +74,49 @@ RSpec.describe Lictor::Run do
     }.to raise_error(Lictor::Unauthorized, /consent/)
   end
 end
+
+RSpec.describe "the run's auto-scaffold" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail) { Lictor::Trail.new(File.join(dir, "t.jsonl")) }
+  let(:repo) { File.join(dir, "ronin-repo", "exploits") }
+
+  it "scaffolds the exploit when discovery comes up empty, then runs it" do
+    builder = ["../../augure/profiler/spec/support/binary_builder.rb",
+      "../augure/profiler/spec/support/binary_builder.rb"]
+      .map { |p| File.expand_path(p, __dir__) }
+      .find { |p| File.file?(p) }
+    require_relative builder
+    binary = ProfilerBinaryBuilder.vulnerable
+    FileUtils.mkdir_p(repo)
+    File.write(File.join(dir, "target.facts"),
+      "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
+      "win_symbol(\"win\", 4196182).\ngadget(\"ret_align\", 4196100).\n" \
+      "target_function(\"true\").\n")
+
+    token = Lictor::Consent.issue(trail, "192.168.56.10", confirm_input: "192.168.56.10\n")
+    executor = Class.new do
+      def initialize(repo, technique)
+        @repo = repo
+        @technique = technique
+      end
+
+      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
+        if Dir.children(@repo).empty?
+          {executed: false, success: nil, note: "no #{@technique} exploit"}
+        else
+          @ran = Dir.children(@repo).first
+          {executed: true, success: true, technique: technique, exploit: @ran}
+        end
+      end
+    end.new(repo, "ret2func")
+
+    result = Lictor::Run.run(target: "192.168.56.10",
+      facts: File.read(File.join(dir, "target.facts")), trail: trail,
+      executor: executor, consent_token: token, max_attempts: 3,
+      packs: Lictor::TechniquePacks.load(nil), binary: binary, repo_dir: repo)
+    expect(result[:status]).to eq("success")
+    expect(Dir.children(repo)).to include("lab_ret2func_001.rb")
+    scaffolded = JSON.parse(File.readlines(File.join(dir, "t.jsonl")).map { |l| JSON.parse(l) }.find { |e| e["type"] == "scaffold" }.to_json)
+    expect(scaffolded["offset_source"]).to eq("static-frame")
+  end
+end

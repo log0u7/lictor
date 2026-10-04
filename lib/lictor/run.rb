@@ -17,13 +17,29 @@ module Lictor
     module_function
 
     def run(target:, facts:, trail:, consent_token:, executor: nil, max_attempts: 3,
-      seed: nil, priors: nil, packs: nil, payload: nil)
+      seed: nil, priors: nil, packs: nil, payload: nil, binary: nil, repo_dir: nil)
       unless consent_token && Consent.valid?(trail, consent_token, target)
         raise Unauthorized, "execution requires a valid consent token for the exact target (lictor authorize <target>)"
       end
 
       executor ||= ManualExecutor.new
       attempts = []
+
+      # The static read feeds the decision: the sink the frame analysis
+      # found (strcpy/gets...) becomes the vuln_hint the engine derives
+      # from, the winning symbol's existence becomes the target fact.
+      # Measurement -> decision, in one trail.
+      if binary
+        begin
+          static = AugureProfiler::StaticOffset.offset(binary)
+          enriched = +facts.to_s
+          enriched << "vuln_hint(\"unsafe_func:#{static[:sink]}\").\n" if static[:sink]
+          enriched << "target_function(\"true\").\n" if facts.include?("win_symbol(") && static[:sink]
+          facts = enriched if enriched != facts
+        rescue StandardError
+          # the static read is an enrichment, never a gate
+        end
+      end
 
       max_attempts.times do
         decision = Handoff.plan(facts: facts, seed: seed, priors: Priors.from_trail(trail), packs: packs)
@@ -32,6 +48,19 @@ module Lictor
 
         result = executor.execute(target: target, technique: technique,
           recipe: decision[:recipe], payload: payload)
+        # The repos have no exploit for the decided technique and the
+        # binary is in hand: scaffold it (measured constants), trail it,
+        # and the NEXT attempt discovers it. The operator still reviews
+        # the file - the loop does not invent craft, it drafts it.
+        if !result[:executed] && binary && repo_dir
+          build = PayloadBuilder.build(binary: binary, facts: facts,
+            technique: technique, out: File.join(repo_dir, "payload.bin"))
+          dest = ExploitScaffold.scaffold(technique: technique, constants: build,
+            repo_dir: repo_dir, author: "lictor run auto-scaffold")
+          trail.record(run: SecureRandom.uuid, type: "scaffold", technique: technique,
+            offset: build[:offset], offset_source: build[:offset_source],
+            ret: build[:ret_source], file: dest)
+        end
         attempt = {
           technique: technique, executed: result[:executed],
           success: result[:success], exploit: result[:exploit], handoff: result[:handoff]

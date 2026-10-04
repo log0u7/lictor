@@ -56,11 +56,17 @@ What demo.sh does, per target:
    invented), runs it; the outcome is recorded.
 6. `lictor report` - the auditable engagement report covering all four.
 
-The honesty note: ret2func executes end-to-end (the flag prints). The
-other three currently stop at the recipe/attempt level - the classic
-CTF minutiae (ROP NUL truncation, %hn slot alignment) are exactly the
-hard parts - and the system reports them as failures instead of
-pretending. The exploits stay in the repo as the lab's test harness.
+The honesty note: ret2func executes end-to-end with the BUILT payload
+(`lictor build` measures the offset - 16, no brute-force - and the run
+lands the real flag). The other three currently stop at the
+recipe/attempt level - the classic CTF minutiae (ROP NUL truncation,
+%hn slot alignment) are exactly the hard parts - and the system reports
+them as failures instead of pretending. Before this build, ret2func's
+own "success" was a lie: the exploit exited 0 whether or not the flag
+came; it raises now. The exploits stay in the repo as the lab's test
+harness - and after editing one, refresh ronin's repo cache
+(`cp lab/ronin-repo/exploits/*.rb ~/.cache/ronin-repos/ronin-repo/exploits/`
+or `ronin-repos update`), or ronin keeps serving the old copy.
 
 ## The classic CTF gotchas in this lab (on purpose)
 

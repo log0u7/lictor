@@ -45,11 +45,43 @@ sh lab/demo.sh
 ```
 
 The full chain is: **scan → acquire → (fuzz → triage) → verify →
-suggest → plan → authorize → run → outcome → report** - every step is
-recorded in the trail, the decision is explained rule-by-rule,
+suggest → plan → build → authorize → run → outcome → report** - every
+step is recorded in the trail, the decision is explained rule-by-rule,
 execution needs a token the operator typed. `suggest` is the agent's
 own step: propose observations as facts, get the decision delta back
-(see [docs/how-to-llm-suggestions.md](docs/how-to-llm-suggestions.md)).
+(see [docs/how-to-llm-suggestions.md](docs/how-to-llm-suggestions.md));
+`build` is the payload step: the offset is measured, the bytes are
+assembled (below).
+
+## From decision to payload: the offset is measured, not guessed
+
+The original tool this project descends from ended with a payload: the
+padding, the return address, the shellcode. `lictor build` carries that
+inheritance - with every number auditable instead of assumed:
+
+- the **offset is measured**: a cyclic pattern crashes the acquired
+  binary under the debugger; the instruction pointer (or the rbp slot a
+  `leave; ret` epilogue betrays) pins the exact offset back in the
+  pattern. No brute-force loop, no magic constant.
+- the **return address comes from the facts**: the profiler keeps the
+  winning symbol's name and address (`win_symbol`), or the classic
+  `ff e4` - named for the target's stack register (`jmp_rsp`/`jmp_esp`).
+- the **shellcode is assembly source**: readable, versioned stubs
+  (execve /bin/sh, execve /bin/bash -p) assembled on demand by metasm -
+  no hex blobs, no external generator.
+- the result is a payload file the trail records and `lictor run
+  --payload` sends as-is. When the flag does not come, the exploit says
+  so and the run says failed.
+
+```sh
+lictor build ret2func --facts target.facts -a targets.yml -o payload.bin
+# technique:  ret2func
+# offset:     16  (measured: cyclic pattern under the debugger)
+# ret:        win_symbol:win@4198870
+# payload:    payload.bin (24 bytes, arch x64)
+lictor run 127.0.0.1:9999 --facts target.facts -a targets.yml \
+  --executor ronin --consent-token "$TOKEN" --payload payload.bin
+```
 
 ## Capabilities
 
@@ -61,6 +93,8 @@ own step: propose observations as facts, get the decision delta back
 | `fuzz <binary>` | Fuzz + triage a local binary: the fact **discovery** layer. Length sweep + mutations; gdb/rizin/lldb backends. |
 | `verify <target>` | The differential: the crash input faults the remote like the local model → the facts become `remote-verified`. |
 | `plan <binary-or-facts>` | Profile if ELF, decide (augure), print the recipe. |
+| `build <binary>` | Assemble the payload for the selected technique: measured offset (cyclic pattern under the debugger), fact-sourced return address, metasm-assembled shellcode. |
+| `suggest <facts>` | The agent proposes observations as facts; augure re-decides and the delta comes back. |
 | `authorize <target>` | Mint a short-lived execution consent - **typed by the human**. |
 | `run <target>` | The closed loop: decide, execute, outcome, re-decide - with an attempt budget. |
 | `outcome <run-id>` | Record the result; the next decision adapts the priors. |
@@ -143,6 +177,21 @@ The agent proposes; augure disposes; lictor executes - and the checks
 run server-side, so the agent cannot weaken them. Agents teach augure new techniques through the same armor:
 see [augure's pack format](https://github.com/log0u7/augure/blob/main/docs/pack-format.md)
 and the [augure-operator skill](https://github.com/log0u7/augure/tree/main/skills/augure-operator).
+
+## Honest numbers
+
+Read every claim below as a **prediction with provenance**, not a field
+result - the lab is the measurement bench, not the world:
+
+| Claim | Evidence |
+|---|---|
+| ret2func: the built payload lands the real flag, no brute-force | the lab, e2e: build (offset 16 measured) → run → `FLAG{augure_decides_lictor_executes}` |
+| the offset measurement generalizes | the cyclic-pattern suite runs a real gdb crash on a built fixture |
+| corpus: 33/33 technique classifications | `augure-benchmark`, CI-enforced at 100% |
+| shellcode / ret2plt / fmtstr targets | fact bases + recipes shipped; the build templates and verified runs are the next lab mile |
+
+A run that fails says failed: the lab exploit raises when the flag does
+not come, so the exit code cannot mask a miss.
 
 ## Acceptable use
 

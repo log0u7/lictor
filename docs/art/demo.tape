@@ -73,7 +73,14 @@ Sleep 5s
 Sleep 2s
 Ctrl+L
 
-Type "# act 5 - consent is TYPED by a human, never a flag"
+Type "# act 5 - the payload: the offset is MEASURED, the return comes from the facts"
+Enter
+Type "lictor build ret2func --facts target.facts -a targets.yml -o payload.bin"
+Enter
+Sleep 5s
+Ctrl+L
+
+Type "# act 6 - consent is TYPED by a human, never a flag"
 Enter
 Type "export TOKEN=$(echo 127.0.0.1:9999 | lictor authorize 127.0.0.1:9999 -a targets.yml | grep token: | awk '{print $2}') && echo token minted: ${TOKEN:0:8}... valid 15 min"
 Enter
@@ -81,15 +88,15 @@ Sleep 3500ms
 Sleep 2s
 Ctrl+L
 
-Type "# act 6 - the closed loop: the executor discovers the exploit in the operator's repos"
+Type "# act 7 - the closed loop with the built payload"
 Enter
-Type "lictor run 127.0.0.1:9999 --facts target.facts -a targets.yml --executor ronin --consent-token $TOKEN | tail -3"
+Type "lictor run 127.0.0.1:9999 --facts target.facts -a targets.yml --executor ronin --consent-token $TOKEN --payload payload.bin | tail -3"
 Enter
 Sleep 10s
 Sleep 2s
 Ctrl+L
 
-Type "# act 7 - the audit: every decision, rule, token and outcome is recorded"
+Type "# act 8 - the audit: every decision, rule, token, build and outcome is recorded"
 Enter
 Type "lictor report -o engagement.md"
 Enter

@@ -25,13 +25,16 @@ priors), JSONL trail, engagement reports, the gated MCP surface
 5. Lictor never decides technique selection; it consumes augure.
    Outcomes feed back through `Lictor::Priors.from_trail`, never by
    touching augure's internals.
-6. No exploit code, no payload generation - orchestration of the
-   Ruby-native arsenal (ronin-exploits + rex gems) only. The exploit
-   NAME always comes from the operator's ronin repos.
+6. No exploit CODE: the exploits live in the operator's ronin repos;
+   lictor orchestrates them. The payload assembly (`lictor build`) is
+   measurement, not invention: the offset is measured under the
+   debugger, the return address comes from the facts, the shellcode
+   stubs are committed assembly source. The exploit NAME always comes
+   from the operator's ronin repos.
 
 ## Commands
 
-- Test: `bundle exec rspec` (all green required, 108+ examples)
+- Test: `bundle exec rspec` (all green required, 112+ examples)
 - Lint: `bundle exec standardrb` (zero offenses required)
 - CLI: `bundle exec ruby bin/lictor --help`
 

@@ -25,16 +25,22 @@ jobs:
       - name: gdb timing probe (one-off)
         run: |
           time (echo | gdb -batch -ex run /bin/true)
-          bundle exec ruby -e '
+          timeout 90 bundle exec ruby -e '
+            $stdout.sync = true
             require "augure-profiler"
+            puts "profiler loaded"
             gem_path = Bundler.load.specs.find { |s| s.name == "augure-profiler" }.full_gem_path
             require File.join(gem_path, "spec/support/binary_builder")
+            puts "builder loaded"
             t0 = Time.now
-            sweep = AugureProfiler::Fuzzer.run(ProfilerBinaryBuilder.vulnerable, inputs: 40, max_len: 1024)
-            puts "sweep=#{(Time.now - t0).round(2)}s crashes=#{sweep.size} first=#{sweep.first&.dig(:input)&.bytesize}"
+            b = ProfilerBinaryBuilder.vulnerable
+            puts "fixture=#{(Time.now - t0).round(2)}s #{b}"
             t1 = Time.now
-            r = AugureProfiler::Triage.run(ProfilerBinaryBuilder.vulnerable, AugureProfiler::Triage.cyclic(80))
-            puts "gdb=#{(Time.now - t1).round(2)}s signal=#{r[:signal].inspect} rip=#{r.dig(:registers, "rip").inspect}"
+            sweep = AugureProfiler::Fuzzer.run(b, inputs: 40, max_len: 1024)
+            puts "sweep=#{(Time.now - t1).round(2)}s crashes=#{sweep.size} first=#{sweep.first&.dig(:input)&.bytesize}"
+            t2 = Time.now
+            r = AugureProfiler::Triage.run(b, AugureProfiler::Triage.cyclic(80))
+            puts "gdb=#{(Time.now - t2).round(2)}s signal=#{r[:signal].inspect} rip=#{r.dig(:registers, "rip").inspect}"
           '
 
       - name: Tests

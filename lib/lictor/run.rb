@@ -36,7 +36,7 @@ module Lictor
           enriched << "vuln_hint(\"unsafe_func:#{static[:sink]}\").\n" if static[:sink]
           enriched << "target_function(\"true\").\n" if facts.include?("win_symbol(") && static[:sink]
           facts = enriched if enriched != facts
-        rescue StandardError
+        rescue
           # the static read is an enrichment, never a gate
         end
       end

@@ -101,7 +101,7 @@ RSpec.describe "the run's auto-scaffold" do
       end
 
       def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
-        if Dir.children(@repo).empty?
+        if Dir.empty?(@repo)
           {executed: false, success: nil, note: "no #{@technique} exploit"}
         else
           @ran = Dir.children(@repo).first

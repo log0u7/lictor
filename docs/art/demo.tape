@@ -14,7 +14,7 @@ Set Theme { "name": "Sensationnel", "background": "#0b0b10", "foreground": "#e8e
 Set Margin 36
 Set MarginFill "#16161f"
 Set Padding 16
-Set TypingSpeed 30ms
+Set TypingSpeed 45ms
 
 Type "export PATH=$HOME/projets/blog/draft/lictor/bin:$HOME/.local/share/mise/shims:$PATH; cd /tmp/lictor-demo; export PS1='> '"
 Enter
@@ -24,7 +24,7 @@ Enter
 Type "echo '   decide with provenance - execute under consent - audit everything'"
 Enter
 Sleep 1200ms
-Sleep 2s
+Sleep 3500ms
 Ctrl+L
 
 Type "# act 0 - the lab comes up: four real vulnerable services"
@@ -32,7 +32,7 @@ Enter
 Type "docker compose -f $HOME/projets/blog/draft/lictor/lab/docker-compose.yml up -d 2>&1 | tail -2"
 Enter
 Sleep 3s
-Sleep 2s
+Sleep 3500ms
 Ctrl+L
 
 Type "# act 1 - the environment, verified"
@@ -40,7 +40,7 @@ Enter
 Type "lictor doctor | tail -7"
 Enter
 Sleep 2500ms
-Sleep 2s
+Sleep 3500ms
 Ctrl+L
 
 Type "# act 2 - nmap sees the targets (allowlist-checked, trailed)"
@@ -48,7 +48,7 @@ Enter
 Type "lictor scan 127.0.0.1 -a targets.yml"
 Enter
 Sleep 7s
-Sleep 2s
+Sleep 3500ms
 Ctrl+L
 
 Type "# act 3 - the bridge: download, ELF-check, profile, record"
@@ -56,7 +56,7 @@ Enter
 Type "lictor acquire 127.0.0.1:9999 --from http://127.0.0.1:8000/ret2func -a targets.yml"
 Enter
 Sleep 6s
-Sleep 2s
+Sleep 3500ms
 Ctrl+L
 
 Type "# act 4 - augure decides, WITH the rule and the evidence"
@@ -64,13 +64,13 @@ Enter
 Type "lictor plan target.facts -a targets.yml | grep -v '^  ' | head -7"
 Enter
 Sleep 6s
-Sleep 2s
+Sleep 3500ms
 Ctrl+L
 
 Type "lictor plan target.facts -a targets.yml | grep '<- '"
 Enter
 Sleep 5s
-Sleep 2s
+Sleep 3500ms
 Ctrl+L
 
 Type "# act 5 - the payload: the offset is MEASURED, the return comes from the facts"
@@ -85,7 +85,7 @@ Enter
 Type "export TOKEN=$(echo 127.0.0.1:9999 | lictor authorize 127.0.0.1:9999 -a targets.yml | grep token: | awk '{print $2}') && echo token minted: ${TOKEN:0:8}... valid 15 min"
 Enter
 Sleep 3500ms
-Sleep 2s
+Sleep 3500ms
 Ctrl+L
 
 Type "# act 7 - the closed loop with the built payload"
@@ -93,7 +93,7 @@ Enter
 Type "lictor run 127.0.0.1:9999 --facts target.facts -a targets.yml --executor ronin --consent-token $TOKEN --payload payload.bin | tail -3"
 Enter
 Sleep 10s
-Sleep 2s
+Sleep 3500ms
 Ctrl+L
 
 Type "# act 8 - the audit: every decision, rule, token, build and outcome is recorded"
@@ -104,10 +104,10 @@ Sleep 2s
 Type "mise x glow -- glow engagement.md | head -22"
 Enter
 Sleep 4s
-Sleep 2s
+Sleep 3500ms
 Ctrl+L
 
 Type "tail -4 demo-trail.jsonl | jq -r .type"
 Enter
 Sleep 2500ms
-Sleep 6s
+Sleep 8s

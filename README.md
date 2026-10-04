@@ -61,20 +61,17 @@ from the observations - the loop feeds augure back.
 
 ## From decision to payload: the offset is measured, not guessed
 
-The original tool this project descends from ended with a payload: the
-padding, the return address, the shellcode. `lictor build` carries that
-inheritance - with every number auditable instead of assumed:
+`lictor build` carries the original tool's inheritance - with every
+number auditable instead of assumed:
 
-- the **offset is measured**: a cyclic pattern crashes the acquired
-  binary under the debugger; the instruction pointer (or the rbp slot a
-  `leave; ret` epilogue betrays) pins the exact offset back in the
-  pattern. No brute-force loop, no magic constant.
-- the **return address comes from the facts**: the profiler keeps the
-  winning symbol's name and address (`win_symbol`), or the classic
-  `ff e4` - named for the target's stack register (`jmp_rsp`/`jmp_esp`).
-- the **shellcode is assembly source**: readable, versioned stubs
-  (execve /bin/sh, execve /bin/bash -p) assembled on demand by metasm -
-  no hex blobs, no external generator.
+- the **offset is measured**: the frame read statically (ret2win x64 =
+  40, the canonical number) or the cyclic pattern crashed under the
+  debugger - never a magic constant;
+- the **return address comes from the facts**: the winning symbol's
+  address, the gadget facts, or the addresses the service's own banner
+  leaked (`lictor harvest`);
+- the **shellcode is assembly source** (execve, bash -p, the orw chain
+  for seccomp targets) assembled on demand by metasm - no hex blobs;
 - the result is a payload file the trail records and `lictor run
   --payload` sends as-is. When the flag does not come, the exploit says
   so and the run says failed.
@@ -82,12 +79,17 @@ inheritance - with every number auditable instead of assumed:
 ```sh
 lictor build ret2func --facts target.facts -o payload.bin
 # technique:  ret2func
-# offset:     16  (measured: cyclic pattern under the debugger)
+# offset:     16  (measured)
 # ret:        win_symbol:win@4198870
 # payload:    payload.bin (24 bytes, arch x64)
 lictor run 127.0.0.1:9999 --facts target.facts \
   --executor ronin --payload payload.bin
 ```
+
+The slot vocabulary, the metasm usage step by step, and the published
+lineage (metasm SSTIC 2007 -> the SSTIC 2008 deprotection paper ->
+esec-lab 2010 -> miasm 2012 -> the 2015 ghost-writing technique) live
+in [augure/docs/build-format.md](../augure/docs/build-format.md).
 
 ## Capabilities
 

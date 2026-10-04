@@ -1,27 +1,21 @@
 # frozen_string_literal: true
 
 require "securerandom"
-require_relative "gates"
-require_relative "consent"
 require_relative "handoff"
 require_relative "priors"
 require_relative "trail"
 
 module Lictor
   # The closed loop, driven: decide (augure) -> execute the plan's next
-  # step (executor, consent token required) -> outcome -> priors -> re-decide,
+  # step (executor) -> outcome -> priors -> re-decide,
   # until a shell, or the budget runs out. Every step is trailed. The
   # handoff executor makes the whole loop safe by construction: it
   # "executes" by printing.
   module Run
     module_function
 
-    def run(target:, facts:, trail:, consent_token:, executor: nil, max_attempts: 3,
+    def run(target:, facts:, trail:, executor: nil, max_attempts: 3,
       seed: nil, priors: nil, packs: nil, payload: nil, binary: nil, repo_dir: nil)
-      unless consent_token && Consent.valid?(trail, consent_token, target)
-        raise Unauthorized, "execution requires a valid consent token for the exact target (lictor authorize <target>)"
-      end
-
       executor ||= ManualExecutor.new
       attempts = []
 

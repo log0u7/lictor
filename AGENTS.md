@@ -10,22 +10,17 @@ priors), JSONL trail, engagement reports, the gated MCP surface
 
 ## Hard rules (enforced in code, in review, everywhere)
 
-1. Authorization = the allowlist artifact: explicit host[:port] entries,
-   written and versioned by the operator. Wildcards structurally rejected.
-   No target outside the file - ever.
-2. NO consent flag. It was removed as security theater: a flag can be
-   typed by reflex, by a script, or by anyone with shell access. The
-   controls are the artifact and the trail. Execution confirms
-   interactively (`lictor run` shows the recipe, the operator types the
-   target; `lictor authorize` mints the token) - never a flag.
-3. Handoff (print the recipe) is the default; `plan` executes nothing,
-   so it needs no more than a valid allowlist file.
-4. Every action is trailed: decision -> rule provenance -> recipe ->
+1. The OPERATOR is the authorization. No gates, no tokens, no allowlist
+   file - all removed as friction that proves nothing (a flag or a file
+   can be written by anything with shell access). The trail is the
+   record; the README carries the authorized-use disclaimer.
+2. Handoff (print the recipe) is the default; `plan` executes nothing.
+3. Every action is trailed: decision -> rule provenance -> recipe ->
    outcome (JSONL; sequel when queries are actually needed).
-5. Lictor never decides technique selection; it consumes augure.
+4. Lictor never decides technique selection; it consumes augure.
    Outcomes feed back through `Lictor::Priors.from_trail`, never by
    touching augure's internals.
-6. No exploit CODE: the exploits live in the operator's ronin repos;
+5. No exploit CODE: the exploits live in the operator's ronin repos;
    lictor orchestrates them. The payload assembly (`lictor build`) is
    measurement, not invention: the offset is measured under the
    debugger, the return address comes from the facts, the shellcode

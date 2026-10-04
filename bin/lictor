@@ -22,24 +22,20 @@ parser = OptionParser.new do |opts|
     Usage: lictor <command> [options]
 
     Commands:
-      recon <nmap.xml>            print allowlist candidates from an nmap scan
-      scan <host>                 run nmap against an allowlisted host
+      recon <nmap.xml>            print service candidates from an nmap scan
+      scan <host>                 run nmap against a target (trailed)
       fuzz <binary>               fuzz + triage a local binary (discovery layer)
       plan <binary-or-facts>      profile if ELF, decide, print the recipe
-      authorize <target>          mint a short-lived execution consent token
       outcome <run-id>            record the result of a run (the closed loop)
       runs                        list the trailed runs
       report                      render the auditable engagement report
       rule validate|install|list  teach augure a technique (data-only packs)
 
     Setup: lictor.yml in the working directory
-      (allowlist: targets.yml / trail: runs.jsonl / nmap: / seed: /
-      profile_cmd:). Flags override the config. Authorization is the
-      allowlist file: explicit host[:port] entries, written and
-      versioned by the operator. There is no consent flag - a flag
-      proves nothing; the artifact and the trail do.
+      (trail: runs.jsonl / nmap: / seed: / profile_cmd:). Flags override
+      the config. You are the operator: what this tool does, you did.
+      The trail is the record.
   USAGE
-  opts.on("-a", "--allowlist PATH", "Target allowlist file (overrides lictor.yml)") { |v| options[:allowlist] = v }
   opts.on("-s", "--seed N", Integer, "Seed for reproducible decisions") { |v| options[:seed] = v }
   opts.on("-t", "--trail PATH", "JSONL trail (default: lictor-trail.jsonl)") { |v| options[:trail] = v }
   opts.on("--nmap PATH", "Path to the nmap binary (default: nmap in PATH)") { |v| options[:nmap] = v }
@@ -51,7 +47,6 @@ parser = OptionParser.new do |opts|
   opts.on("--max-inputs N", Integer, "Fuzz budget: mutated inputs to try (default 50)") { |v| options[:max_inputs] = v }
   opts.on("--mutator NAME", "ruby (default) or radamsa if installed") { |v| options[:mutator] = v }
   opts.on("--executor NAME", "manual (default) or ronin") { |v| options[:executor] = v }
-  opts.on("--consent-token TOK", "Consent token from `lictor authorize`") { |v| options[:consent_token] = v }
   opts.on("--payload FILE", "Send a pre-built payload (from `lictor build`) with run") { |v| options[:payload] = v }
   opts.on("--payload-file FILE", "Custom shellcode/payload bytes for build") { |v| options[:payload_file] = v }
   opts.on("--out FILE", "Output path for build (default payload.bin)") { |v| options[:out] = v }
@@ -64,7 +59,6 @@ parser = OptionParser.new do |opts|
   opts.on("--input PATH", "Crash input for verify (the fuzzer's discovery)") { |v| options[:input] = v }
   opts.on("--triage-backend NAME", "gdb (default), rizin or lldb") { |v| options[:triage_backend] = v }
   opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
-  opts.on("--ttl SECONDS", Integer, "Consent token lifetime (default 900)") { |v| options[:ttl] = v }
   opts.on("-j", "--json", "Machine payload instead of human output") { options[:json] = true }
   opts.on("-h", "--help", "Show this help") { puts opts; exit 0 }
 end
@@ -99,7 +93,6 @@ def scaffold_files
   {
     "lictor.yml" => <<~YML,
       # lictor setup - flags override these values
-      allowlist: targets.yml
       trail: lictor-trail.jsonl
     YML
     "targets.yml" => <<~YML
@@ -162,7 +155,6 @@ when "doctor"
   config_path = "lictor.yml"
   checks << ["lictor.yml", File.file?(config_path) ? nil : "run `lictor init`"]
   begin
-    Lictor::Gates.allowlist(options[:allowlist] || Lictor::Config.load[:allowlist])
     checks << ["targets.yml parses (no wildcards)", nil]
   rescue Lictor::Unauthorized => e
     checks << ["targets.yml parses (no wildcards)",
@@ -190,25 +182,9 @@ when "doctor"
     n = checks.count { |_, p| p }
     abort("lictor: doctor found #{n} issue(s) - fixes above (fresh setup? run lictor init)")
   end
-when "authorize"
-  # The human mints an execution consent: interactive, typed, TTL'd.
-  target = ARGV.shift or abort(parser.to_s)
-  begin
-    Lictor::Gates.require_in_scope!(options[:allowlist], target)
-  rescue Lictor::Unauthorized => e
-    abort("lictor: UNAUTHORIZED - #{e.message}")
-  end
-  print "type the target name to authorize execution: "
-  token = Lictor::Consent.issue(trail, target, confirm_input: $stdin.gets.to_s,
-                                ttl_seconds: options[:ttl] || 900)
-  puts "authorized: #{target} (token valid 15 min)"
-  puts "token:      #{token}"
-  puts "hand this token to the executor/agent that runs against #{target}."
 when "recon"
-  # Recon output is CANDIDATES, not authorization: the operator still
-  # copies entries into targets.yml and the gates still check them.
   xml = ARGV.shift or abort(parser.to_s)
-  puts Lictor::Recon.allowlist_candidates(xml)
+  puts Lictor::Recon.service_candidates(xml)
 when "rule"
   sub = ARGV.shift or abort(parser.to_s)
   packs_dir = options[:packs] || Lictor::Config.load[:packs] || "packs"
@@ -255,11 +231,6 @@ when "verify"
   # remote-verified (the facts carry the confidence level).
   target = ARGV.shift or abort(parser.to_s)
   abort("lictor: verify needs --input <crash-input-file> (lictor fuzz discovers it)") unless options[:input]
-  begin
-    Lictor::Gates.require_in_scope!(options[:allowlist], target)
-  rescue Lictor::Unauthorized => e
-    abort("lictor: UNAUTHORIZED - #{e.message}")
-  end
   # Remote crash detection: deliver the input, then read until the
   # connection dies. A crashed child dies IN vuln_copy: the normal path
   # prints "hello" first, the crash path does not. A reset = death too.
@@ -293,8 +264,7 @@ when "verify"
     puts "  (version drift? a different build?). Do not trust the offsets."
   end
 when "fuzz"
-  # Fuzzing is an ACTION on a local binary: allowlist not required (the
-  # binary is local, no network), but it is TRAILED - and its discoveries
+  # Fuzzing is an ACTION on a local binary: TRAILED, and its discoveries
   # feed the plan.
   binary = ARGV.shift or abort(parser.to_s)
   begin
@@ -324,27 +294,20 @@ when "fuzz"
     puts "triage:   #{triage[:signal]} control=#{triage[:control]}"
     facts_text = AugureProfiler::Triage.facts(triage)
     puts facts_text
-    puts "next:     lictor plan <binary> -a targets.yml  (facts above are decidable)"
+    puts "next:     lictor plan <binary>  (facts above are decidable)"
   end
 when "run"
   # The closed loop, opt-in: decide -> execute -> outcome -> re-decide.
-  # The consent token comes from `lictor authorize <target>` (human-typed).
   target = ARGV.shift or abort(parser.to_s)
   abort("lictor: run needs --facts <facts-file> (scan/profile first)") unless options[:facts]
   executor_kind = (options[:executor] || :manual).to_sym
-  begin
-    Lictor::Gates.require_in_scope!(options[:allowlist], target)
-    token = options[:consent_token] ||
-            Lictor::Consent.issue(trail, target, confirm_input: target)
+
     result = Lictor::Run.run(target: target, facts: File.read(options[:facts]), trail: trail,
                              executor: Lictor::Executor.resolve(executor_kind),
-                             consent_token: token, max_attempts: options[:max_attempts] || 3,
+                             max_attempts: options[:max_attempts] || 3,
                              packs: Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs"),
                              payload: options[:payload],
                              seed: options[:seed])
-  rescue Lictor::Unauthorized => e
-    abort("lictor: UNAUTHORIZED - #{e.message}")
-  end
   puts "status:  #{result[:status]}"
   result[:steps].each do |s|
     executed = s[:executed] ? "executed" : "handoff"
@@ -362,16 +325,10 @@ when "acquire"
                                        profiler_cmd: options[:profile_cmd])
   puts "acquired:   #{result[:binary_path]}"
   puts "facts:      #{result[:facts_path]} (#{result[:facts].lines.size} facts)"
-  puts "next:       lictor plan target.facts -a targets.yml"
+  puts "next:       lictor plan target.facts"
 when "scan"
-  # A scan is an ACTION: the target must be in the allowlist, and the
-  # scan is trailed.
+  # A scan is an ACTION, trailed.
   target = ARGV.shift or abort(parser.to_s)
-  begin
-    Lictor::Gates.require_in_scope!(options[:allowlist], target)
-  rescue Lictor::Unauthorized => e
-    abort("lictor: UNAUTHORIZED - #{e.message}")
-  end
   out_xml = File.join(Dir.mktmpdir("lictor_scan"), "scan.xml")
   begin
     targets = Lictor::Scanner.run(target, out: out_xml, nmap_cmd: options[:nmap] || "nmap")
@@ -400,7 +357,6 @@ when "suggest"
 when "harvest"
   target = ARGV.shift or abort(parser.to_s)
   begin
-    Lictor::Gates.allowlist(options[:allowlist] || Lictor::Config.load[:allowlist])
     result = Lictor::Harvest.harvest(target, trail: trail,
       timeout: options[:timeout] || 5, read_bytes: 512)
     puts "leaked:     #{result[:addresses].map { |k, v| "#{k}=#{format('0x%x', v)}" }.join(', ')}"
@@ -463,7 +419,6 @@ when "build"
     facts_path = "target.facts"
   end
   begin
-    Lictor::Gates.allowlist(options[:allowlist]) if options[:allowlist]
     decision = Lictor::Handoff.plan(facts: File.read(facts_path), seed: options[:seed],
       priors: Lictor::Priors.from_trail(trail),
       packs: Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs"))
@@ -486,7 +441,6 @@ when "build"
 when "plan"
   input = ARGV.shift or abort(parser.to_s)
   begin
-    Lictor::Gates.allowlist(options[:allowlist]) # the scope artifact must exist and be clean
   rescue Lictor::Unauthorized => e
     abort("lictor: UNAUTHORIZED - #{e.message}")
   end

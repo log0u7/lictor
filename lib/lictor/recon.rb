@@ -4,8 +4,8 @@ require "nmap/xml"
 
 module Lictor
   # Recon bridge: nmap XML in, target inventory out. ruby-nmap (1.0.3,
-  # postmodern) parses the XML; Lictor emits allowlist candidates in the
-  # exact format the Gates accept - explicit host:port entries, wildcards
+  # postmodern) parses the XML; Lictor emits service candidates in the
+  # exact format the operator keeps - explicit host:port entries, wildcards
   # structurally impossible. Recon never runs nmap itself: the operator
   # scans, Lictor reads.
   module Recon
@@ -30,7 +30,7 @@ module Lictor
       end
     end
 
-    def allowlist_candidates(path)
+    def service_candidates(path)
       from_nmap_xml(path).map { |t| "#{t[:host]}:#{t[:port]}" }
     end
 
@@ -42,13 +42,20 @@ module Lictor
       lines = []
       from_nmap_xml(path).each do |t|
         lines << "remote(\"true\").\n"
-        lines << "service(\"#{t[:service]}\").\n" if t[:service]
+        lines << "service(\"#{sanitize(t[:service])}\").\n" if t[:service]
         if t[:product]
           version = [t[:product], t[:version]].compact.join(" ")
-          lines << "software_version(\"#{version}\").\n" if t[:version]
+          lines << "software_version(\"#{sanitize(version)}\").\n" if t[:version]
         end
       end
       lines.uniq.join
+    end
+
+    # The banner data comes from the TARGET: it must fit the fact-atom
+    # grammar (no quotes, backslashes, parens, newlines) or a hostile
+    # service forges facts and steers the decision.
+    def sanitize(value)
+      value.to_s.gsub(/[\\"()\n\r]/, "_")
     end
   end
 end

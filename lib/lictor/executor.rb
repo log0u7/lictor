@@ -75,7 +75,7 @@ module Lictor
       end
     end
 
-    def execute(target:, technique:, recipe:, exploit_name: nil, consent_token: nil, payload: nil)
+    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
       exploit_name ||= discover(technique).first
       unless exploit_name
         return {executed: false, success: nil,

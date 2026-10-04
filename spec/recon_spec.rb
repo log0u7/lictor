@@ -17,14 +17,14 @@ RSpec.describe Lictor::Recon do
     end
   end
 
-  describe ".allowlist_candidates" do
+  describe ".service_candidates" do
     it "emits host:port entries matching the allowlist format" do
-      expect(described_class.allowlist_candidates(fixture))
+      expect(described_class.service_candidates(fixture))
         .to contain_exactly("192.168.56.10:22", "192.168.56.10:80", "192.168.56.11:21")
     end
 
     it "never contains wildcards (the gate contract)" do
-      described_class.allowlist_candidates(fixture).each do |entry|
+      described_class.service_candidates(fixture).each do |entry|
         expect(entry).not_to include("*")
       end
     end

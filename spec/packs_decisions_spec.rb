@@ -67,14 +67,13 @@ RSpec.describe "installed packs influence decisions" do
     # brop fires ONLY through a pack rule (no built-in rule reads
     # remote/verified) - an unambiguous proof the loop saw the pack.
     brop_facts = "remote(\"true\").\nverified(\"remote\").\nnx(\"true\").\n"
-    token = Lictor::Consent.issue(trail, "192.168.56.10", confirm_input: "192.168.56.10\n")
     executor = Class.new do
       def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
         {executed: true, success: true, technique: technique}
       end
     end
     result = Lictor::Run.run(target: "192.168.56.10", facts: brop_facts, trail: trail,
-      executor: executor.new, consent_token: token, seed: 42,
+      executor: executor.new, seed: 42,
       packs: Lictor::TechniquePacks.load(augure_packs_dir))
     expect(result[:steps].first[:technique]).to eq("brop")
   end
@@ -93,7 +92,7 @@ RSpec.describe "installed packs influence decisions" do
     File.write(facts, csu_facts)
     Dir.chdir(project) do
       response = LictorMcp::Server.build.handle_json(
-        %( {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"plan_technique","arguments":#{JSON.generate({target: facts, allowlist: list})}}} ) + "\n"
+        %( {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"plan_technique","arguments":#{JSON.generate({target: facts})}}} ) + "\n"
       )
       decision = JSON.parse(JSON.parse(response).dig("result", "content", 0, "text"))
       expect(decision["applicable"]).to include("ret2csu_v2")

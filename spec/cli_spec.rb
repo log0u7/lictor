@@ -11,26 +11,7 @@ RSpec.describe "bin/lictor" do
       "gadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n"
   end
 
-  it "refuses to run without an allowlist" do
-    path = File.join(Dir.mktmpdir, "target.facts")
-    File.write(path, facts_text)
-    _out, err, status = Open3.capture3(exe, "plan", path)
-    expect(status.exitstatus).not_to eq(0)
-    expect(err).to include("UNAUTHORIZED")
-  end
-
-  it "refuses a wildcard allowlist" do
-    dir = Dir.mktmpdir
-    path = File.join(dir, "target.facts")
-    File.write(path, facts_text)
-    list = File.join(dir, "targets.yml")
-    File.write(list, "*.lab.local\n")
-    _out, err, status = Open3.capture3(exe, "plan", path, "-a", list)
-    expect(status.exitstatus).not_to eq(0)
-    expect(err).to include("wildcards")
-  end
-
-  it "emits allowlist candidates from an nmap XML scan (no gates: candidates only)" do
+  it "emits service candidates from an nmap XML scan" do
     xml = File.expand_path("fixtures/nmap_scan.xml", __dir__)
     out, _err, status = Open3.capture3(exe, "recon", xml)
     expect(status.exitstatus).to eq(0)
@@ -39,13 +20,13 @@ RSpec.describe "bin/lictor" do
     expect(out).not_to include("192.168.56.10:4444") # closed port
   end
 
-  it "hands off the decision with a recipe and trails it (no consent flag needed)" do
+  it "hands off the decision with a recipe and trails it " do
     dir = Dir.mktmpdir
     path = File.join(dir, "target.facts")
     File.write(path, facts_text)
     list = File.join(dir, "targets.yml")
     File.write(list, "192.168.56.10\n")
-    out, _err, status = Open3.capture3(exe, "plan", path, "-a", list,
+    out, _err, status = Open3.capture3(exe, "plan", path,
       "-t", File.join(dir, "trail.jsonl"))
     expect(status.exitstatus).to eq(0)
     expect(out).to include("handoff")
@@ -180,7 +161,7 @@ RSpec.describe "lictor harvest" do
     facts = File.join(dir, "target.facts")
     File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n")
     out, _err, status = Open3.capture3(File.expand_path("../bin/lictor", __dir__),
-      "harvest", "127.0.0.1:9999", "-a", File.join(dir, "targets.yml"), "-t", trail)
+      "harvest", "127.0.0.1:9999", "-t", trail)
     skip "the lab is down" unless status.exitstatus.zero?
     expect(out).to include("win")
     event = JSON.parse(File.readlines(trail).last)

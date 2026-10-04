@@ -4,7 +4,7 @@ require "open3"
 require_relative "recon"
 
 module Lictor
-  # Active scanning: nmap as a subprocess against an allowlisted,
+  # Active scanning: nmap as a subprocess against a target,
   # consented target. The scan is an ACTION - same gates as everything
   # else, and it is trailed. Recon (XML parsing) stays passive.
   class ScanError < StandardError; end

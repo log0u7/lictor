@@ -12,31 +12,10 @@ RSpec.describe LictorMcp::Server do
     %( {"jsonrpc":"2.0","id":#{id},"method":"tools/call","params":{"name":"#{tool}","arguments":#{JSON.generate(args)}}} ) + "\n"
   end
 
-  it "exposes the four gated tools" do
+  it "exposes the seven tools" do
     expect(server.tools.values.map(&:tool_name))
       .to contain_exactly("scan_target", "plan_technique", "execute_technique", "validate_pack",
         "suggest_facts", "build_payload", "scaffold_exploit")
-  end
-
-  it "scan refuses a host outside the allowlist (server-side gate)" do
-    dir = Dir.mktmpdir
-    list = File.join(dir, "targets.yml")
-    File.write(list, "192.168.56.10\n")
-    response = server.handle_json(rpc(1, "scan_target", {host: "10.9.9.9", allowlist: list}))
-    text = JSON.parse(response).dig("result", "content", 0, "text")
-    expect(text).to include("UNAUTHORIZED")
-  end
-
-  it "execute refuses an invalid consent token" do
-    dir = Dir.mktmpdir
-    list = File.join(dir, "targets.yml")
-    File.write(list, "192.168.56.10\n")
-    response = server.handle_json(rpc(1, "execute_technique", {
-      target: "192.168.56.10", technique: "ret2plt", exploit_name: "lab_ret2plt_001",
-      consent_token: "forged", allowlist: list
-    }))
-    text = JSON.parse(response).dig("result", "content", 0, "text")
-    expect(text).to include("consent token invalid")
   end
 
   it "plan emits the decision with provenance" do
@@ -46,7 +25,7 @@ RSpec.describe LictorMcp::Server do
     facts = File.join(dir, "target.facts")
     File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\nplt(\"system\").\n" \
                       "gadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n")
-    response = server.handle_json(rpc(1, "plan_technique", {target: facts, allowlist: list}))
+    response = server.handle_json(rpc(1, "plan_technique", {target: facts}))
     decision = JSON.parse(JSON.parse(response).dig("result", "content", 0, "text"))
     expect(decision["selected"] || decision[:selected]).to eq("ret2plt")
   end
@@ -58,7 +37,7 @@ RSpec.describe LictorMcp::Server do
     facts = File.join(dir, "target.facts")
     File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n")
     response = server.handle_json(rpc(1, "suggest_facts", {
-      facts_path: facts, allowlist: list,
+      facts_path: facts,
       suggested_facts: "plt(\"system\").\ngadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n"
     }))
     delta = JSON.parse(JSON.parse(response).dig("result", "content", 0, "text"))["delta"]
@@ -66,7 +45,7 @@ RSpec.describe LictorMcp::Server do
     expect(delta["applicable_after"]).to include("ret2plt")
 
     forged = server.handle_json(rpc(2, "suggest_facts", {
-      facts_path: facts, allowlist: list, suggested_facts: "applicable(ret2plt).\n"
+      facts_path: facts, suggested_facts: "applicable(ret2plt).\n"
     }))
     expect(JSON.parse(forged).dig("result", "content", 0, "text")).to include("unknown predicate")
   end
@@ -85,7 +64,7 @@ RSpec.describe LictorMcp::Server do
       "win_symbol(\"win\", 4196182).\ngadget(\"ret_align\", 4196100).\n")
     binary = ProfilerBinaryBuilder.vulnerable
     response = server.handle_json(rpc(1, "build_payload", {
-      binary: binary, facts_path: facts, allowlist: list, technique: "ret2func"
+      binary: binary, facts_path: facts, technique: "ret2func"
     }))
     payload = JSON.parse(JSON.parse(response).dig("result", "content", 0, "text"))
     expect(payload["offset"]).to eq(16)

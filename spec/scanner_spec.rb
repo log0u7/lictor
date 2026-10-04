@@ -62,16 +62,9 @@ RSpec.describe "bin/lictor scan" do
     p
   end
 
-  it "refuses to scan an off-scope target (no nmap ever runs)" do
-    _out, err, status = Open3.capture3(exe, "scan", "10.9.9.9", "-a", allowlist)
-    expect(status.exitstatus).not_to eq(0)
-    expect(err).to include("UNAUTHORIZED")
-    expect(err).to include("not in the allowlist")
-  end
-
-  it "scans an allowlisted host, trails and prints the inventory" do
+  it "scans a host, trails and prints the inventory" do
     trail = File.join(dir, "trail.jsonl")
-    out, _err, status = Open3.capture3(exe, "scan", "192.168.56.10", "-a", allowlist,
+    out, _err, status = Open3.capture3(exe, "scan", "192.168.56.10",
       "--nmap", stub_nmap, "-t", trail)
     expect(status.exitstatus).to eq(0)
     expect(out).to include("192.168.56.10:22")
@@ -82,7 +75,7 @@ RSpec.describe "bin/lictor scan" do
 
   it "shows the scan in the report" do
     trail = File.join(dir, "trail.jsonl")
-    Open3.capture3(exe, "scan", "192.168.56.10", "-a", allowlist,
+    Open3.capture3(exe, "scan", "192.168.56.10",
       "--nmap", stub_nmap, "-t", trail)
     report = Lictor::Report.from_trail(Lictor::Trail.new(trail))
     expect(report).to include("- scan: 192.168.56.10")

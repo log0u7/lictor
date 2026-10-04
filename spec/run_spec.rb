@@ -26,13 +26,11 @@ RSpec.describe Lictor::Run do
     end
   end
 
-  let(:token) { Lictor::Consent.issue(trail, "192.168.56.10", confirm_input: "192.168.56.10\n") }
-
   it "decides, executes the plan, records the outcome and stops on success" do
     executor = stub_executor.new([{executed: true, success: true}])
     result = described_class.run(
       target: "192.168.56.10", facts: facts_text, trail: trail,
-      executor: executor, consent_token: token, max_attempts: 3, seed: 42
+      executor: executor, max_attempts: 3, seed: 42
     )
     expect(result[:status]).to eq("success")
     expect(result[:steps].size).to eq(1)
@@ -49,7 +47,7 @@ RSpec.describe Lictor::Run do
     executor = stub_executor.new(results)
     result = described_class.run(
       target: "192.168.56.10", facts: facts_text, trail: trail,
-      executor: executor, consent_token: token, max_attempts: 5, seed: 42
+      executor: executor, max_attempts: 5, seed: 42
     )
     expect(result[:status]).to eq("success")
     expect(result[:steps].size).to eq(3)
@@ -61,17 +59,10 @@ RSpec.describe Lictor::Run do
       {executed: true, success: false}])
     result = described_class.run(
       target: "192.168.56.10", facts: facts_text, trail: trail,
-      executor: executor, consent_token: token, max_attempts: 2, seed: 42
+      executor: executor, max_attempts: 2, seed: 42
     )
     expect(result[:status]).to eq("budget-exhausted")
     expect(result[:steps].size).to eq(2)
-  end
-
-  it "requires a valid consent token for the exact target" do
-    expect {
-      described_class.run(target: "192.168.56.10", facts: facts_text, trail: trail,
-        executor: stub_executor.new([]), consent_token: nil, max_attempts: 1)
-    }.to raise_error(Lictor::Unauthorized, /consent/)
   end
 end
 
@@ -93,7 +84,6 @@ RSpec.describe "the run's auto-scaffold" do
       "win_symbol(\"win\", 4196182).\ngadget(\"ret_align\", 4196100).\n" \
       "target_function(\"true\").\n")
 
-    token = Lictor::Consent.issue(trail, "192.168.56.10", confirm_input: "192.168.56.10\n")
     executor = Class.new do
       def initialize(repo, technique)
         @repo = repo
@@ -112,7 +102,7 @@ RSpec.describe "the run's auto-scaffold" do
 
     result = Lictor::Run.run(target: "192.168.56.10",
       facts: File.read(File.join(dir, "target.facts")), trail: trail,
-      executor: executor, consent_token: token, max_attempts: 3,
+      executor: executor, max_attempts: 3,
       packs: Lictor::TechniquePacks.load(nil), binary: binary, repo_dir: repo)
     expect(result[:status]).to eq("success")
     expect(Dir.children(repo)).to include("lab_ret2func_001.rb")

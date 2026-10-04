@@ -12,10 +12,13 @@ profiling, execution - every action recorded, handoff by default.**
 [![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.4-ruby.svg)](https://www.ruby-lang.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**v0.2.0** - pairs with [augure](https://github.com/log0u7/augure), the
+**v0.3.0** - pairs with [augure](https://github.com/log0u7/augure), the
 auditable exploitation decision layer. augure decides; lictor executes;
-nothing runs outside the scope the allowlist names, and nothing runs at
-all without a token the operator typed.
+the trail records everything.
+
+> **Authorized use only.** This tool is for legally authorized security
+> assessments and CTF labs. You are the operator: what it does, you
+> did. Know the law where you stand.
 
 ## Why lictor
 
@@ -25,18 +28,18 @@ find out why afterwards - or never. lictor inverts that:
 - every technique choice comes from a **verified rule with its
   evidence** (augure's explain payload: rule ID, facts, seeded draw);
 - every action is **trailed** - one JSONL line, attributable, replayable;
-- the dangerous edge - execution - requires explicit, typed human
-  consent: the operator runs `lictor authorize <target>` and types the
-  target name.
-- and when no human is in the loop, the default executor is the handoff:
-  it prints the recipe and runs nothing.
+- the dangerous edge - execution - is opt-in: the default executor is
+  the handoff, which prints the recipe and runs nothing.
+- the mirror is the analysis target: the scan identifies, the local
+  reproduction gets profiled and built against, `verify` proves the
+  remote faults like the local model.
 
 Equally strict when an LLM agent drives it through MCP. The brakes are
 not a mode - they are the design.
 
 ## The 60-second demo
 
-![lictor demo: scan, decide with provenance, typed consent, run, and the auditable trail](docs/art/demo.gif)
+![lictor demo: scan, decide with provenance, run, and the auditable trail](docs/art/demo.gif)
 
 Replay it yourself against the lab:
 
@@ -44,11 +47,11 @@ Replay it yourself against the lab:
 sh lab/demo.sh
 ```
 
-The full chain is: **scan → acquire → (fuzz → triage) → verify →
-suggest → plan → build → authorize → run → outcome → report** - every
-step is recorded in the trail, the decision is explained rule-by-rule,
-execution needs a token the operator typed. `suggest` is the agent's
-own step: propose observations as facts, get the decision delta back
+The full chain is: **scan → mirror → (fuzz → triage) → verify →
+suggest → plan → build → run → outcome → report** - every step is
+recorded in the trail, the decision is explained rule-by-rule.
+`suggest` is the agent's own step: propose observations as facts, get
+the decision delta back
 (see [docs/how-to-llm-suggestions.md](docs/how-to-llm-suggestions.md));
 `build` is the payload step: the offset is measured, the bytes are
 assembled (below). When discovery finds NO exploit for the decided
@@ -82,8 +85,8 @@ lictor build ret2func --facts target.facts -a targets.yml -o payload.bin
 # offset:     16  (measured: cyclic pattern under the debugger)
 # ret:        win_symbol:win@4198870
 # payload:    payload.bin (24 bytes, arch x64)
-lictor run 127.0.0.1:9999 --facts target.facts -a targets.yml \
-  --executor ronin --consent-token "$TOKEN" --payload payload.bin
+lictor run 127.0.0.1:9999 --facts target.facts \
+  --executor ronin --payload payload.bin
 ```
 
 ## Capabilities
@@ -91,8 +94,8 @@ lictor run 127.0.0.1:9999 --facts target.facts -a targets.yml \
 | Command | What it does |
 |---|---|
 | `init` / `doctor` | Scaffold the engagement setup; verify the environment (exact fix per check). |
-| `scan <host>` | nmap against a host in the allowlist; the scan is recorded. |
-| `acquire <target>` | The nmap → binary bridge: local copy or http download, ELF-checked, profiled, recorded. |
+| `scan <host>` | nmap against a target; the scan is recorded. |
+| `acquire <target>` | The lab convenience: copy or download the binary when the target serves it. The real flow is the MIRROR (below). |
 | `fuzz <binary>` | Fuzz + triage a local binary: the fact **discovery** layer. Length sweep + mutations; gdb/rizin/lldb backends. |
 | `verify <target>` | The differential: the crash input faults the remote like the local model → the facts become `remote-verified`. |
 | `plan <binary-or-facts>` | Profile if ELF, decide (augure), print the recipe. |
@@ -100,28 +103,27 @@ lictor run 127.0.0.1:9999 --facts target.facts -a targets.yml \
 | `suggest <facts>` | The agent proposes observations as facts; augure re-decides and the delta comes back. |
 | `draft <facts>` | No technique applies? The observed facts + the measured constants draft a PACK in the staging dir, armor-validated, for the operator to review and install. |
 | `exploit scaffold <technique>` | Draft the ronin exploit for a decided technique: the measured constants embedded, the payload loader wired - review, commit, run. |
-| `authorize <target>` | Mint a short-lived execution consent - **typed by the human**. |
 | `run <target>` | The closed loop: decide, execute, outcome, re-decide - with an attempt budget. |
 | `outcome <run-id>` | Record the result; the next decision adapts the priors. |
 | `report` | The auditable engagement report (markdown, provenance included). |
 | `rule validate/install/list` | Teach augure a new technique - as data, through the armor. |
 
-## The consent model
+## The operator is the authorization
 
-Execution consent is a real artifact, not a mode switch:
+No gates, no tokens. You decide what to target; the trail records what
+was done:
 
-1. **The allowlist file is the scope document.** Explicit `host[:port]`
-   entries, written and versioned by the operator. Wildcards are
-   structurally rejected. Nothing outside the file runs - ever.
-2. **Execution requires a consent token** - `lictor authorize <target>`,
-   typed by the human, valid 15 minutes, recorded in the trail. An agent
-   cannot mint one.
-3. **Handoff is the default.** `plan` prints the recipe and executes
-   nothing; `run` with the ronin executor is opt-in and has an attempt
-   budget.
-4. **The trail is append-only.** Decision → rule provenance → action →
+1. **Handoff is the default.** `plan` prints the recipe and executes
+   nothing; `run` with the ronin executor is opt-in and budgeted.
+2. **The trail is append-only.** Decision → rule provenance → action →
    outcome. An engagement you cannot replay is an engagement you cannot
    defend.
+3. **The mirror is the analysis target.** The scan identifies
+   (service + version); when the remote cannot be profiled, you stand
+   up the SAME service locally - your package, your install - and
+   lictor scans+profiles the mirror, builds on its facts, and `verify`
+   proves the remote faults like the local model before anything runs
+   for real.
 
 ## Architecture
 
@@ -132,7 +134,7 @@ flowchart LR
         R --> INV["target inventory<br/>+ service/version facts"]
     end
 
-    INV -- "operator copies to targets.yml" --> GATE
+    INV -- "service facts drive the match" --> A
 
     subgraph decide ["DECIDE - the augure SDK"]
         ELF["target binary"] --> PRF["augure-profiler<br/>metasm: checksec, gadgets"]
@@ -144,9 +146,8 @@ flowchart LR
     end
 
     subgraph act ["ACT - lictor (Ruby-native arsenal)"]
-        D --> GATE{"consent required:<br/>target in the allowlist<br/>+ token typed by a human"}
-        GATE -- "handoff (default)" --> H["recipe printed<br/>ronin mixin + technique"]
-        GATE -- "opt-in, budgeted" --> RN["ronin-exploits in-process<br/>+ rex gems<br/>gem install, no daemon"]
+        D -- "handoff (default)" --> H["recipe printed<br/>ronin mixin + technique"]
+        D -- "opt-in, budgeted" --> RN["ronin-exploits<br/>+ rex gems<br/>gem install, no daemon"]
         H --> O["outcome"]
         RN --> O
     end
@@ -178,7 +179,7 @@ module is worth the install - but it is not on lictor's critical path.
 `plan_technique`, `execute_technique`, `suggest_facts`, `build_payload`,
 `scaffold_exploit`, `validate_pack` -
 and validates
-**server-side**: the allowlist, the consent tokens, the corpus guard.
+**server-side**: the armor, the corpus guard, the trail.
 The agent proposes; augure disposes; lictor executes - and the checks
 run server-side, so the agent cannot weaken them. Agents teach augure new techniques through the same armor:
 see [augure's pack format](https://github.com/log0u7/augure/blob/main/docs/pack-format.md)
@@ -203,7 +204,7 @@ not come, so the exit code cannot mask a miss.
 
 ## Acceptable use
 
-Lictor exists for **authorized security work**: engagements with a
+Lictor exists for **authorized security work** (you are responsible for the legality where you stand): engagements with a
 signed scope, labs you own, CTF environments. The authorization model
 is load-bearing; bypassing it is the one contribution that will be
 rejected on sight. Lictor writes no exploit code - it orchestrates the
@@ -226,7 +227,7 @@ gem "augure"                       # published, clean, MIT
 | I want to... | Read |
 |---|---|
 | run the demo end to end | [the lab](lab/README.md) |
-| understand the consent model | [THE RULES in this README](#the-consent-model) |
+| understand the operator model | [the operator section](#the-operator-is-the-authorization) |
 | see what augure decides and why | [augure's README](https://github.com/log0u7/augure) |
 | write the auditability story | [augure's auditability page](https://github.com/log0u7/augure/blob/main/docs/auditability.md) |
 | teach augure a technique | [the pack format](https://github.com/log0u7/augure/blob/main/docs/pack-format.md) |

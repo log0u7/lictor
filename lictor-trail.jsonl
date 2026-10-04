@@ -1,1 +1,3 @@
 {"run":"9dd8ea6f-cb40-4920-8259-561a20baf0d3","mode":"handoff (authorized run)","facts_file":"/tmp/d20261002-3250692-gd4bht/target.facts","selected":"ret2plt","applicable":["ret2plt","rop"],"timestamp":"2026-10-02T14:41:47Z"}
+{"run":"8cf3c899-d184-4c71-be17-1377cc551d76","type":"scan","target":"10.9.9.9","nmap_args":["nmap","-sV","-Pn"],"timestamp":"2026-10-04T16:12:56Z"}
+{"run":"06ed2d14-50b6-4fdd-a323-dbb615d8ee5f","type":"scan","target":"10.9.9.9","nmap_args":["nmap","-sV","-Pn"],"timestamp":"2026-10-04T16:16:55Z"}

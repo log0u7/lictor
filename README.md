@@ -226,6 +226,11 @@ gem "augure"                       # published, clean, MIT
 
 ## Documentation
 
+The architectural decisions are recorded as ADRs in
+[docs/adr/](docs/adr/): the Tube as the transport seam (0001), verify as
+the arithmetic check with SMT a seam not a promise (0002), engagement
+state as a directory per target, no database (0003).
+
 | I want to... | Read |
 |---|---|
 | run the demo end to end | [the lab](lab/README.md) |

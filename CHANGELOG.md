@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The closed loop feeds itself: the run enriches the facts from the
+  static frame read (the sink becomes the vuln_hint, the winning
+  symbol becomes the target fact), scaffolds the exploit when
+  discovery is empty, and `lictor draft` turns an unknown crash into
+  an armor-validated pack draft in the staging directory.
+- Seven MCP tools: `build_payload` and `scaffold_exploit` join the
+  surface - the agent drives the whole cycle behind the same gates.
 - `lictor build` + `Lictor::PayloadBuilder`: the asploit inheritance.
   The offset is MEASURED (a cyclic pattern crashed under the debugger -
   rip first, then the rbp slot a leave;ret epilogue betrays), the

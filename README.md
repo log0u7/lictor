@@ -51,7 +51,10 @@ execution needs a token the operator typed. `suggest` is the agent's
 own step: propose observations as facts, get the decision delta back
 (see [docs/how-to-llm-suggestions.md](docs/how-to-llm-suggestions.md));
 `build` is the payload step: the offset is measured, the bytes are
-assembled (below).
+assembled (below). When discovery finds NO exploit for the decided
+technique, the run scaffolds it and the next attempt uses it; when NO
+technique applies to the crash, `lictor draft` writes a staged pack
+from the observations - the loop feeds augure back.
 
 ## From decision to payload: the offset is measured, not guessed
 
@@ -95,6 +98,8 @@ lictor run 127.0.0.1:9999 --facts target.facts -a targets.yml \
 | `plan <binary-or-facts>` | Profile if ELF, decide (augure), print the recipe. |
 | `build <binary>` | Assemble the payload for the selected technique: measured offset (cyclic pattern under the debugger), fact-sourced return address, metasm-assembled shellcode. |
 | `suggest <facts>` | The agent proposes observations as facts; augure re-decides and the delta comes back. |
+| `draft <facts>` | No technique applies? The observed facts + the measured constants draft a PACK in the staging dir, armor-validated, for the operator to review and install. |
+| `exploit scaffold <technique>` | Draft the ronin exploit for a decided technique: the measured constants embedded, the payload loader wired - review, commit, run. |
 | `authorize <target>` | Mint a short-lived execution consent - **typed by the human**. |
 | `run <target>` | The closed loop: decide, execute, outcome, re-decide - with an attempt budget. |
 | `outcome <run-id>` | Record the result; the next decision adapts the priors. |
@@ -169,8 +174,9 @@ module is worth the install - but it is not on lictor's critical path.
 
 ## The MCP surface: when an LLM agent drives
 
-[lictor-mcp](mcp_server/) exposes five tools over stdio - `scan_target`,
-`plan_technique`, `execute_technique`, `suggest_facts`, `validate_pack` -
+[lictor-mcp](mcp_server/) exposes seven tools over stdio - `scan_target`,
+`plan_technique`, `execute_technique`, `suggest_facts`, `build_payload`,
+`scaffold_exploit`, `validate_pack` -
 and validates
 **server-side**: the allowlist, the consent tokens, the corpus guard.
 The agent proposes; augure disposes; lictor executes - and the checks
@@ -186,7 +192,9 @@ result - the lab is the measurement bench, not the world:
 | Claim | Evidence |
 |---|---|
 | ret2func: the built payload lands the real flag, no brute-force | the lab, e2e: build (offset 16 measured) → run → `FLAG{augure_decides_lictor_executes}` |
-| the offset measurement generalizes | the cyclic-pattern suite runs a real gdb crash on a built fixture |
+| the offset measurement generalizes | static frame read (ret2win x64 = 40, the canonical number) + the cyclic pattern under the debugger, cross-validated on the same binaries |
+| a missing exploit drafts itself | the run's auto-scaffold: discovery empty + binary in hand -> the exploit file lands in the repo, the next attempt uses it |
+| an unknown crash becomes a pack | `lictor draft`: the observed facts + the measured constants -> an armor-validated pack in the staging dir |
 | corpus: 33/33 technique classifications | `augure-benchmark`, CI-enforced at 100% |
 | shellcode / ret2plt / fmtstr targets | fact bases + recipes shipped; the build templates and verified runs are the next lab mile |
 

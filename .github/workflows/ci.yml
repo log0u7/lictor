@@ -32,7 +32,7 @@ jobs:
             require "augure-profiler"
             require "augure-profiler/fuzzer"
             bb = ["../augure/profiler/spec/support/binary_builder", "./augure/profiler/spec/support/binary_builder"].map { |p| File.expand_path(p) }.find { |p| File.file?(p) }
-            require_relative bb
+            require bb
             t0 = Time.now
             sweep = AugureProfiler::Fuzzer.run(ProfilerBinaryBuilder.vulnerable, inputs: 40, max_len: 1024)
             puts "sweep=#{(Time.now - t0).round(2)}s crashes=#{sweep.size} first=#{sweep.first&.dig(:input)&.bytesize}"

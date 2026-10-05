@@ -127,7 +127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2026-10-02
 
-### Added
+- The lab gains the missing targets: `uaf_heap` (9995, tcache UAF with the fn pointer on the heap - the 8 heap packs finally have a bench) and `orw` (9994, seccomp filter: execve dies). The builder is seccomp-aware: a `sh` stub under `seccomp("true")` is a booby trap, so the slot switches to the orw chain (open/read/write, clean exit) with the flag path embedded (slot third element, builder-level path, or the CTF-default `flag.txt`). The `orw` technique ships as a built-in layout. The demo walks the suggest flow (the facts the profiler cannot see: the heap knowledge, the seccomp knowledge) into the decisions.
 
 - Project scaffold: authorization gates design, handoff-default README,
   CI (gitleaks), MIT license, AGENTS.md.

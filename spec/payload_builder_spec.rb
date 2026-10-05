@@ -172,3 +172,44 @@ RSpec.describe Lictor::PayloadBuilder, "the chain slot" do
     }.to raise_error(Lictor::PayloadBuilder::BuildError, /pop_rdi_ret/)
   end
 end
+
+RSpec.describe Lictor::PayloadBuilder, "the orw shellcode slot" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+
+  it "an orw slot carries its flag path and reads it live" do
+    out = File.join(dir, "p.bin")
+    facts = "nx(\"false\").\ngadget(\"jmp_rsp\", 4196200).\n"
+    flag = File.join(dir, "flag.txt")
+    File.write(flag, "FLAG{orw_slot}")
+    result = described_class.build(binary: binary, facts: facts, technique: "orw",
+      out: out, shellcode_path: flag)
+    body = File.binread(out)
+    # the orw stub embeds the flag path and the read marker
+    expect(body).to include("flag.txt")
+    expect(result[:ret_source]).to include("gadget:jmp_rsp")
+    # live: run the stub, it prints the flag
+    runner = File.join(dir, "sc_runner")
+    src = File.expand_path("../../augure/profiler/spec/support/sc_runner.c", __dir__)
+    _o, err, st = Open3.capture3("gcc", "-o", runner, src)
+    raise "runner build failed: #{err}" unless st.success?
+    code = body[(result[:offset] + 8)..] # after the sled + the jmp_rsp address
+    out2, _e2, st2 = Open3.capture3(runner, stdin_data: code + "\nexit\n", chdir: dir)
+    expect(out2).to include("FLAG{orw_slot}"), "the orw stub ran: #{out2[0, 80]}"
+    expect(st2.success?).to be(true)
+  end
+end
+
+RSpec.describe Lictor::PayloadBuilder, "seccomp-aware shellcode" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+
+  it "execve dies under seccomp: the sh stub becomes the orw chain" do
+    out = File.join(dir, "p.bin")
+    facts = "nx(\"false\").\nseccomp(\"true\").\ngadget(\"jmp_rsp\", 4196200).\n"
+    described_class.build(binary: binary, facts: facts, technique: "shellcode", out: out)
+    body = File.binread(out)
+    expect(body).not_to include("/bin/sh"), "the sh stub execve's into a killed process under seccomp"
+    expect(body).to include("flag.txt"), "the orw stub reads the flag: the path is embedded"
+  end
+end

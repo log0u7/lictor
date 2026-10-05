@@ -59,3 +59,9 @@ ret2libc:
   layout:
     - [padding, measured_offset]
     - [chain, "gadget:ret_align", "gadget:pop_rdi_ret", "leak:binsh", "leak:system"]
+orw:
+  arch: any
+  layout:
+    - [padding, measured_offset, sled]
+    - [qword, gadget:jmp_rsp]
+    - [shellcode, orw, flag.txt]

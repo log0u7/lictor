@@ -5,6 +5,8 @@
 #   ret2plt    9998  no-PIE, NX ON, system@plt, NO win()
 #   shellcode  9997  no-PIE, NX OFF (execstack), no win()
 #   fmtstr     9996  printf(input) - the format IS the weapon
+#   uaf_heap   9995  tcache UAF, the fn pointer lives ON the heap
+#   orw        9994  seccomp: execve dies, the orw chain reads the flag
 #
 # Each binary is served over http (port 8000) for acquisition.
 FROM debian:bookworm
@@ -22,20 +24,26 @@ COPY targets/ret2func/flag.txt /opt/target/flag.txt
 COPY targets/ret2plt/flag.txt  /opt/target/ret2plt.flag
 COPY targets/shellcode/flag.txt /opt/target/shellcode.flag
 COPY targets/fmtstr/flag.txt  /opt/target/fmtstr.flag
+COPY targets/uaf_heap/flag.txt /opt/target/uaf_heap.flag
+COPY targets/orw/flag.txt     /opt/target/orw.flag
 COPY targets/ret2func/service.c /opt/target/ret2func.c
 COPY targets/ret2plt/service.c  /opt/target/ret2plt.c
 COPY targets/shellcode/service.c /opt/target/shellcode.c
 COPY targets/fmtstr/service.c   /opt/target/fmtstr.c
+COPY targets/uaf_heap/service.c /opt/target/uaf_heap.c
+COPY targets/orw/service.c      /opt/target/orw.c
 
 # ret2func + ret2plt: NX ON (default), no canary, no PIE.
 RUN gcc ret2func.c  -o ret2func  -fno-stack-protector -no-pie -O0 \
     && gcc ret2plt.c   -o ret2plt   -fno-stack-protector -no-pie -O0 \
     && gcc shellcode.c -o shellcode -fno-stack-protector -no-pie -z execstack -O0 \
     && gcc fmtstr.c    -o fmtstr    -fno-stack-protector -no-pie -O0 \
-    && chmod 755 ret2func ret2plt shellcode fmtstr \
+    && gcc uaf_heap.c  -o uaf_heap  -fno-stack-protector -no-pie -O0 \
+    && gcc orw.c       -o orw       -fno-stack-protector -no-pie -z execstack -O0 \
+    && chmod 755 ret2func ret2plt shellcode fmtstr uaf_heap orw \
     && chmod 644 *.flag
 
-EXPOSE 8000 9996 9997 9998 9999
+EXPOSE 8000 9994 9995 9996 9997 9998 9999
 
 COPY start.sh .
 CMD ["./start.sh"]

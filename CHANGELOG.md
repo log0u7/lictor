@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
+- `Lictor::Tube`: the ONE TCP implementation behind the banner readers (ADR 0001) - connect, read_until (EOF/reset/deadline/limit), write, reset tracking. `harvest` and `verify` consume it (three duplicated socket paths become one deadline semantics), `verify` honours `--facts` (it used to append to a hardcoded `target.facts` in the CWD, ignoring the flag).
 - ADRs: docs/adr/ records the architectural decisions - the Tube as the transport seam (0001), verify as the arithmetic check with SMT a seam not a promise (0002), engagement state as a directory per target, no database (0003).
 
 ### Changed

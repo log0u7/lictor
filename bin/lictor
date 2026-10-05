@@ -256,22 +256,19 @@ when "verify"
   # Remote crash detection: deliver the input, then read until the
   # connection dies. A crashed child dies IN vuln_copy: the normal path
   # prints "hello" first, the crash path does not. A reset = death too.
-  require "socket"
+  # The socket work is the Tube's (ADR lictor 0001).
   host, port = target.split(":", 2)
-  reply = +""
-  reset_seen = false
   begin
-    sock = TCPSocket.new(host, port.to_i)
-    sock.gets("\n") if sock.wait_readable(2)
-    sock.write(File.binread(options[:input]))
-    loop do
-      chunk = sock.readpartial(1024)
-      reply += chunk
-    end
-  rescue Errno::ECONNRESET, Errno::EPIPE, EOFError
-    reset_seen = true
-  rescue IO::TimeoutError, Errno::ETIMEDOUT
-    nil
+    tube = Lictor::Tube.tcp(host, port, timeout: 5)
+    tube.gets("\n") # the greeting, if any
+    tube.write(File.binread(options[:input]))
+    reply = tube.read_bytes(limit: 4096)
+    reset_seen = tube.reset?
+    tube.close
+  rescue Lictor::TubeError => e
+    reset_seen = false
+    reply = ""
+    puts "  (the connection itself failed: #{e.message})"
   end
   crashed = (reset_seen || reply.empty?) && !reply.include?("hello")
   trail.record(run: SecureRandom.uuid, type: "verify", target: target,
@@ -280,7 +277,8 @@ when "verify"
     puts "remote-verified: the remote service faulted on the same input -"
     puts "  the local model (offsets, gadgets) is representative. The facts"
     puts "  gained verified(\"remote\")."
-    File.open(File.join(Dir.pwd, "target.facts"), "a") { |f| f.puts 'verified("remote").' }
+    facts_path = options[:facts] || "target.facts"
+    File.open(facts_path, "a") { |f| f.puts 'verified("remote").' }
   else
     puts "not verified: the remote survived - the local model may not apply"
     puts "  (version drift? a different build?). Do not trust the offsets."

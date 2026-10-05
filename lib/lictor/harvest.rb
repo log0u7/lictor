@@ -17,29 +17,14 @@ module Lictor
     module_function
 
     # host[:port]. Returns {addresses:, facts:} - the facts text ready
-    # to merge into the target's base.
+    # to merge into the target's base. The socket work is the Tube's
+    # (ADR lictor 0001): one TCP implementation, one deadline semantics.
     def harvest(target, trail:, timeout: 5, read_bytes: 512)
       host, port = target.split(":", 2)
+      tube = Lictor::Tube.tcp(host, port, timeout: timeout)
+      banner = tube.read_bytes(limit: read_bytes)
+      tube.close
       addresses = {}
-      banner = ""
-      Socket.tcp(host, port.to_i, connect_timeout: timeout) do |sock|
-        begin
-          sock.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
-        rescue
-          nil
-        end
-        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
-        loop do
-          break if IO.select([sock], nil, nil, 0.5).nil?
-
-          chunk = sock.read_nonblock(read_bytes, exception: false)
-          break if chunk == "" # EOF: the socket will never yield more
-
-          banner += chunk if chunk.is_a?(String)
-          break if banner.bytesize >= read_bytes
-          break if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
-        end
-      end
       banner.scan(HEX) do |hex|
         addr = hex.first.to_i(16)
         next if addr < 0x1000

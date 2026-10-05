@@ -81,6 +81,12 @@ registry is `targets.yml`. Priors are per-target by construction (the
 scoped trail IS the scope): a failure on A does not shift B's
 decisions.
 
+The same loop exports as a BENCH: `sh lab/bench.sh` renders the
+engagement's trail as `lictor/bench@1` - the tasks/actions/feedback
+telemetry the LLM benchmarks read (NYU CTF Bench, InterCode). The
+agent proposes, augure disposes, lictor executes, and the whole run
+is the measurement.
+
 ## From decision to payload: the offset is measured, not guessed
 
 `lictor build` carries the original tool's inheritance - with every

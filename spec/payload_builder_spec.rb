@@ -23,8 +23,8 @@ RSpec.describe Lictor::PayloadBuilder do
     expect(result[:sink]).to eq("strcpy")
     expect(result[:ret_source]).to include("win_symbol:win")
     body = File.binread(out)
-    expect(body).not_to include([4196100].pack("Q<")) # offset 16: already aligned, no gadget
-    expect(body).to eq(("A" * 16).b + [4196182].pack("Q<"))
+    expect(body).not_to include([4_196_100].pack("Q<")) # offset 16: already aligned, no gadget
+    expect(body).to eq(("A" * 16).b + [4_196_182].pack("Q<"))
   end
 
   it "builds the shellcode payload: sled + jmp_rsp + the assembled shellcode" do
@@ -48,12 +48,12 @@ RSpec.describe Lictor::PayloadBuilder do
   end
 
   it "refuses honestly when the facts cannot drive the template" do
-    expect {
+    expect do
       described_class.build(binary: binary, facts: "nx(\"true\").\n", technique: "ret2func", out: out)
-    }.to raise_error(Lictor::PayloadBuilder::BuildError, /win_symbol/)
-    expect {
+    end.to raise_error(Lictor::PayloadBuilder::BuildError, /win_symbol/)
+    expect do
       described_class.build(binary: binary, facts: "nx(\"true\").\n", technique: "heap_tcache", out: out)
-    }.to raise_error(Lictor::PayloadBuilder::BuildError, /layout/)
+    end.to raise_error(Lictor::PayloadBuilder::BuildError, /layout/)
   end
 end
 
@@ -75,14 +75,14 @@ RSpec.describe "the leaked-address slot" do
             "leaked_address(\"win\", 4196182).\n"
     result = pb.build(binary: binary, facts: facts, technique: "banner_leak", out: out)
     expect(result[:ret_source]).to include("leaked_address:win@4196182")
-    expect(File.binread(out)).to eq(("A" * 16).b + [4196182].pack("Q<"))
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_196_182].pack("Q<"))
   end
 
   it "refuses when the service never leaked" do
     facts = "nx(\"true\").\n"
-    expect {
+    expect do
       pb.build(binary: binary, facts: facts, technique: "banner_leak", out: out)
-    }.to raise_error(Lictor::PayloadBuilder::BuildError, /harvest/)
+    end.to raise_error(Lictor::PayloadBuilder::BuildError, /harvest/)
   end
 end
 
@@ -96,7 +96,7 @@ RSpec.describe "the pack build: section" do
     pack = Augure::Pack.load_hash(
       "technique" => "chain_probe", "author" => "spec", "source" => "https://example.com",
       "rules" => [{"id" => "app_chain_probe", "head" => %w[applicable chain_probe],
-                   "conditions" => [["fact", "target_function", "true"]]}],
+                   "conditions" => [%w[fact target_function true]]}],
       "kb" => [{"id" => "x1", "description" => "x", "success_rate" => 0.5}],
       "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
       "priors" => [1, 1],
@@ -106,7 +106,7 @@ RSpec.describe "the pack build: section" do
     result = Lictor::PayloadBuilder.build(binary: binary, facts: facts,
       technique: "chain_probe", out: out, packs: [pack])
     body = File.binread(out)
-    expect(body).to eq(("A" * 16).b + [4196100].pack("Q<") + [4196182].pack("Q<"))
+    expect(body).to eq(("A" * 16).b + [4_196_100].pack("Q<") + [4_196_182].pack("Q<"))
     expect(result[:ret_source]).to include("gadget:ret_align")
   end
 
@@ -116,17 +116,17 @@ RSpec.describe "the pack build: section" do
     pack = Augure::Pack.load_hash(
       "technique" => "fancy_probe", "author" => "spec", "source" => "https://example.com",
       "rules" => [{"id" => "app_fancy", "head" => %w[applicable fancy_probe],
-                   "conditions" => [["fact", "target_function", "true"]]}],
+                   "conditions" => [%w[fact target_function true]]}],
       "kb" => [{"id" => "f1", "description" => "f", "success_rate" => 0.5}],
       "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
       "priors" => [1, 1],
       "build" => {"technique" => "fancy_probe",
-                  "layout" => [["padding"], ["dword", "win"]]}
+                  "layout" => [["padding"], %w[dword win]]}
     )
     Lictor::PayloadBuilder.build(binary: binary, facts: facts,
       technique: "fancy_probe", out: out, packs: [pack])
     # the dword slot is 4 bytes wide even on x64 (the width per slot)
-    expect(File.binread(out)).to eq(("A" * 16).b + [4196182].pack("L<"))
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_196_182].pack("L<"))
   end
 end
 
@@ -140,7 +140,7 @@ RSpec.describe Lictor::PayloadBuilder, "the chain slot" do
             "plt_addr(\"puts\", 4196104).\ngot_addr(\"puts\", 4196112).\n"
     result = described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
     body = File.binread(out)
-    expected = ("A" * 16).b + [4196100, 4196112, 4196104].pack("Q<*")
+    expected = ("A" * 16).b + [4_196_100, 4_196_112, 4_196_104].pack("Q<*")
     expect(body).to eq(expected)
     expect(result[:ret_source]).to include("gadget:pop_rdi_ret")
   end
@@ -152,7 +152,7 @@ RSpec.describe Lictor::PayloadBuilder, "the chain slot" do
     pack = Augure::Pack.load_hash(
       "technique" => "chain_const_probe", "author" => "spec", "source" => "https://example.com",
       "rules" => [{"id" => "app_ccp", "head" => %w[applicable chain_const_probe],
-                   "conditions" => [["fact", "nx", "true"]]}],
+                   "conditions" => [%w[fact nx true]]}],
       "kb" => [{"id" => "c1", "description" => "c", "success_rate" => 0.5}],
       "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
       "priors" => [1, 1],
@@ -161,15 +161,15 @@ RSpec.describe Lictor::PayloadBuilder, "the chain slot" do
     )
     described_class.build(binary: binary, facts: facts, technique: "chain_const_probe", out: out, packs: [pack])
     body = File.binread(out)
-    expect(body).to eq(("A" * 16).b + [4196100, 59, 4196104].pack("Q<*"))
+    expect(body).to eq(("A" * 16).b + [4_196_100, 59, 4_196_104].pack("Q<*"))
   end
 
   it "refuses a chain whose gadget is not in the facts" do
     out = File.join(dir, "f.bin")
     facts = "nx(\"true\").\npie(\"false\").\ngadget(\"pop_rsi_ret\", 4196100).\n"
-    expect {
+    expect do
       described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
-    }.to raise_error(Lictor::PayloadBuilder::BuildError, /pop_rdi_ret/)
+    end.to raise_error(Lictor::PayloadBuilder::BuildError, /pop_rdi_ret/)
   end
 end
 
@@ -179,7 +179,7 @@ RSpec.describe Lictor::PayloadBuilder, "the orw shellcode slot" do
 
   it "an orw slot carries its flag path and reads it live" do
     out = File.join(dir, "p.bin")
-    facts = "nx(\"false\").\ngadget(\"jmp_rsp\", 4196200).\n"
+    facts = "nx(\"false\").\nleaked_address(\"input\", 4196300).\n"
     flag = File.join(dir, "flag.txt")
     File.write(flag, "FLAG{orw_slot}")
     result = described_class.build(binary: binary, facts: facts, technique: "orw",
@@ -187,7 +187,7 @@ RSpec.describe Lictor::PayloadBuilder, "the orw shellcode slot" do
     body = File.binread(out)
     # the orw stub embeds the flag path and the read marker
     expect(body).to include("flag.txt")
-    expect(result[:ret_source]).to include("gadget:jmp_rsp")
+    expect(result[:ret_source]).to include("leaked_address:input@4196300")
     # live: run the stub, it prints the flag
     runner = File.join(dir, "sc_runner")
     src = ["../../augure/profiler/spec/support/sc_runner.c",
@@ -197,6 +197,7 @@ RSpec.describe Lictor::PayloadBuilder, "the orw shellcode slot" do
     skip "the augure checkout is not present" unless src
     _o, err, st = Open3.capture3("gcc", "-o", runner, src)
     raise "runner build failed: #{err}" unless st.success?
+
     code = body[(result[:offset] + 8)..] # after the sled + the jmp_rsp address
     out2, _e2, st2 = Open3.capture3(runner, stdin_data: code + "\nexit\n", chdir: dir)
     expect(out2).to include("FLAG{orw_slot}"), "the orw stub ran: #{out2[0, 80]}"

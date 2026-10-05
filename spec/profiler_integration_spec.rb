@@ -43,17 +43,11 @@ RSpec.describe "bin/lictor plan with a binary" do
     File.chmod(0o755, path)
     path
   end
-  let(:allowlist) do
-    p = File.join(dir, "targets.yml")
-    File.write(p, "192.168.56.10\n")
-    p
-  end
-
   it "profiles the binary, decides and trails both steps" do
     binary = File.join(dir, "target.elf")
     File.write(binary, "\x7fELF-target")
     trail = File.join(dir, "trail.jsonl")
-    out, _err, status = Open3.capture3(exe, "plan", binary, "-a", allowlist,
+    out, _err, status = Open3.capture3(exe, "plan", binary,
       "--profile-cmd", stub_cmd, "-t", trail)
     expect(status.exitstatus).to eq(0)
     expect(out).to include("selected:   ret2plt")
@@ -65,7 +59,7 @@ RSpec.describe "bin/lictor plan with a binary" do
   it "still accepts a hand-written facts file unchanged" do
     path = File.join(dir, "target.facts")
     File.write(path, File.read(File.expand_path("fixtures/profiler_facts.facts", __dir__)))
-    out, _err, status = Open3.capture3(exe, "plan", path, "-a", allowlist,
+    out, _err, status = Open3.capture3(exe, "plan", path,
       "-t", File.join(dir, "trail.jsonl"))
     expect(status.exitstatus).to eq(0)
     expect(out).to include("selected:   ret2plt")

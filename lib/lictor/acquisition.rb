@@ -4,6 +4,7 @@ require "net/http"
 require "uri"
 require "fileutils"
 require "open3"
+require "timeout"
 require "securerandom"
 
 module Lictor
@@ -31,7 +32,7 @@ module Lictor
       end
 
       cmd = profiler_cmd || "augure-profile"
-      out, err, status = Open3.capture3(cmd, binary_path)
+      out, err, status = Timeout.timeout(300) { Open3.capture3(cmd, binary_path) }
       unless status.success?
         raise AcquisitionError,
           "profiling failed: #{[out, err].map(&:strip).reject(&:empty?).join(" | ")}"
@@ -42,6 +43,8 @@ module Lictor
       trail.record(run: SecureRandom.uuid, type: "acquire", target: target,
         source: source, binary: binary_path)
       {facts: out, facts_path: facts_path, binary_path: binary_path}
+    rescue Timeout::Error
+      raise AcquisitionError, "profiling #{binary_path} timed out after 300s (hung metasm? check the binary)"
     end
 
     def fetch(source, out_dir:)

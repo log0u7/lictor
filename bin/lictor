@@ -22,14 +22,21 @@ parser = OptionParser.new do |opts|
     Usage: lictor <command> [options]
 
     Commands:
-      recon <nmap.xml>            print service candidates from an nmap scan
       scan <host>                 run nmap against a target (trailed)
+      acquire <target>            fetch the binary, profile it into target.facts
       fuzz <binary>               fuzz + triage a local binary (discovery layer)
+      verify <host:port>          probe the remote with the crash input
+      harvest <host:port>         parse the banner's hex leaks into facts
+      suggest <facts> "..."       simulate a fact merge, print the delta
       plan <binary-or-facts>      profile if ELF, decide, print the recipe
-      outcome <run-id>            record the result of a run (the closed loop)
-      runs                        list the trailed runs
-      report                      render the auditable engagement report
+      build <binary>              measure the offset, emit the payload
+      run <target>                the closed loop: decide, execute, outcome
+      outcome <run-id>            record the result of a run
+      exploit scaffold <t> <bin>  draft a ronin exploit from measured constants
+      draft <facts>               auto-draft a technique pack into staging/
       rule validate|install|list  teach augure a technique (data-only packs)
+      runs / report               the trail, rendered
+      doctor / init               verify the environment, scaffold the setup
 
     Setup: lictor.yml in the working directory
       (trail: runs.jsonl / nmap: / seed: / profile_cmd:). Flags override
@@ -73,7 +80,16 @@ HELP = {
   "report" => "report [--json] [-o PATH]\n    Render the auditable engagement report.",
   "rule" => "rule validate|install|list <pack.yml>\n    Teach augure a technique: data-only pack, validated + corpus-guarded.\n    install is interactive and trailed.",
   "init" => "init\n    Scaffold lictor.yml and an example facts file.",
-  "doctor" => "doctor\n    Verify the environment; print the exact fix per check."
+  "doctor" => "doctor\n    Verify the environment; print the exact fix per check.",
+  "acquire" => "acquire <target> [--from URL | --bin PATH]\n    Fetch (or copy) the binary, check it is an ELF, profile it into target.facts.",
+  "verify" => "verify <host:port> [--input PATH]\n    Probe the remote with the crash input; a fault anchors verified(\"remote\").",
+  "fuzz" => "fuzz <binary> [--max-inputs N] [--mutator ruby|radamsa] [--triage-backend gdb]\n    Discover crashes, triage the best one, trail both.",
+  "harvest" => "harvest <host:port> [--facts PATH]\n    Parse the service banner's hex leaks into leaked_address facts.",
+  "suggest" => "suggest <facts-file> \"fact(\"atom\").\n...\" [-o PATH]\n    Simulate the fact merge, print the decision delta; -o writes the merged base.",
+  "run" => "run <target> --facts PATH [--executor manual|ronin] [--payload FILE]\n    The closed loop: decide, execute (or hand off), outcome, re-decide.",
+  "build" => "build <binary> [--facts PATH] [-o payload.bin]\n    Measure the offset, resolve the addresses from the facts, emit the payload.",
+  "exploit" => "exploit scaffold <technique> <binary>\n    Draft a ronin exploit from the measured constants into your repo.",
+  "draft" => "draft <facts> [--bin PATH]\n    Auto-draft a technique pack from the facts into staging/."
 }.freeze
 
 if ARGV[0] == "help"
@@ -123,7 +139,9 @@ when "init"
     entry = JSON.parse(File.read(augure_corpus))["suites"]["ropemporium"].find { |e| e["name"] == "ret2win" }
     File.write("examples/ret2win.facts", entry["facts"]) if entry
   end
-  puts "scaffolded: lictor.yml, examples/ret2win.facts"
+  scaffolded = ["lictor.yml"]
+  scaffolded << "examples/ret2win.facts" if File.file?("examples/ret2win.facts")
+  puts "scaffolded: #{scaffolded.join(", ")}"
   puts
   puts "next:"
   puts "  1. lictor doctor                     # verify the environment"
@@ -148,6 +166,14 @@ when "doctor"
              profiler_found ? nil : "gem install augure-profiler (or set profile_cmd: in lictor.yml)"]
   config_path = "lictor.yml"
   checks << ["lictor.yml", File.file?(config_path) ? nil : "run `lictor init`"]
+  # optional tooling: warned, never failed - plan/report run without them
+  @optional = []
+  gdb_found = system("sh", "-c", "command -v gdb >/dev/null 2>&1")
+  @optional << ["gdb binary", gdb_found ? nil : "install gdb (apt install gdb) - the offset measurement, fuzz and triage need it"]
+  ronin_found = system("sh", "-c", "gem list -i ronin-exploits >/dev/null 2>&1")
+  @optional << ["ronin-exploits (run executor)", ronin_found ? nil : "gem install ronin-exploits - only the ronin executor needs it"]
+  docker_found = system("sh", "-c", "command -v docker >/dev/null 2>&1")
+  @optional << ["docker (the lab)", docker_found ? nil : "install docker to run the lab bench - optional outside the lab"]
 
   trail_path = options[:trail] || Lictor::Config.load[:trail] || "lictor-trail.jsonl"
   writable = begin
@@ -163,6 +189,13 @@ when "doctor"
     if problem
       failed = true
       puts "  FAIL  #{name} - fix: #{problem}"
+    else
+      puts "  ok    #{name}"
+    end
+  end
+  @optional.each do |name, problem|
+    if problem
+      puts "  warn  #{name} - note: #{problem}"
     else
       puts "  ok    #{name}"
     end
@@ -442,10 +475,6 @@ when "build"
   end
 when "plan"
   input = ARGV.shift or abort(parser.to_s)
-  begin
-  rescue Lictor::Unauthorized => e
-    abort("lictor: UNAUTHORIZED - #{e.message}")
-  end
   mode = "handoff (prints a recipe; executes nothing)"
 
   begin

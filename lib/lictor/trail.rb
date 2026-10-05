@@ -14,7 +14,9 @@ module Lictor
 
     def record(event)
       line = JSON.generate(event.merge(timestamp: Time.now.utc.iso8601))
-      File.open(@path, "a") { |f| f.puts(line) }
+      # 0600 at creation: the record of offensive operations is private
+      # from birth (existing files keep the operator's perms)
+      File.open(@path, "a", 0o600) { |f| f.puts(line) }
       self
     end
 
@@ -46,8 +48,6 @@ module Lictor
           run[:crashes] = event["crashes"]
         when "triage"
           run[:triage] = {signal: event["signal"], control: event["control"]}
-        when "consent"
-          run[:authorized] = event["target"]
         when "rule_install"
           run[:taught] = event["technique"]
         end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "open3"
+require "timeout"
 
 module Lictor
   # Bridge to the augure-profiler gem: binary in, facts out, through the
@@ -20,8 +21,8 @@ module Lictor
       false
     end
 
-    def run(binary, cmd: DEFAULT_CMD)
-      stdout, stderr, status = Open3.capture3(cmd, binary)
+    def run(binary, cmd: DEFAULT_CMD, timeout: 300)
+      stdout, stderr, status = Timeout.timeout(timeout) { Open3.capture3(cmd, binary) }
       unless status.success?
         hint = stderr.lines.first&.strip || "exit #{status.exitstatus}"
         raise ProfilerError,
@@ -30,6 +31,8 @@ module Lictor
       stdout
     rescue Errno::ENOENT
       raise ProfilerError, "augure-profile not found (gem install augure-profiler)"
+    rescue Timeout::Error
+      raise ProfilerError, "profiling #{binary} timed out after #{timeout}s (hung gdb/metasm? check the binary)"
     end
   end
 end

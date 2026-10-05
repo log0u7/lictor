@@ -47,6 +47,13 @@ RSpec.describe Lictor::Priors do
 end
 
 RSpec.describe Lictor::Trail do
+  it "is private from birth: the audit record is created 0600" do
+    dir = Dir.mktmpdir
+    path = File.join(dir, "t.jsonl")
+    trail = described_class.new(path)
+    trail.record(run: "r1", type: "outcome")
+    expect(File.stat(path).mode.to_s(8)).to match(/600$/)
+  end
   let(:trail_path) { File.join(Dir.mktmpdir, "trail.jsonl") }
   let(:trail) { described_class.new(trail_path) }
 

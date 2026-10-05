@@ -25,8 +25,6 @@ RSpec.describe "bin/lictor" do
     dir = Dir.mktmpdir
     path = File.join(dir, "target.facts")
     File.write(path, facts_text)
-    list = File.join(dir, "targets.yml")
-    File.write(list, "192.168.56.10\n")
     out, _err, status = Open3.capture3(exe, "plan", path,
       "-t", File.join(dir, "trail.jsonl"))
     expect(status.exitstatus).to eq(0)

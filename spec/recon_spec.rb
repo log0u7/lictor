@@ -19,7 +19,7 @@ RSpec.describe Lictor::Recon do
   end
 
   describe ".service_candidates" do
-    it "emits host:port entries matching the allowlist format" do
+    it "emits host:port service candidates" do
       expect(described_class.service_candidates(fixture))
         .to contain_exactly("192.168.56.10:22", "192.168.56.10:80", "192.168.56.11:21")
     end

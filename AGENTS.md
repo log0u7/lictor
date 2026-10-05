@@ -2,11 +2,12 @@
 
 ## Project
 
-lictor: the orchestrator that carries out augure's judgments - v0.2.0
-ships: gates, recon (ruby-nmap), fuzzing/triage (augure-profiler),
-handoff + ronin execution (consent-gated), the closed loop (outcome ->
-priors), JSONL trail, engagement reports, the gated MCP surface
-(lictor-mcp).
+lictor: the orchestrator that carries out augure's judgments - v0.3.0
+ships: scan/acquire (ruby-nmap, the mirror), fuzzing/triage
+(augure-profiler), harvest, verify, suggest, handoff + ronin
+execution, the closed loop (outcome -> priors), JSONL trail, the
+build layer (measured offset, pack layouts), engagement reports and
+the MCP surface (lictor-mcp). The operator is the authorization.
 
 ## Hard rules (enforced in code, in review, everywhere)
 
@@ -29,7 +30,7 @@ priors), JSONL trail, engagement reports, the gated MCP surface
 
 ## Commands
 
-- Test: `bundle exec rspec` (all green required, 115+ examples)
+- Test: `bundle exec rspec` (all green required, 100 examples)
 - Lint: `bundle exec standardrb` (zero offenses required)
 - CLI: `bundle exec ruby bin/lictor --help`
 

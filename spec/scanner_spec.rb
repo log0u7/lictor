@@ -56,12 +56,6 @@ RSpec.describe "bin/lictor scan" do
     File.chmod(0o755, path)
     path
   end
-  let(:allowlist) do
-    p = File.join(dir, "targets.yml")
-    File.write(p, "192.168.56.10:22\n")
-    p
-  end
-
   it "scans a host, trails and prints the inventory" do
     trail = File.join(dir, "trail.jsonl")
     out, _err, status = Open3.capture3(exe, "scan", "192.168.56.10",

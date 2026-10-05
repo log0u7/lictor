@@ -10,17 +10,16 @@ RSpec.describe Lictor::Config do
     expect(described_class.load(File.join(dir, "none.yml"))).to eq({})
   end
 
-  it "reads allowlist, trail, nmap and profile_cmd" do
+  it "reads trail, nmap and profile_cmd" do
     path = File.join(dir, "lictor.yml")
     File.write(path, <<~YML)
-      allowlist: targets.yml
       trail: runs.jsonl
       nmap: /usr/bin/nmap
       profile_cmd: augure-profile
       seed: 42
     YML
     expect(described_class.load(path)).to eq(
-      allowlist: "targets.yml", trail: "runs.jsonl",
+      trail: "runs.jsonl",
       nmap: "/usr/bin/nmap", profile_cmd: "augure-profile", seed: 42
     )
   end
@@ -35,10 +34,9 @@ end
 RSpec.describe "bin/lictor reads lictor.yml" do
   let(:exe) { File.expand_path("../bin/lictor", __dir__) }
 
-  it "plan works with no -a flag when the config names the allowlist" do
+  it "plan works with no flags when the config names the trail" do
     dir = Dir.mktmpdir
-    File.write(File.join(dir, "targets.yml"), "192.168.56.10\n")
-    File.write(File.join(dir, "lictor.yml"), "allowlist: targets.yml\ntrail: t.jsonl\n")
+    File.write(File.join(dir, "lictor.yml"), "trail: t.jsonl\n")
     File.write(File.join(dir, "target.facts"),
       "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
       "plt(\"system\").\ngadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n")
@@ -50,14 +48,13 @@ RSpec.describe "bin/lictor reads lictor.yml" do
 
   it "flags override the config" do
     dir = Dir.mktmpdir
-    File.write(File.join(dir, "targets.yml"), "192.168.56.10\n")
-    File.write(File.join(dir, "other.yml"), "10.9.9.9\n")
-    File.write(File.join(dir, "lictor.yml"), "allowlist: targets.yml\n")
+    File.write(File.join(dir, "lictor.yml"), "trail: config-trail.jsonl\n")
     File.write(File.join(dir, "target.facts"),
       "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
       "plt(\"system\").\ngadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n")
-    out, _, status = Open3.capture3(exe, "plan", "target.facts", "-a", "other.yml", chdir: dir)
+    out, _, status = Open3.capture3(exe, "plan", "target.facts", "-t", "flag-trail.jsonl", chdir: dir)
     expect(status.exitstatus).to eq(0)
     expect(out).to include("selected:   ret2plt")
+    expect(File.exist?(File.join(dir, "flag-trail.jsonl"))).to be(true)
   end
 end

@@ -86,8 +86,6 @@ RSpec.describe "installed packs influence decisions" do
     FileUtils.mkdir_p(File.join(project, "packs"))
     FileUtils.cp(canon, File.join(project, "packs"))
     File.write(File.join(project, "lictor.yml"), "packs: packs\n")
-    list = File.join(project, "targets.yml")
-    File.write(list, "192.168.56.10\n")
     facts = File.join(project, "target.facts")
     File.write(facts, csu_facts)
     Dir.chdir(project) do

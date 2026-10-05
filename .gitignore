@@ -13,3 +13,9 @@ lictor-trail.jsonl
 demo-trail.jsonl
 runs.jsonl
 *.jsonl.bak
+core
+core.*
+payload.bin
+crash-input.bin
+target.facts
+lictor.yml

@@ -27,9 +27,8 @@ end
 RSpec.describe "bin/lictor doctor" do
   let(:exe) { File.expand_path("../bin/lictor", __dir__) }
 
-  def scaffold(dir, allowlist: "192.168.56.10\n")
+  def scaffold(dir)
     File.write(File.join(dir, "lictor.yml"), "trail: t.jsonl\n")
-    File.write(File.join(dir, "targets.yml"), allowlist)
   end
 
   it "reports ok on a clean setup" do

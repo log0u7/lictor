@@ -44,8 +44,6 @@ module LictorMcp
             end
             trail.record(run: SecureRandom.uuid, type: "scan", target: host)
             respond(targets: targets, candidates: targets.map { |t| "#{t[:host]}:#{t[:port]}" })
-          rescue ::Lictor::Unauthorized => e
-            error("UNAUTHORIZED: #{e.message}")
           rescue ::Lictor::ScanError => e
             error(e.message)
           end
@@ -70,8 +68,6 @@ module LictorMcp
             trail.record(run: SecureRandom.uuid, type: "plan", selected: decision[:selected],
               applicable: decision[:applicable])
             respond(decision)
-          rescue ::Lictor::Unauthorized => e
-            error("UNAUTHORIZED: #{e.message}")
           rescue ::Augure::MalformedFact, ::Augure::UnknownPredicate, ::Lictor::ProfilerError => e
             error(e.message)
           end
@@ -99,8 +95,6 @@ module LictorMcp
               success: result[:success] == true, executed: result[:executed],
               target: target)
             respond(result)
-          rescue ::Lictor::Unauthorized => e
-            error("UNAUTHORIZED: #{e.message}")
           rescue ::Lictor::ExecutorError => e
             error(e.message)
           end
@@ -153,8 +147,6 @@ module LictorMcp
               offset: result[:offset], offset_source: result[:offset_source],
               ret: result[:ret_source], size: result[:size], out: result[:path])
             respond(result)
-          rescue ::Lictor::Unauthorized => e
-            error("UNAUTHORIZED: #{e.message}")
           rescue ::Lictor::PayloadBuilder::BuildError, ::Augure::MalformedFact, ::Augure::UnknownPredicate => e
             error(e.message)
           end
@@ -187,8 +179,6 @@ module LictorMcp
             trail.record(run: ::SecureRandom.uuid, type: "scaffold", technique: technique,
               offset: result[:offset], ret: result[:ret_source], file: dest)
             respond(scaffolded: dest, review: "the operator reads and commits this file")
-          rescue ::Lictor::Unauthorized => e
-            error("UNAUTHORIZED: #{e.message}")
           rescue ::Lictor::PayloadBuilder::BuildError, ::Lictor::ExploitScaffold::ScaffoldError,
             ::Augure::MalformedFact, ::Augure::UnknownPredicate => e
             error(e.message)
@@ -219,8 +209,6 @@ module LictorMcp
               selected_before: result[:selected_before],
               selected_after: result[:selected_after]
             })
-          rescue ::Lictor::Unauthorized => e
-            error("UNAUTHORIZED: #{e.message}")
           rescue ::Augure::MalformedFact => e
             # the parse error embeds the offending line: a file named by
             # the caller must not leak its content through the error

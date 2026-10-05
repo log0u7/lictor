@@ -20,8 +20,6 @@ RSpec.describe LictorMcp::Server do
 
   it "plan emits the decision with provenance" do
     dir = Dir.mktmpdir
-    list = File.join(dir, "targets.yml")
-    File.write(list, "192.168.56.10\n")
     facts = File.join(dir, "target.facts")
     File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\nplt(\"system\").\n" \
                       "gadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n")
@@ -32,8 +30,6 @@ RSpec.describe LictorMcp::Server do
 
   it "suggest_facts returns the decision delta and refuses off-schema facts" do
     dir = Dir.mktmpdir
-    list = File.join(dir, "targets.yml")
-    File.write(list, "192.168.56.10\n")
     facts = File.join(dir, "target.facts")
     File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n")
     response = server.handle_json(rpc(1, "suggest_facts", {
@@ -57,8 +53,6 @@ RSpec.describe LictorMcp::Server do
       .find { |p| File.file?(p) }
     require_relative builder
     dir = Dir.mktmpdir
-    list = File.join(dir, "targets.yml")
-    File.write(list, "192.168.56.10\n")
     facts = File.join(dir, "target.facts")
     File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
       "win_symbol(\"win\", 4196182).\ngadget(\"ret_align\", 4196100).\n")
@@ -79,8 +73,6 @@ RSpec.describe LictorMcp::Server do
       .find { |p| File.file?(p) }
     require_relative builder
     dir = Dir.mktmpdir
-    list = File.join(dir, "targets.yml")
-    File.write(list, "192.168.56.10\n")
     facts = File.join(dir, "target.facts")
     File.write(facts, "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
       "win_symbol(\"win\", 4196182).\ngadget(\"ret_align\", 4196100).\n")

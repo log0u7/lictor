@@ -9,11 +9,11 @@ Gem::Specification.new do |spec|
   spec.email = ["log0u7@users.noreply.github.com"]
   spec.license = "MIT"
 
-  spec.summary = "Gated MCP surface for the lictor orchestrator - the LLM harness's hands."
-  spec.description = "MCP tools over the lictor orchestrator: scan, profile, plan, fuzz, " \
-                     "execute and rule_install - all validated SERVER-side (allowlist, " \
-                     "consent tokens, corpus guard) and fully trailed. The LLM proposes; " \
-                     "augure disposes; lictor executes; nothing escapes the gates."
+  spec.summary = "MCP surface for the lictor orchestrator - the LLM harness's hands, server-side validated."
+  spec.description = "MCP tools over the lictor orchestrator: scan, plan, execute, " \
+                     "validate_pack, build_payload, scaffold_exploit, suggest_facts - " \
+                     "validated SERVER-side (the pack armor, the corpus guard, the trail). " \
+                     "The LLM proposes; augure disposes; lictor executes; the trail records."
   spec.homepage = "https://github.com/log0u7/lictor"
   spec.required_ruby_version = ">= 3.4"
 

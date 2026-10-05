@@ -29,6 +29,19 @@ jobs:
       - name: Tests
         run: bundle exec rspec --profile
 
+  gems:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Both gems build (the release artifact is not a dead one)
+        run: |
+          gem build lictor.gemspec
+          (cd mcp_server && gem build lictor-mcp.gemspec)
+
   gitleaks:
     runs-on: ubuntu-latest
     steps:

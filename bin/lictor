@@ -377,8 +377,17 @@ when "acquire"
   # The nmap -> binary bridge: local copy or http download, ELF-checked,
   # profiled, trailed.
   target = ARGV.shift or abort(parser.to_s)
-  source = options[:from] || (options[:bin] && "local:#{options[:bin]}") ||
-           abort("lictor: acquire needs --from <url> or --bin <path>")
+  # the registry carries the source: --from/--bin override, the
+  # target's recorded `from`/`bin` is the fallback (the engagement
+  # flow: one `target add` and the acquire needs no flags)
+  source = options[:from] || (options[:bin] && "local:#{options[:bin]}")
+  source ||= begin
+    entry = Lictor::Targets.resolve(target)
+    (entry[:from] || (entry[:bin] && "local:#{entry[:bin]}"))
+  rescue ArgumentError
+    nil
+  end
+  source or abort("lictor: acquire needs --from <url> or --bin <path> (or a target add --from/--bin)")
   result = Lictor::Acquisition.acquire(target, source: source, trail: trail,
                                        out_dir: when_state,
                                        profiler_cmd: options[:profile_cmd])

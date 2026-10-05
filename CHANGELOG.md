@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
-### Added
+- The engagement flow without flags: `lictor acquire <name>` resolves the source from the target's registry entry (the `--from`/`--bin` recorded at `target add`) - one `target add` and the acquire needs no flags; the explicit flags still override.
 
 - The ROP chaineur: the build layout gains the `chain` slot - one arch-width word per
   reference, resolved in order against the facts (`gadget:TYPE`, `plt_addr:NAME`,

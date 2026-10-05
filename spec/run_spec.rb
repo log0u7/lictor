@@ -147,3 +147,44 @@ RSpec.describe "the manual executor does not poison the priors" do
     expect(after["ret2plt"]).to eq(defaults["ret2plt"])
   end
 end
+
+RSpec.describe "the leak capture between attempts" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail_path) { File.join(dir, "t.jsonl") }
+  let(:trail) { Lictor::Trail.new(trail_path) }
+  let(:facts_text) do
+    "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\nplt(\"system\").\n" \
+      "gadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n"
+  end
+
+  it "the output's hex leaks become leaked_address facts for the next attempt" do
+    executor_class = Class.new do
+      def initialize(outputs)
+        @outputs = outputs
+      end
+
+      def execute(**)
+        {executed: true, success: false, output: @outputs.shift.to_s}
+      end
+    end
+    result = Lictor::Run.run(target: "192.168.56.10:9999", facts: facts_text, trail: trail,
+      executor: executor_class.new(["win() at 0xdeadbeef\n", "second"]), max_attempts: 2, seed: 42)
+    expect(result[:leaks]).to eq({"win" => 0xdeadbeef})
+    events = File.readlines(trail_path).map { |l| JSON.parse(l) }
+    leaked = events.find { |e| e["type"] == "leak" }
+    expect(leaked["addresses"]).to eq("win" => "0xdeadbeef")
+  end
+
+  it "no output, no leak event" do
+    executor_class = Class.new do
+      def execute(**)
+        {executed: true, success: false}
+      end
+    end
+    result = Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
+      executor: executor_class.new, max_attempts: 1, seed: 42)
+    events = File.readlines(trail_path).map { |l| JSON.parse(l) }
+    expect(events.map { |e| e["type"] }).not_to include("leak")
+    expect(result[:leaks]).to eq({})
+  end
+end

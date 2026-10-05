@@ -19,6 +19,7 @@ module Lictor
       flag_regex: nil)
       executor ||= ManualExecutor.new
       attempts = []
+      leaks = {}
 
       # The static read feeds the decision: the sink the frame analysis
       # found (strcpy/gets...) becomes the vuln_hint the engine derives
@@ -43,6 +44,22 @@ module Lictor
 
         result = executor.execute(target: target, technique: technique,
           recipe: decision[:recipe], payload: payload, flag_regex: flag_regex)
+        # The leak capture: the service's own output hex addresses
+        # become leaked_address facts for the NEXT attempt (the
+        # two-steps: leak, then rebuild with the observed values). The
+        # facts the build layouts resolve as leak:NAME.
+        if result[:output].is_a?(String) && !result[:output].empty?
+          found = Harvest.parse_banner(result[:output]).reject { |name, _| leaks.key?(name) }
+          unless found.empty?
+            leaks.merge!(found)
+            facts = Augure::Facts.parse(facts.to_s + found.map { |name, addr|
+              "leaked_address(\"#{name}\", #{addr})."
+            }.join("\n") + "\n")
+            trail.record(run: SecureRandom.uuid, type: "leak", target: target,
+              addresses: found.transform_values { |v| format("0x%x", v) })
+          end
+        end
+
         # The repos have no exploit for the decided technique and the
         # binary is in hand: scaffold it (measured constants), trail it,
         # and the NEXT attempt discovers it. The operator still reviews
@@ -89,7 +106,7 @@ module Lictor
       else
         "budget-exhausted"
       end
-      {status: status, steps: attempts}
+      {status: status, steps: attempts, leaks: leaks}
     end
   end
 end

@@ -24,6 +24,20 @@ module Lictor
       tube = Lictor::Tube.tcp(host, port, timeout: timeout)
       banner = tube.read_bytes(limit: read_bytes)
       tube.close
+      addresses = parse_banner(banner)
+      raise HarvestError, "no address in the banner" if addresses.empty?
+
+      facts = addresses.map { |name, addr| "leaked_address(\"#{name}\", #{addr})." }.join("\n") + "\n"
+      trail.record(run: SecureRandom.uuid, type: "harvest", target: target,
+        addresses: addresses.transform_values { |v| format("0x%x", v) })
+      {addresses: addresses, facts: facts}
+    rescue => e
+      raise HarvestError, "the service said nothing readable: #{e.message}"
+    end
+
+    # The banner parser, shared with the run's leak capture: hex
+    # addresses in a service's output, named by the announcing context.
+    def parse_banner(banner)
       addresses = {}
       banner.scan(HEX) do |hex|
         addr = hex.first.to_i(16)
@@ -38,14 +52,7 @@ module Lictor
           "leak"
         addresses[name] ||= addr
       end
-      raise HarvestError, "no address in the banner" if addresses.empty?
-
-      facts = addresses.map { |name, addr| "leaked_address(\"#{name}\", #{addr})." }.join("\n") + "\n"
-      trail.record(run: SecureRandom.uuid, type: "harvest", target: target,
-        addresses: addresses.transform_values { |v| format("0x%x", v) })
-      {addresses: addresses, facts: facts}
-    rescue => e
-      raise HarvestError, "the service said nothing readable: #{e.message}"
+      addresses
     end
   end
 end

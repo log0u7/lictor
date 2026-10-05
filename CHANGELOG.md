@@ -90,7 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-10-03
 
-### Added
+- The two-steps state: the run's leak capture - the service's own output hex addresses become `leaked_address` facts for the NEXT attempt (trailed as `leak` events), so a leak technique followed by a rebuild technique resolves its `leak:NAME` refs from the observed values. The boundary stays documented: a leak and its strike inside ONE connection is the operator's exploit craft (the scaffold pattern), not the loop's.
 
 - `lictor plan <binary>`: ELF magic detection profiles the binary
   through the augure-profile subprocess (trailed), then decides. A

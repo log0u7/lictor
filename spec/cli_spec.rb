@@ -3,6 +3,7 @@
 require "open3"
 require "json"
 require "tmpdir"
+require "socket"
 
 RSpec.describe "bin/lictor" do
   let(:exe) { File.expand_path("../bin/lictor", __dir__) }
@@ -230,5 +231,43 @@ RSpec.describe "lictor run auto-scaffold via the CLI" do
     expect(File.exist?(File.join(repo, "lab_ret2func_001.rb"))).to be(true),
       "the auto-scaffold never fired from the CLI: #{out[0, 200]}"
     expect(File.read(File.join(dir, "trail.jsonl"))).to include("\"scaffold\"")
+  end
+end
+
+RSpec.describe "the fact write-back" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail) { File.join(dir, "t.jsonl") }
+  let(:exe) { File.expand_path("../bin/lictor", __dir__) }
+
+  it "suggest -o writes the merged fact base - the enrichment loop closes" do
+    base = File.join(dir, "base.facts")
+    File.write(base, "nx(\"true\").\npie(\"false\").\n")
+    merged = File.join(dir, "merged.facts")
+    out, err, status = Open3.capture3(exe, "suggest", base, "vuln(\"sof\").", "-o", merged, "-t", trail)
+    expect(status.exitstatus).to eq(0), "suggest failed: #{err[0, 150]}"
+    body = File.read(merged)
+    expect(body).to include("nx(\"true\")")
+    expect(body).to include("vuln(\"sof\")")
+    expect(out).to include("added")
+  end
+
+  it "harvest --facts appends the leaked addresses to the file" do
+    server = TCPServer.new("127.0.0.1", 0)
+    port = server.addr[1]
+    t = Thread.new do
+      cli = server.accept
+      cli.write "win() at 0x401260\n"
+      cli.close
+    rescue
+      nil
+    end
+    facts = File.join(dir, "target.facts")
+    File.write(facts, "nx(\"true\").\n")
+    out, err, status = Open3.capture3(exe, "harvest", "127.0.0.1:#{port}", "--facts", facts, "-t", trail)
+    t.join(2)
+    server.close
+    expect(status.exitstatus).to eq(0), "harvest failed: #{err[0, 150]}"
+    expect(File.read(facts)).to include("leaked_address(\"win\", 4196440)")
+    expect(out).to include("leaked")
   end
 end

@@ -58,7 +58,7 @@ parser = OptionParser.new do |opts|
   opts.on("--bin PATH", "Local binary: the acquire source, or the mirror for run auto-scaffold") { |v| options[:bin] = v }
   opts.on("--input PATH", "Crash input for verify (the fuzzer's discovery)") { |v| options[:input] = v }
   opts.on("--triage-backend NAME", "gdb (default), rizin or lldb") { |v| options[:triage_backend] = v }
-  opts.on("-o", "--output PATH", "Write the report to PATH (default: stdout)") { |v| options[:output] = v }
+  opts.on("-o", "--output PATH", "Report output path, or the merged facts for suggest") { |v| options[:output] = v }
   opts.on("-j", "--json", "Machine payload instead of human output") { options[:json] = true }
   opts.on("-h", "--help", "Show this help") { puts opts; exit 0 }
 end
@@ -345,13 +345,22 @@ when "suggest"
   puts "added:      #{result[:added].inspect}"
   puts "applicable: #{result[:applicable_before].join(', ')}  ->  #{result[:applicable_after].join(', ')}"
   puts "selected:   #{result[:selected_before].inspect}  ->  #{result[:selected_after].inspect}"
+  if options[:output]
+    File.write(options[:output], result[:facts].to_s)
+    puts "written:    #{options[:output]} (the merged base - the enrichment is not a dry run)"
+  end
 when "harvest"
   target = ARGV.shift or abort(parser.to_s)
   begin
     result = Lictor::Harvest.harvest(target, trail: trail,
       timeout: options[:timeout] || 5, read_bytes: 512)
     puts "leaked:     #{result[:addresses].map { |k, v| "#{k}=#{format('0x%x', v)}" }.join(', ')}"
-    puts "facts:      merge them with lictor suggest or append to the target facts"
+    if options[:facts]
+      File.open(options[:facts], "a") { |f| f.write(result[:facts]) }
+      puts "appended:   #{options[:facts]} (leaked_address facts, observed-live)"
+    else
+      puts "facts:      merge them with lictor suggest or pass --facts PATH to append"
+    end
   rescue Lictor::Harvest::HarvestError => e
     abort("lictor: #{e.message}")
   end

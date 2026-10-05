@@ -79,10 +79,9 @@ module LictorMcp
       end,
 
       ExecuteTechnique = Class.new(::MCP::Tool) do
-        description "Execute the decided technique against the target - " \
-                    "token (lictor authorize <target>, typed by the human, short-lived). " \
+        description "Execute the decided technique against the target. " \
                     "The executor discovers exploits from the operator's repos; it never " \
-                    "invents one."
+                    "invents one. The trail records what actually executed."
         input_schema(properties: {
           target: {type: "string"}, technique: {type: "string"},
           exploit_name: {type: "string", description: "from your repos (ronin-exploits list)"},
@@ -97,7 +96,8 @@ module LictorMcp
             result = executor.execute(target: target, technique: technique, recipe: {console: ""},
               exploit_name: exploit_name, payload: payload_file)
             trail.record(run: SecureRandom.uuid, type: "outcome", technique: technique,
-              success: result[:success] == true, executed: true, target: target)
+              success: result[:success] == true, executed: result[:executed],
+              target: target)
             respond(result)
           rescue ::Lictor::Unauthorized => e
             error("UNAUTHORIZED: #{e.message}")

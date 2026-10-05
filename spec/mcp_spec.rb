@@ -106,3 +106,19 @@ RSpec.describe LictorMcp::Server do
     expect(payload["valid"]).to be(true)
   end
 end
+
+RSpec.describe "the MCP execute_technique honesty" do
+  it "trails executed as the executor reported it, not a lie" do
+    dir = Dir.mktmpdir
+    File.join(dir, "mcp-trail.jsonl")
+    # a stub ronin-like runner that "succeeds" but the executor reports
+    # no exploit match is hard to fake without ronin: assert on the
+    # trail record semantics via a fake executor injected through the
+    # public path - here we assert the CODE, not a live ronin run.
+    src = File.read(File.expand_path("../mcp_server/lib/lictor-mcp/server.rb", __dir__))
+    expect(src).to match(/executed:\s*result\[:executed\]/),
+      "ExecuteTechnique must trail the executor's executed value, not a hardcoded true"
+    expect(src).not_to match(/lictor authorize/),
+      "the tool docstring still references the removed authorize command"
+  end
+end

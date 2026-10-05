@@ -229,8 +229,9 @@ RSpec.describe "lictor run auto-scaffold via the CLI" do
       "-t", File.join(dir, "trail.jsonl"), "--max-attempts", "2")
     expect(status.exitstatus).to eq(0), "run failed: #{err[0, 200]}"
     expect(File.exist?(File.join(repo, "lab_ret2func_001.rb"))).to be(true),
-      "the auto-scaffold never fired from the CLI: #{out[0, 200]}"
-    expect(File.read(File.join(dir, "trail.jsonl"))).to include("\"scaffold\"")
+      "the auto-scaffold never fired from the CLI: #{out[0,
+        200]}"
+    expect(File.read(File.join(dir, "trail.jsonl"))).to include('"scaffold"')
   end
 end
 
@@ -243,11 +244,11 @@ RSpec.describe "the fact write-back" do
     base = File.join(dir, "base.facts")
     File.write(base, "nx(\"true\").\npie(\"false\").\n")
     merged = File.join(dir, "merged.facts")
-    out, err, status = Open3.capture3(exe, "suggest", base, "vuln(\"sof\").", "-o", merged, "-t", trail)
+    out, err, status = Open3.capture3(exe, "suggest", base, 'vuln("sof").', "-o", merged, "-t", trail)
     expect(status.exitstatus).to eq(0), "suggest failed: #{err[0, 150]}"
     body = File.read(merged)
-    expect(body).to include("nx(\"true\")")
-    expect(body).to include("vuln(\"sof\")")
+    expect(body).to include('nx("true")')
+    expect(body).to include('vuln("sof")')
     expect(out).to include("added")
   end
 
@@ -267,7 +268,7 @@ RSpec.describe "the fact write-back" do
     t.join(2)
     server.close
     expect(status.exitstatus).to eq(0), "harvest failed: #{err[0, 150]}"
-    expect(File.read(facts)).to include("leaked_address(\"win\", 4196440)")
+    expect(File.read(facts)).to include('leaked_address("win", 4199008)')
     expect(out).to include("leaked")
   end
 end

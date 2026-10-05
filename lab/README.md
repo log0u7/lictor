@@ -112,3 +112,12 @@ purple loop: the corpus flips (`augure coverage`) + the defender view
 of an attack trail (`lictor report --defender`). The blue team gets
 its scorecard; the SOC gets the timeline and the per-technique
 observables straight from the packs' `detection:` sections.
+
+## The bench
+
+`sh purple.sh` is the purple loop; `sh bench.sh` exports the
+TELEMETRY: the demo replay's trail as the artifact the LLM benchmarks
+shape wants (the tasks, the actions, the feedback - `lictor run` is
+the interactive environment; NYU CTF Bench / InterCode are the
+readers). The summary is `lictor/bench@1`, predictions with
+provenance, never field results.

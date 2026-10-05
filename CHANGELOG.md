@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ADRs: docs/adr/ records the architectural decisions - the Tube as the transport seam (0001), verify as the arithmetic check with SMT a seam not a promise (0002), engagement state as a directory per target, no database (0003).
 
 ### Changed
+- The lab README carries the purple section (the hardening matrix + the defender view); AGENTS.md is current.
 - The report carries the WHOLE trail: `Trail#runs` maps acquire, build (offset, ret source, size), scaffold, harvest, verify, suggest, leak and fuzz - the auditable deliverable no longer omits most of the audit. `report --json` renders the same completeness.
 - The capabilities table documents the new surfaces: the chain-slot build, the suggest `-o` write-back, `harvest --facts`, the `run --flag-regex` oracle and the leak capture.
 - The lab is six targets (uaf_heap 9995, orw 9994); the demo walks suggest-then-decide for the source knowledge (heap class, seccomp filter, controlled format) and harvest-then-build for the orw chain. build-format.md (augure side) documents the new slots.

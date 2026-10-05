@@ -30,7 +30,7 @@ the MCP surface (lictor-mcp). The operator is the authorization.
 
 ## Commands
 
-- Test: `bundle exec rspec` (all green required, 100 examples)
+- Test: `bundle exec rspec` (all green required, 124 examples)
 - Lint: `bundle exec standardrb` (zero offenses required)
 - CLI: `bundle exec ruby bin/lictor --help`
 

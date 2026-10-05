@@ -47,9 +47,12 @@ Replay it yourself against the lab:
 sh lab/demo.sh
 ```
 
-The full chain is: **scan → mirror → (fuzz → triage) → verify →
-suggest → plan → build → run → outcome → report** - every step is
-recorded in the trail, the decision is explained rule-by-rule.
+The full chain is: **scan → acquire/mirror → (fuzz → triage) →
+verify → suggest → harvest → plan → build → run → outcome → report**
+- every step is recorded in the trail (one stable run id, the
+manifest written per attempt), the decision is explained rule-by-rule.
+`harvest` reads the service banner's hex leaks into `leaked_address`
+facts; `suggest` is the agent's own step
 `suggest` is the agent's own step: propose observations as facts, get
 the decision delta back
 (see [docs/how-to-llm-suggestions.md](docs/how-to-llm-suggestions.md));
@@ -58,6 +61,25 @@ assembled (below). When discovery finds NO exploit for the decided
 technique, the run scaffolds it and the next attempt uses it; when NO
 technique applies to the crash, `lictor draft` writes a staged pack
 from the observations - the loop feeds augure back.
+
+## Named targets: the engagement model
+
+State is scoped per target (ADR 0003), not clobbered in the CWD:
+
+```sh
+lictor target add web01 10.0.0.5:9999 --from http://10.0.0.5:8000/binary
+lictor --target web01 acquire web01     # or: acquire web01 --target web01
+lictor --target web01 plan              # reads targets/web01/target.facts
+lictor --target web01 run web01 --facts targets/web01/target.facts \
+  --executor ronin --flag-regex "FLAG\{[^}]+\}"
+lictor run ... --resume <run-id>        # the manifest is written per attempt:
+                                        # an interruption is a pause, not an orphan
+```
+
+`targets/<name>/` holds the facts, the payloads and the trail; the
+registry is `targets.yml`. Priors are per-target by construction (the
+scoped trail IS the scope): a failure on A does not shift B's
+decisions.
 
 ## From decision to payload: the offset is measured, not guessed
 
@@ -95,7 +117,10 @@ in [augure/docs/build-format.md](../augure/docs/build-format.md).
 
 | Command | What it does |
 |---|---|
-| `init` / `doctor` | Scaffold the engagement setup; verify the environment (exact fix per check). |
+| `target add|list` | Named targets: a dir per target (facts, payloads, its own trail) + the `targets.yml` registry; `--target` scopes every command. |
+| `init` / `doctor` | Scaffold the engagement setup; verify the environment (exact fix per check; gdb/ronin/docker as warns). |
+| `recon <nmap.xml>` | Print the service candidates from an nmap XML (passive, never scans). |
+| `runs` | List the trailed runs. |
 | `scan <host>` | nmap against a target; the scan is recorded. |
 | `acquire <target>` | The lab convenience: copy or download the binary when the target serves it. The real flow is the MIRROR (below). |
 | `fuzz <binary>` | Fuzz + triage a local binary: the fact **discovery** layer. Length sweep + mutations; gdb/rizin/lldb backends. |
@@ -106,9 +131,9 @@ in [augure/docs/build-format.md](../augure/docs/build-format.md).
 | `suggest <facts>` | The agent proposes observations as facts; augure re-decides and the delta comes back - `-o PATH` writes the merged base, so the enrichment is not a dry run. |
 | `draft <facts>` | No technique applies? The observed facts + the measured constants draft a PACK in the staging dir, armor-validated, for the operator to review and install. |
 | `exploit scaffold <technique>` | Draft the ronin exploit for a decided technique: the measured constants embedded, the payload loader wired - review, commit, run. |
-| `run <target>` | The closed loop: decide, execute, outcome, re-decide - with an attempt budget, `--flag-regex` as the success oracle (the flag in the output, not the exit code), and the leak capture: the output's hex addresses become facts for the next attempt. |
+| `run <target>` | The closed loop: decide, execute, outcome, re-decide - with an attempt budget, `--flag-regex` as the success oracle (the flag in the output, not the exit code), the leak capture (the output's hex addresses become facts for the next attempt) and the run manifest (`--resume <id>` continues an interrupted run). |
 | `outcome <run-id>` | Record the result; the next decision adapts the priors. |
-| `report` | The auditable engagement report (markdown, provenance included). |
+| `report` | The auditable engagement report (markdown, provenance included) - `--defender` renders the blue-side view: the action timeline + the packs' `detection:` hints. |
 | `rule validate/install/list` | Teach augure a new technique - as data, through the armor. |
 
 ## The operator is the authorization
@@ -132,31 +157,36 @@ was done:
 
 ```mermaid
 flowchart LR
-    subgraph recon ["RECON - ruby-nmap 1.0.3"]
-        NMAP["nmap -sV -oX scan.xml<br/>(operator-run)"] --> R["Lictor::Recon<br/>(parses XML, never scans)"]
-        R --> INV["target inventory<br/>+ service/version facts"]
+    subgraph scope ["SCOPE - the engagement (ADR 0003)"]
+        T["lictor target add<br/>targets.yml registry"] --> TD["targets/NAME/<br/>facts, payloads, trail"]
     end
 
-    INV -- "service facts drive the match" --> A
+    TD --> F
 
     subgraph decide ["DECIDE - the augure SDK"]
-        ELF["target binary"] --> PRF["augure-profiler<br/>metasm: checksec, gadgets"]
-        PRF --> F["facts<br/>nx/pie/plt/gadget/vuln_hint"]
+        ELF["acquired binary<br/>(the MIRROR)"] --> PRF["augure-profiler<br/>metasm: checksec, gadgets, addresses"]
+        PRF --> F["facts + value domains"]
+        HST["harvest: the banner's leaks"] --> F
+        SUG["suggest: the operator's knowledge"] --> F
         F --> A["augure Engine<br/>Datalog rules-as-data"]
+        P["technique packs<br/>(build:/detection:/mitre:)"] --> A
         KB["KnowledgeBase<br/>22 patterns"] -. priors .-> A
         A --> V["Verifier + Bandit + MCTS"]
-        V --> D["decision + provenance<br/>rule ID, evidence, seed"]
+        V --> D["decision + provenance<br/>augure/decision@1"]
     end
 
-    subgraph act ["ACT - lictor (Ruby-native arsenal)"]
-        D -- "handoff (default)" --> H["recipe printed<br/>ronin mixin + technique"]
-        D -- "opt-in, budgeted" --> RN["ronin-exploits<br/>+ rex gems<br/>gem install, no daemon"]
-        H --> O["outcome"]
-        RN --> O
+    subgraph act ["ACT"]
+        D -- "handoff (default)" --> H["recipe printed"]
+        D -- "opt-in, budgeted" --> RN["ronin-exploits (subprocess)"]
+        RN --> O["outcome + leak capture"]
+        H --> O
+        O -- "the flag in the output<br/>(--flag-regex oracle)" --> ST["status"]
+        O --> MF["run.json manifest<br/>--resume continues"]
     end
 
-    O --> TR["JSONL trail<br/>decision - rule - module - outcome"]
-    O -. "closed loop: outcomes become facts" .-> F
+    MF --> TR["trail (0600)<br/>one id per run, 14 event types"]
+    TR --> RP["report<br/>(--defender: the blue view)"]
+    O -. "outcomes become priors<br/>(per target)" .-> A
 ```
 
 ## The Ruby-native arsenal
@@ -165,20 +195,19 @@ flowchart LR
 |---|---|---|
 | nmap XML parsing | [ruby-nmap 1.0.3](https://rubygems.org/gems/ruby-nmap) (postmodern, 703k dl) | the maintained standard; parses XML without running nmap |
 | exploitation runtime | [ronin-exploits 1.1.1](https://rubygems.org/gems/ronin-exploits) + [ronin 2.1.1](https://rubygems.org/gems/ronin) | exploits as Ruby classes, mixins = the technique vocabulary; no daemon, `gem install` |
-| primitives | [rex-bin_tools](https://rubygems.org/gems/rex-bin_tools), [rex-arch](https://rubygems.org/gems/rex-arch), [rex-socket](https://rubygems.org/gems/rex-socket) (Rapid7, 2026-maintained) | msf's Ruby internals gemified: ELF/ROP, assembly, raw sockets |
 | binary analysis | `augure-profiler` (metasm) | pure Ruby, no subprocess, augure's sibling gem |
 | fuzzing | built-in `RubyMutator` (zero-dep) + radamsa optional | the discovery layer for binaries with no write-up |
 | persistence | stdlib JSONL | sequel when queries are actually needed |
 
 **Why not Metasploit?** It IS Ruby - but a monolithic Rapid7 app you
-must install and drive through a dead RPC gem. `ronin` + `rex` install
-as gems and carry the same primitives natively. Metasploit remains an
-optional module arsenal behind msfrpcd when a specific ready-made
-module is worth the install - but it is not on lictor's critical path.
+must install and drive through a daemon. Lictor's path is gems: ronin
+installs as a gem and runs as a subprocess, nothing to daemonize. A
+ready-made msf module is fine for the operator's hands - it is just
+not on lictor's critical path.
 
 ## The MCP surface: when an LLM agent drives
 
-[lictor-mcp](mcp_server/) exposes seven tools over stdio - `scan_target`,
+[lictor-mcp](mcp_server/README.md) exposes seven tools over stdio - `scan_target`,
 `plan_technique`, `execute_technique`, `suggest_facts`, `build_payload`,
 `scaffold_exploit`, `validate_pack` -
 and validates
@@ -200,10 +229,12 @@ result - the lab is the measurement bench, not the world:
 | a missing exploit drafts itself | the run's auto-scaffold: discovery empty + binary in hand -> the exploit file lands in the repo, the next attempt uses it |
 | an unknown crash becomes a pack | `lictor draft`: the observed facts + the measured constants -> an armor-validated pack in the staging dir |
 | corpus: 33/33 technique classifications | `augure-benchmark`, CI-enforced at 100% |
-| shellcode / ret2plt / fmtstr targets | fact bases + recipes shipped; the build templates and verified runs are the next lab mile |
+| the six-target lab, four of them end-to-end | the lab: ret2func lands the flag via `run`; ret2plt/shellcode build real payloads (the exploit's craft decides); fmtstr/uaf_heap/orw decide and hand off loyally |
+| the hardening matrix predicts its own death | `lab/purple.sh`: the hardened mirrors (canary+PIE+RELRO+FORTIFY) + `augure coverage` flips - the decision's applicable set shrinks as documented |
 
-A run that fails says failed: the lab exploit raises when the flag does
-not come, so the exit code cannot mask a miss.
+A run that fails says failed: `--flag-regex` makes the flag in the
+output the success oracle (the exit code lies both ways), and the
+manual executor hands off instead of pretending.
 
 ## Acceptable use
 
@@ -221,8 +252,10 @@ from anyone. Bundle it from this repo:
 
 ```ruby
 # Gemfile
-gem "augure"                       # published, clean, MIT
+gem "augure", path: "../augure"    # resolved by path - NOT on rubygems yet
 # lictor + lictor-mcp: bundle from your own checkout, private
+# (augure's tag release can publish it; until then the sibling
+#  checkout is the source of truth - the Gemfile in this repo says so)
 ```
 
 ## Documentation

@@ -43,7 +43,20 @@ RUN gcc ret2func.c  -o ret2func  -fno-stack-protector -no-pie -O0 \
     && chmod 755 ret2func ret2plt shellcode fmtstr uaf_heap orw \
     && chmod 644 *.flag
 
-EXPOSE 8000 9994 9995 9996 9997 9998 9999
+# The HARDENING MATRIX (the purple side): the same sources compiled
+# under full hardening - canary on, PIE on, full RELRO, FORTIFY. The
+# purple demo watches the decision die as the hardening lands.
+RUN gcc ret2func.c  -o ret2func_h  -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong \
+      -pie -fPIE -Wl,-z,relro,-z,now \
+    && gcc ret2plt.c   -o ret2plt_h   -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong \
+      -pie -fPIE -Wl,-z,relro,-z,now \
+    && gcc shellcode.c -o shellcode_h -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong \
+      -pie -fPIE -Wl,-z,relro,-z,now \
+    && gcc fmtstr.c    -o fmtstr_h    -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong \
+      -pie -fPIE -Wl,-z,relro,-z,now \
+    && chmod 755 ret2func_h ret2plt_h shellcode_h fmtstr_h
+
+EXPOSE 8000 8897 8898 8899 9994 9995 9996 9997 9998 9999
 
 COPY start.sh .
 CMD ["./start.sh"]

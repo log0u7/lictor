@@ -93,3 +93,14 @@ or `ronin-repos update`), or ronin keeps serving the old copy.
 These are the reasons the decision layer exists: the technique facts
 (NX, no PIE, strcpy hint, target_function) decide ret2func BEFORE
 anyone writes a byte of payload.
+
+## The purple side: the hardening matrix
+
+The same sources compiled under full hardening (canary, PIE, full
+RELRO, FORTIFY) are served on the 889x ports (`ret2func_h` 8899,
+`ret2plt_h` 8898, `shellcode_h` 8897): acquire a hardened mirror and
+the decision's applicable set shrinks. `sh purple.sh` replays the
+purple loop: the corpus flips (`augure coverage`) + the defender view
+of an attack trail (`lictor report --defender`). The blue team gets
+its scorecard; the SOC gets the timeline and the per-technique
+observables straight from the packs' `detection:` sections.

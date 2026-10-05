@@ -71,6 +71,7 @@ parser = OptionParser.new do |opts|
   opts.on("--triage-backend NAME", "gdb (default), rizin or lldb") { |v| options[:triage_backend] = v }
   opts.on("-o", "--output PATH", "Report output path, or the merged facts for suggest") { |v| options[:output] = v }
   opts.on("-j", "--json", "Machine payload instead of human output") { options[:json] = true }
+  opts.on("--defender", "report: the blue-side view (the timeline + the packs' detection hints)") { options[:defender] = true }
   opts.on("-h", "--help", "Show this help") { puts opts; exit 0 }
 end
 parser.parse!

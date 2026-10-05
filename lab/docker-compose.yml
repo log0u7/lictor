@@ -1,6 +1,11 @@
 services:
   targets:
     build: .
+    # the lab is the controlled bench: setarch -R (ADDR_NO_RANDOMIZE)
+    # needs personality(2), which docker's default seccomp profile
+    # blocks - the leak-and-strike demo depends on it
+    security_opt:
+      - seccomp:unconfined
     ports:
       - "8000:8000"
       - "9996:9996"

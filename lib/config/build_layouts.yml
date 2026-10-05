@@ -63,5 +63,5 @@ orw:
   arch: any
   layout:
     - [padding, measured_offset, sled]
-    - [qword, gadget:jmp_rsp]
+    - [qword, leak:input]
     - [shellcode, orw, flag.txt]

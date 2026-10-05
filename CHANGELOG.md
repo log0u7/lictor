@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ADRs: docs/adr/ records the architectural decisions - the Tube as the transport seam (0001), verify as the arithmetic check with SMT a seam not a promise (0002), engagement state as a directory per target, no database (0003).
 
 ### Changed
+- The lab is six targets (uaf_heap 9995, orw 9994); the demo walks suggest-then-decide for the source knowledge (heap class, seccomp filter, controlled format) and harvest-then-build for the orw chain. build-format.md (augure side) documents the new slots.
 
 - **v0.3.0: the operator is the authorization.** The gates and the
   consent tokens are GONE - no allowlist file, no tokens, no typed

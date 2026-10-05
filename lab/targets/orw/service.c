@@ -52,6 +52,11 @@ int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     install_filter();
     puts("seccomp demo target - the filter allows open/read/write/exit");
+    /* the leak: the buffer's address, handed over before the read (the
+     * lab serves under setarch -R so the leak survives across
+     * connections; a real ASLR target needs leak-and-strike in ONE
+     * connection - the operator's exploit craft) */
+    printf("input() at %p\n", (void *) input);
     fputs("name? ", stdout);
     n = read(0, input, sizeof(input) - 1);
     if (n <= 0) return 1;

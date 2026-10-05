@@ -112,3 +112,29 @@ RSpec.describe Lictor::Report do
     expect(File.read(out)).to include("# Engagement report")
   end
 end
+
+RSpec.describe "the per-target priors (the isolation by the scoped trail)" do
+  let(:dir) { Dir.mktmpdir }
+  let(:facts_text) do
+    "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\nplt(\"system\").\n" \
+      "gadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n"
+  end
+
+  it "a failure on target A does not shift target B's priors" do
+    # A: the trail scoped to A carries a failure
+    trail_a = Lictor::Trail.new(File.join(dir, "targets", "a", "trail.jsonl"))
+    FileUtils.mkdir_p(File.join(dir, "targets", "a"))
+    trail_a.record(run: "r", type: "outcome", technique: "ret2plt",
+                   success: false, executed: true, target: "10.0.0.1:9999")
+    # B: its own (empty) trail
+    trail_b = Lictor::Trail.new(File.join(dir, "targets", "b", "trail.jsonl"))
+    FileUtils.mkdir_p(File.join(dir, "targets", "b"))
+
+    defaults = Lictor::Priors.from_trail(Lictor::Trail.new(File.join(dir, "empty.jsonl")))
+    priors_a = Lictor::Priors.from_trail(trail_a)
+    priors_b = Lictor::Priors.from_trail(trail_b)
+
+    expect(priors_a["ret2plt"][1]).to be > defaults["ret2plt"][1] # A: the failure counts
+    expect(priors_b["ret2plt"]).to eq(defaults["ret2plt"])        # B: untouched
+  end
+end

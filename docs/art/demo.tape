@@ -26,7 +26,7 @@ Sleep 1200ms
 Sleep 2000ms
 Ctrl+L
 
-Type "# act 0 - the lab comes up: four real vulnerable services"
+Type "# act 0 - the lab comes up: six vulnerable targets + the hardened matrix"
 Enter
 Type "docker compose -f $HOME/projets/blog/draft/lictor/lab/docker-compose.yml up -d 2>&1 | tail -2"
 Enter
@@ -89,7 +89,7 @@ Ctrl+L
 
 Type "# act 7 - the closed loop with the built payload"
 Enter
-Type "lictor run 127.0.0.1:9999 --facts target.facts --executor ronin --payload payload.bin | tail -3"
+Type "lictor run 127.0.0.1:9999 --facts target.facts --executor ronin --payload payload.bin --flag-regex 'FLAG\\{[^}]+\\}' | tail -3"
 Enter
 Sleep 10s
 Sleep 2000ms

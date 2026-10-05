@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "json"
 require "securerandom"
 require_relative "handoff"
 require_relative "priors"
@@ -11,16 +12,50 @@ module Lictor
   # until a shell, or the budget runs out. Every step is trailed. The
   # handoff executor makes the whole loop safe by construction: it
   # "executes" by printing.
+  class RunError < StandardError; end
+
   module Run
     module_function
 
     def run(target:, facts:, trail:, executor: nil, max_attempts: 3,
       seed: nil, priors: nil, packs: nil, payload: nil, binary: nil, repo_dir: nil,
-      flag_regex: nil)
+      flag_regex: nil, manifest_path: nil, resume: nil)
       executor ||= ManualExecutor.new
       attempts = []
       leaks = {}
       scaffolded_techniques = []
+
+      # The run manifest (ADR 0003): one stable id per logical run, the
+      # state (facts with the merged leaks, the attempt history) written
+      # per attempt. --resume <id> continues THAT run - an interruption
+      # is a pause, not an orphan.
+      if resume
+        unless manifest_path && File.file?(manifest_path)
+          raise RunError,
+            "resume needs a manifest (run with manifest_path first)"
+        end
+
+        manifest = JSON.parse(File.read(manifest_path))
+        raise RunError, "the manifest holds run #{manifest["id"]}, not #{resume}" if manifest["id"] != resume
+
+        run_id = manifest["id"]
+        facts = manifest["facts"]
+        start = manifest["attempts"].size
+      else
+        run_id = SecureRandom.uuid
+        start = 0
+      end
+
+      # per-attempt persistence: an interruption is a pause, not an
+      # orphan - the state (facts with the merged leaks, the attempt
+      # history) lands on disk after every event
+      write_manifest = lambda do |status|
+        next unless manifest_path
+
+        File.write(manifest_path,
+          JSON.generate(id: run_id, target: target, status: status,
+            attempts: attempts, facts: facts.to_s))
+      end
 
       # The static read feeds the decision: the sink the frame analysis
       # found (strcpy/gets...) becomes the vuln_hint the engine derives
@@ -38,7 +73,7 @@ module Lictor
         end
       end
 
-      max_attempts.times do
+      (start...max_attempts).each do
         decision = Handoff.plan(facts: facts, seed: seed, priors: Priors.from_trail(trail), packs: packs)
         technique = decision[:selected]
         break if technique.nil?
@@ -56,8 +91,9 @@ module Lictor
             facts = Augure::Facts.parse(facts.to_s + found.map { |name, addr|
               "leaked_address(\"#{name}\", #{addr})."
             }.join("\n") + "\n")
-            trail.record(run: SecureRandom.uuid, type: "leak", target: target,
+            trail.record(run: run_id, type: "leak", target: target,
               addresses: found.transform_values { |v| format("0x%x", v) })
+            write_manifest.call("running")
           end
         end
 
@@ -71,11 +107,12 @@ module Lictor
             technique: technique, out: File.join(repo_dir, "payload.bin"))
           dest = ExploitScaffold.scaffold(technique: technique, constants: build,
             repo_dir: repo_dir, author: "lictor run auto-scaffold")
-          trail.record(run: SecureRandom.uuid, type: "scaffold", technique: technique,
+          trail.record(run: run_id, type: "scaffold", technique: technique,
             offset: build[:offset], offset_source: build[:offset_source],
             ret: build[:ret_source], file: dest)
           scaffolded_now = true
           scaffolded_techniques << technique
+          write_manifest.call("running")
         end
         attempt = {
           technique: technique, executed: result[:executed],
@@ -87,7 +124,7 @@ module Lictor
         # and recording it as a failure systematically downgrades the
         # decided technique for every future decision.
         if result[:executed]
-          trail.record(run: SecureRandom.uuid, type: "outcome", technique: technique,
+          trail.record(run: run_id, type: "outcome", technique: technique,
             success: result[:success] == true, executed: true,
             target: target)
         end
@@ -108,7 +145,8 @@ module Lictor
       else
         "budget-exhausted"
       end
-      {status: status, steps: attempts, leaks: leaks}
+      write_manifest.call(status)
+      {status: status, steps: attempts, leaks: leaks, run_id: run_id}
     end
   end
 end

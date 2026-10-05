@@ -57,6 +57,7 @@ parser = OptionParser.new do |opts|
   opts.on("--executor NAME", "manual (default) or ronin") { |v| options[:executor] = v }
   opts.on("--payload FILE", "Send a pre-built payload (from `lictor build`) with run") { |v| options[:payload] = v }
   opts.on("--flag-regex RE", "Success oracle: the flag pattern in the runner's output (the exit code lies)") { |v| options[:flag_regex] = v }
+  opts.on("--resume RUN-ID", "Continue an interrupted run (the manifest carries the id)") { |v| options[:resume] = v }
   opts.on("--payload-file FILE", "Custom shellcode/payload bytes for build") { |v| options[:payload_file] = v }
   opts.on("--out FILE", "Output path for build (default payload.bin)") { |v| options[:out] = v }
   opts.on("--repo-dir DIR", "Exploit scaffold destination directory (default: .)") { |v| options[:repo_dir] = v }
@@ -361,7 +362,10 @@ when "run"
                              seed: options[:seed],
                              binary: options[:bin],
                              repo_dir: options[:repo_dir],
-                             flag_regex: options[:flag_regex])
+                             flag_regex: options[:flag_regex],
+                             manifest_path: File.join(when_state, "run.json"),
+                             resume: options[:resume])
+  puts "run:     #{result[:run_id]}  (interrupted? resume: lictor run ... --resume #{result[:run_id]})"
   puts "status:  #{result[:status]}"
   result[:steps].each do |s|
     executed = s[:executed] ? "executed" : "handoff"

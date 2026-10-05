@@ -188,3 +188,67 @@ RSpec.describe "the leak capture between attempts" do
     expect(result[:leaks]).to eq({})
   end
 end
+
+RSpec.describe "the run manifest + resume" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail_path) { File.join(dir, "t.jsonl") }
+  let(:trail) { Lictor::Trail.new(trail_path) }
+  let(:manifest_path) { File.join(dir, "run.json") }
+  let(:facts_text) do
+    "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\nplt(\"system\").\n" \
+      "gadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n"
+  end
+  let(:executor_class) do
+    Class.new do
+      def initialize(results)
+        @results = results
+      end
+
+      def execute(**)
+        @results.empty? ? {executed: true, success: false} : @results.shift
+      end
+    end
+  end
+
+  it "one stable run id carries every event of the loop" do
+    result = Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
+      executor: executor_class.new([{executed: true, success: true}]), max_attempts: 2,
+      seed: 42, manifest_path: manifest_path)
+    expect(result[:run_id]).to be_a(String)
+    events = File.readlines(trail_path).map { |l| JSON.parse(l) }
+    ids = events.select { |e| e["type"] == "outcome" }.map { |e| e["run"] }
+    expect(ids).to all(eq(result[:run_id]))
+  end
+
+  it "the manifest is written per attempt and resume continues the same run" do
+    # attempt 1 fails, the process "dies" (max_attempts 1), the manifest
+    # carries the state; resume continues with the SAME id
+    first = Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
+      executor: executor_class.new([{executed: true, success: false}]), max_attempts: 1,
+      seed: 42, manifest_path: manifest_path)
+    expect(first[:status]).to eq("budget-exhausted")
+    manifest = JSON.parse(File.read(manifest_path))
+    expect(manifest["id"]).to eq(first[:run_id])
+    expect(manifest["attempts"].size).to eq(1)
+
+    second = Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
+      executor: executor_class.new([{executed: true, success: true}]), max_attempts: 2,
+      seed: 42, manifest_path: manifest_path, resume: first[:run_id])
+    expect(second[:run_id]).to eq(first[:run_id])
+    expect(second[:status]).to eq("success")
+    expect(second[:steps].size).to eq(1) # only the NEW attempt
+    events = File.readlines(trail_path).map { |l| JSON.parse(l) }
+    ids = events.select { |e| e["type"] == "outcome" }.map { |e| e["run"] }
+    expect(ids).to all(eq(first[:run_id]))
+  end
+
+  it "resume with a mismatched id is refused loudly" do
+    Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
+      executor: executor_class.new([]), max_attempts: 1, seed: 42, manifest_path: manifest_path)
+    expect {
+      Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
+        executor: executor_class.new([]), max_attempts: 1, seed: 42,
+        manifest_path: manifest_path, resume: "not-the-id")
+    }.to raise_error(Lictor::RunError, /manifest holds run/)
+  end
+end

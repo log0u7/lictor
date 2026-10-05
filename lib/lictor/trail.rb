@@ -65,6 +65,8 @@ module Lictor
           run[:suggested] = event["added"]
         when "leak"
           run[:leaked] = event["addresses"]
+        when "pack_draft"
+          run[:drafted] = event["technique"]
         end
       end
       grouped.values

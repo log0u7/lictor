@@ -48,9 +48,9 @@ sh lab/demo.sh
 ```
 
 The full chain is: **scan → acquire/mirror → (fuzz → triage) →
-verify → suggest → harvest → plan → build → run → outcome → report**
-- every step is recorded in the trail (one stable run id, the
-manifest written per attempt), the decision is explained rule-by-rule.
+verify → suggest → harvest → plan → build → run → outcome → report**,
+every step recorded in the trail (one stable run id, the manifest
+written per attempt), the decision explained rule-by-rule.
 `harvest` reads the service banner's hex leaks into `leaked_address`
 facts; `suggest` is the agent's own step
 `suggest` is the agent's own step: propose observations as facts, get
@@ -117,7 +117,7 @@ in [augure/docs/build-format.md](../augure/docs/build-format.md).
 
 | Command | What it does |
 |---|---|
-| `target add|list` | Named targets: a dir per target (facts, payloads, its own trail) + the `targets.yml` registry; `--target` scopes every command. |
+| `target add / list` | Named targets: a dir per target (facts, payloads, its own trail) + the `targets.yml` registry; `--target` scopes every command. |
 | `init` / `doctor` | Scaffold the engagement setup; verify the environment (exact fix per check; gdb/ronin/docker as warns). |
 | `recon <nmap.xml>` | Print the service candidates from an nmap XML (passive, never scans). |
 | `runs` | List the trailed runs. |

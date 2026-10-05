@@ -6,7 +6,42 @@ on:
   pull_request:
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+      docs: ${{ steps.diff.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - id: diff
+        run: |
+          CHANGED=$(git diff --name-only HEAD^ HEAD 2>/dev/null || git ls-files)
+          if echo "$CHANGED" | grep -qE '^(lib/|spec/|bin/|mcp_server/|lab/|Gemfile|[^/]*\.gemspec|\.github/workflows/)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$CHANGED" | grep -qE '\.md$'; then
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Markdown lint (the doc-only CI)
+        run: npx --yes markdownlint-cli2 "**/*.md" "#node_modules"
+
   test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.docs == 'true' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # The runner's gdb stalls ~90-180s per batch run (debuginfod is
+    # env-disabled and still slow there - a runner-side quirk under
+    # investigation); the suite stays green, just slower.
+    timeout-minutes: 25
     runs-on: ubuntu-latest
     # The runner's gdb stalls ~90-180s per batch run (debuginfod is
     # env-disabled and still slow there - a runner-side quirk under
@@ -30,6 +65,8 @@ jobs:
         run: bundle exec rspec --profile
 
   gems:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

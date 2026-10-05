@@ -6,7 +6,9 @@ module Lictor
   class TubeError < StandardError; end
 
   # The ONE TCP implementation behind the banner readers (harvest,
-  # verify) and the run channel: connect, read_until, sendline, close.
+  # verify): connect, read_until (EOF/reset/deadline/limit), write,
+  # reset tracking, close. The run channel stays the ronin subprocess
+  # (ADR 0001's honest boundary).
   # UDP, TLS and HTTP-aware delivery become flavors of the same seam
   # (ADR lictor 0001). The timeout/deadline semantics live here, once.
   class Tube

@@ -2,12 +2,16 @@
 
 ## Project
 
-lictor: the orchestrator that carries out augure's judgments - v0.3.0
+lictor: the orchestrator that carries out augure's judgments - v0.3.0+
 ships: scan/acquire (ruby-nmap, the mirror), fuzzing/triage
 (augure-profiler), harvest, verify, suggest, handoff + ronin
-execution, the closed loop (outcome -> priors), JSONL trail, the
-build layer (measured offset, pack layouts), engagement reports and
-the MCP surface (lictor-mcp). The operator is the authorization.
+execution, the closed loop (outcome -> priors), JSONL trail (0600),
+the build layer (measured offset, the ROP chaineur, pack layouts,
+the seccomp-aware orw switch), named targets (target add/--target,
+the engagement model, ADR 0003), the run manifest + resume, the leak
+capture, the flag-regex oracle, engagement reports (+ the defender
+view), the MCP surface (lictor-mcp) and the six-target lab with the
+hardening matrix + purple.sh. The operator is the authorization.
 
 ## Hard rules (enforced in code, in review, everywhere)
 

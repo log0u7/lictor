@@ -1,5 +1,5 @@
-# The demo lab: four vulnerable services, four different fact bases,
-# four different decisions from the same engine.
+# The demo lab: six vulnerable services (+3 hardened mirrors), six
+# different fact bases, six different decisions from the same engine.
 #
 #   ret2func   9999  no-PIE, no canary, NX ON, win() present
 #   ret2plt    9998  no-PIE, NX ON, system@plt, NO win()

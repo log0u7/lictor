@@ -1,8 +1,11 @@
 # The augure/lictor lab
 
-A self-contained docker lab: **six vulnerable services, six different
-fact bases, six different decisions from the same engine** - and one
-tested exploit per target. The flag is the proof.
+A self-contained docker lab: **nine services (six targets + three
+hardened mirrors), six fact bases, six decisions from the same
+engine**. The four stack targets land real flags through the lab
+exploits; the heap and seccomp targets decide and hand off loyally
+(their craft is the operator's exercise). The flag is the proof where
+the run reaches it.
 
 **For the demo only. The targets are ours; the exploits are ours;
 nothing here touches a real target.**
@@ -28,41 +31,46 @@ operator's knowledge, and the decision moves.
 
 ```
 lab/
-  docker-compose.yml          # one image, six socat services + http (seccomp:unconfined for setarch -R)
+  docker-compose.yml          # one image, NINE socat services + http (seccomp:unconfined for setarch -R)
   targets/<name>/service.c    # each service: banner + its own vuln class
   targets/<name>/flag.txt     # each target has its own flag
-  start.sh                    # http (acquisition) + 6 listeners (orw under setarch -R)
+  start.sh                    # http (acquisition) + 9 listeners (orw under setarch -R)
+  purple.sh                   # the purple loop: the coverage flips + the defender view
+  Dockerfile                  # the targets AND the hardened matrix
   ronin-repo/exploits/        # the operator's ronin exploits (discovered, never invented)
   setup.sh                    # installs ronin-exploits + registers the local repo
-  demo.sh                     # replays the full pipeline for all six
+  demo.sh                     # replays the chain: run for the four stack targets,
+                              # decide + handoff for uaf_heap/orw (the craft exercise)
 ```
 
 ## The demo
 
 ```sh
 sh setup.sh        # ronin toolchain + local repo
-sh demo.sh         # scan, then per target: acquire -> decide -> build -> run
+sh demo.sh         # scan, then per target: acquire -> suggest -> decide -> build -> run
+                   # (run for the four stack targets; uaf_heap/orw stop at plan/build)
 ```
 
 What demo.sh does, per target:
 
 1. `lictor scan 127.0.0.1` - nmap finds the six
    services; the scan is recorded.
-2. `lictor acquire 127.0.0.1:80xx --from http://...` - the binary is
-   downloaded, ELF-checked, profiled, recorded (the nmap → binary
-   bridge).
+2. `lictor acquire 127.0.0.1:9999 --from http://127.0.0.1:8000/<name>` -
+   the binary is downloaded, ELF-checked, profiled, recorded (the nmap →
+   binary bridge; the http server is port 8000).
 3. `lictor plan target.facts` - augure reads the fact
    base and ranks: **a different technique per target**, with the rule
    provenance.
 4. `lictor build <binary> --facts target.facts` - the offset is
    MEASURED (the cyclic pattern under the debugger) and the payload is
    assembled: measured padding + the fact-sourced return address.
-5. `lictor run ... --executor ronin --payload payload.bin` - the closed
-   loop; the executor DISCOVERS the lab exploit in the operator's repos
-   (never invented), runs it; the outcome is recorded. The mirror is
-   the analysis target: the local service gets profiled and built
-   against, `lictor verify` proves the remote faults like the local
-   model before anything runs against the remote.
+5. `lictor run ... --executor ronin --payload payload.bin --flag-regex ...` -
+   the closed loop; the executor DISCOVERS the lab exploit in the
+   operator's repos (never invented), runs it; the outcome is recorded.
+   The mirror is the analysis target: the local service gets profiled
+   and built against - run `lictor verify <target> --input crash-input.bin`
+   yourself before anything runs against a real remote (the demo does
+   not: the lab IS the mirror and the remote in one).
 6. `lictor report` - the auditable engagement report covering all six.
 
 The honesty note: ret2func executes end-to-end with the BUILT payload

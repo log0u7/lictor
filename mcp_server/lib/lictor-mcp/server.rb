@@ -4,10 +4,10 @@ require "mcp"
 require "lictor"
 
 module LictorMcp
-  # The gated MCP surface of the orchestrator: the LLM harness's hands.
-  # Every tool runs server-side; the trail is the record, the operator
-  # the corpus guard - and trails everything. The agent proposes; augure
-  # disposes; lictor executes; nothing escapes the gates.
+  # The MCP surface of the orchestrator: the LLM harness's hands.
+  # Every tool runs server-side - the pack armor, the corpus guard,
+  # the trail (0600). The agent proposes; augure disposes; lictor
+  # executes; the trail records everything.
   module ToolHelpers
     module_function
 

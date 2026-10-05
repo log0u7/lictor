@@ -27,7 +27,7 @@ parser = OptionParser.new do |opts|
       fuzz <binary>               fuzz + triage a local binary (discovery layer)
       verify <host:port>          probe the remote with the crash input
       harvest <host:port>         parse the banner's hex leaks into facts
-      suggest <facts> "..."       simulate a fact merge, print the delta
+      suggest <facts> "..."       simulate a fact merge, print the delta (-o writes it)
       plan <binary-or-facts>      profile if ELF, decide, print the recipe
       build <binary>              measure the offset, emit the payload
       run <target>                the closed loop: decide, execute, outcome
@@ -35,7 +35,7 @@ parser = OptionParser.new do |opts|
       exploit scaffold <t> <bin>  draft a ronin exploit from measured constants
       draft <facts>               auto-draft a technique pack into staging/
       rule validate|install|list  teach augure a technique (data-only packs)
-      runs / report               the trail, rendered
+      runs / report               the trail, rendered (--defender: the blue view)
       target add|list             named targets: a dir + the registry (ADR)
       doctor / init               verify the environment, scaffold the setup
 

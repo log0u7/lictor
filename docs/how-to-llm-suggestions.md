@@ -3,8 +3,13 @@
 The agent reads the service, its banners, its behavior. That knowledge
 is worth something - as FACTS. The `suggest_facts` MCP tool takes the
 agent's observations, validates them against the same closed schema as
-any facts file, merges them into the base, and lets augure re-decide.
-The agent proposes; augure disposes.
+any facts file, and lets augure re-decide on the merged base. The CLI
+persists: `lictor suggest target.facts 'fact("atom").' -o target.facts`
+writes the merged base (the MCP tool returns the delta only - the
+scoping and the persistence are the operator CLI's job). Under
+`--target NAME`, the facts live in `targets/NAME/target.facts`.
+`harvest --facts PATH` appends the banner's leaked addresses to the
+same base. The agent proposes; augure disposes; the CLI writes.
 
 ## The whitelist is structural
 

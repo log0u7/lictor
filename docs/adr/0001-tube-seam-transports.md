@@ -6,10 +6,9 @@ Accepted (2026-10-04). Implemented in the decide->build->run phase.
 
 ## Context
 
-Three independent TCP implementations exist today: Harvest's banner
-read, verify's crash probe, and the RONIN_MIXINS delivery column. Each
-hardcodes connect/read/write with its own timeout semantics. Adding
-UDP, TLS or HTTP today means three more copies. pwntools' tube concept
+Two independent TCP implementations existed: Harvest's banner read and
+verify's crash probe, each with its own timeout semantics. Adding UDP,
+TLS or HTTP would have meant one more copy each. pwntools' tube concept
 is the proven shape for this layer.
 
 ## Decision
@@ -24,8 +23,8 @@ and becomes an extension point.
 
 - The three duplicated socket paths die; one timeout/deadline
   semantics to audit instead of three.
-- The scaffolded exploits gain the same read_until discipline the lab
-  exploits hand-rolled.
+- The run channel stays the ronin subprocess (the exploit's craft
+  reads its own socket); the Tube does not pretend to cover it.
 - Local-process delivery (the mirror run fully offline) plugs in as
   another Tube flavor when needed - no interface invented beyond what
   TCP needs today.

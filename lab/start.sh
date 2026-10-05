@@ -1,5 +1,5 @@
 #!/bin/sh
-# Serve the four binaries over http (acquisition) + the four services.
+# Serve the six binaries (+3 hardened) over http (acquisition) + the listeners.
 cd /opt/target
 python3 -m http.server 8000 --bind 0.0.0.0 &
 socat TCP-LISTEN:9999,reuseaddr,fork EXEC:/opt/target/ret2func,stderr &

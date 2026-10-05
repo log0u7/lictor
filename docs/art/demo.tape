@@ -3,7 +3,10 @@
 #   docker compose -f lab/docker-compose.yml up -d --build
 #   rm -rf /tmp/lictor-demo && mkdir /tmp/lictor-demo
 #   printf 'trail: demo-trail.jsonl\n' > /tmp/lictor-demo/lictor.yml
-#   cd lictor && env -u PROMPT_COMMAND vhs docs/art/demo.tape   (-u kills the host shell's starship prompt hook noise)
+#   cd lictor && env -u PROMPT_COMMAND -u STARSHIP_SHELL -u STARSHIP_SESSION_KEY \
+#     mise x vhs@latest -- vhs docs/art/demo.tape
+#   (the -u strips the host shell's starship hooks; the tape's first line
+#   also unsets them - the render is clean whatever the invocation)
 Output docs/art/demo.gif
 Set Shell bash
 Set FontSize 16
@@ -15,7 +18,7 @@ Set MarginFill "#16161f"
 Set Padding 16
 Set TypingSpeed 30ms
 
-Type "export PATH=$HOME/projets/blog/draft/lictor/bin:$HOME/.local/share/mise/shims:$PATH; cd /tmp/lictor-demo; export PS1='> '"
+Type "unset PROMPT_COMMAND STARSHIP_SHELL STARSHIP_SESSION_KEY; export PATH=$HOME/projets/blog/draft/lictor/bin:$HOME/.local/share/mise/shims:$PATH; cd /tmp/lictor-demo; export PS1='> '"
 Enter
 Sleep 300ms
 Type "echo '   AUGURE + LICTOR - the auditable exploitation decision layer'"

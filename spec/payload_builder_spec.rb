@@ -190,7 +190,11 @@ RSpec.describe Lictor::PayloadBuilder, "the orw shellcode slot" do
     expect(result[:ret_source]).to include("gadget:jmp_rsp")
     # live: run the stub, it prints the flag
     runner = File.join(dir, "sc_runner")
-    src = File.expand_path("../../augure/profiler/spec/support/sc_runner.c", __dir__)
+    src = ["../../augure/profiler/spec/support/sc_runner.c",
+      "../augure/profiler/spec/support/sc_runner.c"]
+      .map { |p| File.expand_path(p, __dir__) }
+      .find { |p| File.file?(p) }
+    skip "the augure checkout is not present" unless src
     _o, err, st = Open3.capture3("gcc", "-o", runner, src)
     raise "runner build failed: #{err}" unless st.success?
     code = body[(result[:offset] + 8)..] # after the sled + the jmp_rsp address

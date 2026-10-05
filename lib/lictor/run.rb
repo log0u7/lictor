@@ -20,6 +20,7 @@ module Lictor
       executor ||= ManualExecutor.new
       attempts = []
       leaks = {}
+      scaffolded_techniques = []
 
       # The static read feeds the decision: the sink the frame analysis
       # found (strcpy/gets...) becomes the vuln_hint the engine derives
@@ -65,7 +66,7 @@ module Lictor
         # and the NEXT attempt discovers it. The operator still reviews
         # the file - the loop does not invent craft, it drafts it.
         scaffolded_now = false
-        if !result[:executed] && binary && repo_dir
+        if !result[:executed] && binary && repo_dir && !scaffolded_techniques.include?(technique)
           build = PayloadBuilder.build(binary: binary, facts: facts,
             technique: technique, out: File.join(repo_dir, "payload.bin"))
           dest = ExploitScaffold.scaffold(technique: technique, constants: build,
@@ -74,6 +75,7 @@ module Lictor
             offset: build[:offset], offset_source: build[:offset_source],
             ret: build[:ret_source], file: dest)
           scaffolded_now = true
+          scaffolded_techniques << technique
         end
         attempt = {
           technique: technique, executed: result[:executed],

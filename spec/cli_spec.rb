@@ -4,6 +4,7 @@ require "open3"
 require "json"
 require "tmpdir"
 require "socket"
+require "yaml"
 
 RSpec.describe "bin/lictor" do
   let(:exe) { File.expand_path("../bin/lictor", __dir__) }
@@ -268,5 +269,44 @@ RSpec.describe "the fact write-back" do
     expect(status.exitstatus).to eq(0), "harvest failed: #{err[0, 150]}"
     expect(File.read(facts)).to include('leaked_address("win", 4199008)')
     expect(out).to include("leaked")
+  end
+end
+
+RSpec.describe "lictor target" do
+  let(:exe) { File.expand_path("../bin/lictor", __dir__) }
+  let(:dir) { Dir.mktmpdir }
+  let(:trail) { File.join(dir, "t.jsonl") }
+
+  it "add scaffolds the target dir + the registry" do
+    out, err, status = Open3.capture3(exe, "target", "add", "web01", "10.0.0.5:9999",
+      "--from", "http://10.0.0.5:8000/binary", "-t", trail, chdir: dir)
+    expect(status.exitstatus).to eq(0), "target add failed: #{err[0, 150]}"
+    expect(File.directory?(File.join(dir, "targets", "web01"))).to be(true)
+    registry = YAML.safe_load_file(File.join(dir, "targets.yml"))
+    expect(registry["web01"]["host"]).to eq("10.0.0.5:9999")
+    expect(registry["web01"]["from"]).to eq("http://10.0.0.5:8000/binary")
+    expect(out).to include("web01")
+  end
+
+  it "acquire --target scopes the state into the target dir" do
+    Open3.capture3(exe, "target", "add", "web01", "127.0.0.1:9999",
+      "-t", trail, chdir: dir)
+    binary = ProfilerBinaryBuilder.vulnerable
+    _, err, status = Open3.capture3(exe, "acquire", "web01", "--bin", binary,
+      "--target", "web01", "-t", trail, chdir: dir)
+    expect(status.exitstatus).to eq(0), "acquire --target failed: #{err[0, 200]}"
+    expect(File.file?(File.join(dir, "targets", "web01", "target.facts"))).to be(true)
+    expect(File.file?(File.join(dir, "target.facts"))).to be(false) # the CWD stays clean
+  end
+
+  it "plan --target reads the target's facts and writes the target's trail" do
+    Open3.capture3(exe, "target", "add", "web01", "127.0.0.1:9999", "-t", trail, chdir: dir)
+    binary = ProfilerBinaryBuilder.vulnerable
+    Open3.capture3(exe, "acquire", "web01", "--bin", binary, "--target", "web01",
+      "-t", trail, chdir: dir)
+    out, err, status = Open3.capture3(exe, "plan", "--target", "web01", chdir: dir)
+    expect(status.exitstatus).to eq(0), "plan --target failed: #{err[0, 200]}"
+    expect(out).to include("selected")
+    expect(File.file?(File.join(dir, "targets", "web01", "trail.jsonl"))).to be(true)
   end
 end

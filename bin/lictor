@@ -36,6 +36,7 @@ parser = OptionParser.new do |opts|
       draft <facts>               auto-draft a technique pack into staging/
       rule validate|install|list  teach augure a technique (data-only packs)
       runs / report               the trail, rendered
+      target add|list             named targets: a dir + the registry (ADR)
       doctor / init               verify the environment, scaffold the setup
 
     Setup: lictor.yml in the working directory
@@ -62,6 +63,7 @@ parser = OptionParser.new do |opts|
   opts.on("--author NAME", "The scaffolded exploit's author line") { |v| options[:author] = v }
   opts.on("--max-attempts N", Integer, "Run budget: attempts before giving up (default 3)") { |v| options[:max_attempts] = v }
   opts.on("--facts PATH", "Facts file for run/plan (the profiler output)") { |v| options[:facts] = v }
+  opts.on("--target NAME", "Scope the state into targets/NAME (facts, payloads, trail)") { |v| options[:target] = v }
   opts.on("--from URL", "Acquire the binary from an http(s) URL") { |v| options[:from] = v }
   opts.on("--bin PATH", "Local binary: the acquire source, or the mirror for run auto-scaffold") { |v| options[:bin] = v }
   opts.on("--input PATH", "Crash input for verify (the fuzzer's discovery)") { |v| options[:input] = v }
@@ -82,6 +84,7 @@ HELP = {
   "rule" => "rule validate|install|list <pack.yml>\n    Teach augure a technique: data-only pack, validated + corpus-guarded.\n    install is interactive and trailed.",
   "init" => "init\n    Scaffold lictor.yml and an example facts file.",
   "doctor" => "doctor\n    Verify the environment; print the exact fix per check.",
+  "target" => "target add <name> <host:port> [--from URL | --bin PATH] | target list\n    A named target owns a dir: facts, payloads, its own trail. --target scopes the commands.",
   "acquire" => "acquire <target> [--from URL | --bin PATH]\n    Fetch (or copy) the binary, check it is an ELF, profile it into target.facts.",
   "verify" => "verify <host:port> [--input PATH]\n    Probe the remote with the crash input; a fault anchors verified(\"remote\").",
   "fuzz" => "fuzz <binary> [--max-inputs N] [--mutator ruby|radamsa] [--triage-backend gdb]\n    Discover crashes, triage the best one, trail both.",
@@ -100,10 +103,21 @@ if ARGV[0] == "help"
   exit 0
 end
 
-options[:trail] ||= "lictor-trail.jsonl"
 options[:technique] = nil unless options.key?(:technique)
 options[:success] = nil unless options.key?(:success)
 command = ARGV.shift or abort(parser.to_s)
+
+when_state = if options[:target]
+  entry = Lictor::Targets.resolve(options[:target])
+  entry[:dir]
+else
+  "."
+end
+options[:trail] ||= File.join(when_state, "trail.jsonl")
+if options[:target]
+  options[:facts] ||= File.join(when_state, "target.facts")
+  options[:out] ||= File.join(when_state, "payload.bin")
+end
 trail = Lictor::Trail.new(options[:trail])
 
 def scaffold_files
@@ -147,6 +161,22 @@ when "init"
   puts "next:"
   puts "  1. lictor doctor                     # verify the environment"
   puts "  2. lictor plan examples/ret2win.facts   # your first decision"
+when "target"
+  sub = ARGV.shift or abort(parser.to_s)
+  case sub
+  when "add"
+    name = ARGV.shift or abort(parser.to_s)
+    host = ARGV.shift or abort(parser.to_s)
+    info = Lictor::Targets.add(name, host, from: options[:from], bin: options[:bin])
+    puts "target:     #{name} (#{info[:registry]["host"]})"
+    puts "dir:        #{info[:dir]}/ (facts, payloads, trail - scoped)"
+    puts "registry:   #{Lictor::Targets::REGISTRY}"
+    puts "next:       lictor acquire #{name} --target #{name} --from <url>"
+  when "list"
+    Lictor::Targets.load.each { |name, entry| puts "#{name}\t#{entry["host"]}" }
+  else
+    abort("lictor: target add|list")
+  end
 when "doctor"
   checks = []
   checks << ["ruby >= 3.4", RUBY_VERSION >= "3.4" ? nil : "upgrade ruby (mise install ruby@3.4)"]
@@ -345,7 +375,7 @@ when "acquire"
   source = options[:from] || (options[:bin] && "local:#{options[:bin]}") ||
            abort("lictor: acquire needs --from <url> or --bin <path>")
   result = Lictor::Acquisition.acquire(target, source: source, trail: trail,
-                                       out_dir: Dir.pwd,
+                                       out_dir: when_state,
                                        profiler_cmd: options[:profile_cmd])
   puts "acquired:   #{result[:binary_path]}"
   puts "facts:      #{result[:facts_path]} (#{result[:facts].lines.size} facts)"
@@ -474,7 +504,9 @@ when "build"
     abort("lictor: #{e.message}")
   end
 when "plan"
-  input = ARGV.shift or abort(parser.to_s)
+  # --target: the facts default to the target's dir (the ARGV input
+  # stays for the direct path)
+  input = ARGV.shift || options[:facts] or abort(parser.to_s)
   mode = "handoff (prints a recipe; executes nothing)"
 
   begin

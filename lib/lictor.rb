@@ -19,6 +19,7 @@ require_relative "lictor/executor"
 require_relative "lictor/priors"
 require_relative "lictor/trail"
 require_relative "lictor/report"
+require_relative "lictor/targets"
 require_relative "lictor/run"
 
 module Lictor

@@ -18,7 +18,7 @@ RSpec.describe Lictor::Run do
         @results = results
       end
 
-      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
+      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil)
         r = @results.empty? ? {executed: true, success: true} : @results.shift
         r[:technique] = technique
         r
@@ -90,7 +90,7 @@ RSpec.describe "the run's auto-scaffold" do
         @technique = technique
       end
 
-      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
+      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil)
         if Dir.empty?(@repo)
           {executed: false, success: nil, note: "no #{@technique} exploit"}
         else

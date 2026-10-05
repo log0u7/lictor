@@ -55,6 +55,7 @@ parser = OptionParser.new do |opts|
   opts.on("--mutator NAME", "ruby (default) or radamsa if installed") { |v| options[:mutator] = v }
   opts.on("--executor NAME", "manual (default) or ronin") { |v| options[:executor] = v }
   opts.on("--payload FILE", "Send a pre-built payload (from `lictor build`) with run") { |v| options[:payload] = v }
+  opts.on("--flag-regex RE", "Success oracle: the flag pattern in the runner's output (the exit code lies)") { |v| options[:flag_regex] = v }
   opts.on("--payload-file FILE", "Custom shellcode/payload bytes for build") { |v| options[:payload_file] = v }
   opts.on("--out FILE", "Output path for build (default payload.bin)") { |v| options[:out] = v }
   opts.on("--repo-dir DIR", "Exploit scaffold destination directory (default: .)") { |v| options[:repo_dir] = v }
@@ -329,7 +330,8 @@ when "run"
                              payload: options[:payload],
                              seed: options[:seed],
                              binary: options[:bin],
-                             repo_dir: options[:repo_dir])
+                             repo_dir: options[:repo_dir],
+                             flag_regex: options[:flag_regex])
   puts "status:  #{result[:status]}"
   result[:steps].each do |s|
     executed = s[:executed] ? "executed" : "handoff"

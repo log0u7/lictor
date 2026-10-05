@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### Added
+- The success oracle reads the FLAG, not the exit code: `run --flag-regex RE` makes the flag pattern in the runner's output the success semantics (a polite exploit exits 0 on failure, a caught-cleanup exploit exits non-zero after landing the flag - the exit code lies both ways). Without the regex the exit code stays the oracle, the honest weaker fallback.
 - `Lictor::Tube`: the ONE TCP implementation behind the banner readers (ADR 0001) - connect, read_until (EOF/reset/deadline/limit), write, reset tracking. `harvest` and `verify` consume it (three duplicated socket paths become one deadline semantics), `verify` honours `--facts` (it used to append to a hardcoded `target.facts` in the CWD, ignoring the flag).
 - ADRs: docs/adr/ records the architectural decisions - the Tube as the transport seam (0001), verify as the arithmetic check with SMT a seam not a promise (0002), engagement state as a directory per target, no database (0003).
 

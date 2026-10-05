@@ -15,7 +15,8 @@ module Lictor
     module_function
 
     def run(target:, facts:, trail:, executor: nil, max_attempts: 3,
-      seed: nil, priors: nil, packs: nil, payload: nil, binary: nil, repo_dir: nil)
+      seed: nil, priors: nil, packs: nil, payload: nil, binary: nil, repo_dir: nil,
+      flag_regex: nil)
       executor ||= ManualExecutor.new
       attempts = []
 
@@ -41,7 +42,7 @@ module Lictor
         break if technique.nil?
 
         result = executor.execute(target: target, technique: technique,
-          recipe: decision[:recipe], payload: payload)
+          recipe: decision[:recipe], payload: payload, flag_regex: flag_regex)
         # The repos have no exploit for the decided technique and the
         # binary is in hand: scaffold it (measured constants), trail it,
         # and the NEXT attempt discovers it. The operator still reviews

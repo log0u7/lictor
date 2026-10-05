@@ -25,7 +25,7 @@ module Lictor
 
   # The default: augure decided, lictor prints, a human runs.
   class ManualExecutor
-    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, timeout: nil)
+    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, timeout: nil, flag_regex: nil)
       {
         executed: false,
         success: nil,
@@ -76,7 +76,7 @@ module Lictor
       end
     end
 
-    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, timeout: nil)
+    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, timeout: nil, flag_regex: nil)
       exploit_name ||= discover(technique).first
       unless exploit_name
         return {executed: false, success: nil,
@@ -103,7 +103,17 @@ module Lictor
       rescue Timeout::Error, SignalException
         raise ExecutorError, "the runner timed out - a black-holed target hangs the loop"
       end
-      {executed: true, success: status.success?, exploit: exploit_name, output: out}
+      # Success semantics: the flag in the OUTPUT is the truth the
+      # operator cares about; the exit code lies both ways (a polite
+      # exploit exits 0 on failure, a caught-cleanup exploit exits
+      # non-zero after landing the flag). Without a flag regex the exit
+      # code stays the oracle - the honest, weaker fallback.
+      if flag_regex
+        flag = out[/#{flag_regex}/]
+        {executed: true, success: !flag.nil?, exploit: exploit_name, output: out, flag: flag}
+      else
+        {executed: true, success: status.success?, exploit: exploit_name, output: out}
+      end
     end
   end
 end

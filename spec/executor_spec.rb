@@ -104,3 +104,53 @@ RSpec.describe "the executor timeout" do
     }.to raise_error(Lictor::ExecutorError)
   end
 end
+
+RSpec.describe "the executor reads the flag, not the exit code" do
+  # the lab exploits raise when the flag does not come (the ronin exit
+  # code is honest there) - but a "polite" exploit exits 0 on failure,
+  # and an exploit that lands the flag after a caught cleanup exits
+  # non-zero. The FLAG IN THE OUTPUT is the truth the operator cares
+  # about; --flag-regex makes it the success oracle.
+  let(:recipe) do
+    {technique: "ret2func", runner: "ronin", mixin: "Binary",
+     console: "ronin-exploits run x --technique ret2func"}
+  end
+
+  def runner(printing:, exit_code:)
+    path = File.join(Dir.mktmpdir, "ronin-exploits")
+    File.write(path, <<~SH)
+      #!/bin/sh
+      if [ "$1" = "list" ]; then
+        echo "  lab_ret2func_001"
+      elif [ "$1" = "run" ]; then
+        echo "#{printing}"
+        exit #{exit_code}
+      fi
+    SH
+    File.chmod(0o755, path)
+    path
+  end
+
+  it "a flag in the output succeeds even when the runner exits non-zero" do
+    exec = Lictor::RoninExecutor.new(runner: runner(printing: "FLAG{the_flag}", exit_code: 1))
+    result = exec.execute(target: "127.0.0.1:9999", technique: "ret2func", recipe: recipe,
+      exploit_name: "lab_ret2func_001", flag_regex: "FLAG\\{[^}]+\\}")
+    expect(result[:executed]).to be(true)
+    expect(result[:success]).to be(true), "the flag came; the exit code must not lie about it"
+    expect(result[:flag]).to eq("FLAG{the_flag}")
+  end
+
+  it "no flag in the output fails even when the runner exits zero" do
+    exec = Lictor::RoninExecutor.new(runner: runner(printing: "all quiet", exit_code: 0))
+    result = exec.execute(target: "127.0.0.1:9999", technique: "ret2func", recipe: recipe,
+      exploit_name: "lab_ret2func_001", flag_regex: "FLAG\\{[^}]+\\}")
+    expect(result[:success]).to be(false), "an exit code is not a flag"
+  end
+
+  it "without a flag regex the exit code stays the oracle (the honest fallback)" do
+    exec = Lictor::RoninExecutor.new(runner: runner(printing: "all quiet", exit_code: 0))
+    result = exec.execute(target: "127.0.0.1:9999", technique: "ret2func", recipe: recipe,
+      exploit_name: "lab_ret2func_001")
+    expect(result[:success]).to be(true)
+  end
+end

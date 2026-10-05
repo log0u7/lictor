@@ -68,7 +68,7 @@ RSpec.describe "installed packs influence decisions" do
     # remote/verified) - an unambiguous proof the loop saw the pack.
     brop_facts = "remote(\"true\").\nverified(\"remote\").\nnx(\"true\").\n"
     executor = Class.new do
-      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil)
+      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil)
         {executed: true, success: true, technique: technique}
       end
     end

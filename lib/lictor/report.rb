@@ -21,6 +21,16 @@ module Lictor
         lines << "## Run `#{run[:run]}`"
         lines << ""
         lines << "- scan: #{run[:scanned]} (nmap)" if run[:scanned]
+        lines << "- acquire: #{run[:acquired]}" if run[:acquired]
+        if (built = run[:built])
+          lines << "- build: #{built[:technique]}, offset #{built[:offset]} (#{built[:ret]}), #{built[:size]} bytes -> #{built[:out]}"
+        end
+        lines << "- scaffold: #{run[:scaffolded]}" if run[:scaffolded]
+        lines << "- harvest: #{run[:harvested]}" if run[:harvested]
+        lines << "- verify: the remote #{run[:verified] ? "faulted" : "survived"}" unless run[:verified].nil?
+        lines << "- suggest: #{run[:suggested]} added" if run[:suggested]
+        lines << "- leak: #{run[:leaked]}" if run[:leaked]
+        lines << "- fuzz: #{run[:fuzzed]} (#{run[:crashes]} crashes)" if run[:fuzzed]
         lines << "- mode: #{run[:mode]}" if run[:mode]
         lines << "- facts: #{run[:facts_file]}" if run[:facts_file]
         lines << "- applicable: #{Array(run[:applicable]).join(", ")}" if run[:applicable]

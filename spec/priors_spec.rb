@@ -125,7 +125,7 @@ RSpec.describe "the per-target priors (the isolation by the scoped trail)" do
     trail_a = Lictor::Trail.new(File.join(dir, "targets", "a", "trail.jsonl"))
     FileUtils.mkdir_p(File.join(dir, "targets", "a"))
     trail_a.record(run: "r", type: "outcome", technique: "ret2plt",
-                   success: false, executed: true, target: "10.0.0.1:9999")
+      success: false, executed: true, target: "10.0.0.1:9999")
     # B: its own (empty) trail
     trail_b = Lictor::Trail.new(File.join(dir, "targets", "b", "trail.jsonl"))
     FileUtils.mkdir_p(File.join(dir, "targets", "b"))
@@ -136,5 +136,23 @@ RSpec.describe "the per-target priors (the isolation by the scoped trail)" do
 
     expect(priors_a["ret2plt"][1]).to be > defaults["ret2plt"][1] # A: the failure counts
     expect(priors_b["ret2plt"]).to eq(defaults["ret2plt"])        # B: untouched
+  end
+end
+
+RSpec.describe "the report carries the whole trail" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail) { Lictor::Trail.new(File.join(dir, "t.jsonl")) }
+
+  it "build, harvest, leak, suggest and verify all render" do
+    trail.record(run: "r1", type: "build", technique: "ret2func", offset: 16,
+      ret: "win_symbol:win@4196182", size: 24, out: "payload.bin")
+    trail.record(run: "r1", type: "harvest", addresses: {"win" => "0x401260"})
+    trail.record(run: "r1", type: "leak", addresses: {"input" => "0x7fff"})
+    trail.record(run: "r1", type: "verify", remote_crashed: true)
+    report = Lictor::Report.from_trail(trail)
+    expect(report).to include("build: ret2func, offset 16")
+    expect(report).to include("harvest:")
+    expect(report).to include("leak:")
+    expect(report).to include("verify: the remote faulted")
   end
 end

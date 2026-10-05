@@ -50,6 +50,21 @@ module Lictor
           run[:triage] = {signal: event["signal"], control: event["control"]}
         when "rule_install"
           run[:taught] = event["technique"]
+        when "acquire"
+          run[:acquired] = event["binary"]
+        when "build"
+          run[:built] = {technique: event["technique"], offset: event["offset"],
+                         ret: event["ret"], size: event["size"], out: event["out"]}
+        when "scaffold"
+          run[:scaffolded] = event["file"]
+        when "harvest"
+          run[:harvested] = event["addresses"]
+        when "verify"
+          run[:verified] = event["remote_crashed"]
+        when "suggest"
+          run[:suggested] = event["added"]
+        when "leak"
+          run[:leaked] = event["addresses"]
         end
       end
       grouped.values

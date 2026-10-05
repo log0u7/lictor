@@ -97,6 +97,13 @@ module Lictor
               (slot[1] || "sh").to_sym)
           end
           body << sc.b
+        when "chain"
+          slot[1..].each do |ref|
+            value, source = resolve_addr(facts, ref, width)
+            ret ||= value
+            ret_source ||= source
+            body << [value].pack(width)
+          end
         else
           raise BuildError, "unknown build slot #{slot[0].inspect}"
         end
@@ -127,8 +134,22 @@ module Lictor
         raise BuildError, "no leaked_address(\"#{name}\") fact - harvest the service first" unless leak
 
         [leak[1], "leaked_address:#{name}@#{leak[1]}"]
+      when /\Aplt_addr:(.+)\z/
+        name = Regexp.last_match(1)
+        entry = facts["plt_addr"]&.find { |n, _| n == name }
+        raise BuildError, "no plt_addr(\"#{name}\") fact - profile the binary first" unless entry
+
+        [entry[1], "plt_addr:#{name}@#{entry[1]}"]
+      when /\Agot_addr:(.+)\z/
+        name = Regexp.last_match(1)
+        entry = facts["got_addr"]&.find { |n, _| n == name }
+        raise BuildError, "no got_addr(\"#{name}\") fact - profile the binary first" unless entry
+
+        [entry[1], "got_addr:#{name}@#{entry[1]}"]
+      when /\Aconst:(\d+)\z/
+        [Regexp.last_match(1).to_i, "const:#{Regexp.last_match(1)}"]
       else
-        raise BuildError, "unknown address reference #{ref.inspect} (win | gadget:TYPE)"
+        raise BuildError, "unknown address reference #{ref.inspect} (win | gadget:TYPE | plt_addr:NAME | got_addr:NAME | leak:NAME | const:N)"
       end
     end
 

@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   globs anchor to `__dir__` and lictor-mcp reads its version from
   `lib/lictor-mcp/version.rb`.
 
-### Added
+- The ROP chaineur: the build layout gains the `chain` slot - one arch-width word per reference, resolved in order against the facts (`gadget:TYPE`, `plt_addr:NAME`, `got_addr:NAME`, `win`, `leak:NAME`, `const:N`), loud BuildError on any missing piece. `ret2plt` (the puts@got leak chain) and `ret2libc` (post-leak: ret-align + pop_rdi + binsh + system) ship as built-in layouts; a pack's `build:` teaches chains for its own techniques.
 
 - The dynamic layer: `lictor harvest` turns the service's banner into
   leaked_address facts (the addresses observed live), the builder's

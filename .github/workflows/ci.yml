@@ -33,6 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: log0u7/augure
+          path: augure
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"

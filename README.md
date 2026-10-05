@@ -100,12 +100,13 @@ in [augure/docs/build-format.md](../augure/docs/build-format.md).
 | `acquire <target>` | The lab convenience: copy or download the binary when the target serves it. The real flow is the MIRROR (below). |
 | `fuzz <binary>` | Fuzz + triage a local binary: the fact **discovery** layer. Length sweep + mutations; gdb/rizin/lldb backends. |
 | `verify <target>` | The differential: the crash input faults the remote like the local model → the facts become `remote-verified`. |
+| `harvest <target>` | The banner's hex leaks become `leaked_address` facts - `--facts PATH` appends them. |
 | `plan <binary-or-facts>` | Profile if ELF, decide (augure), print the recipe. |
-| `build <binary>` | Assemble the payload for the selected technique: measured offset (cyclic pattern under the debugger), fact-sourced return address, metasm-assembled shellcode. |
-| `suggest <facts>` | The agent proposes observations as facts; augure re-decides and the delta comes back. |
+| `build <binary>` | Assemble the payload for the selected technique: measured offset (cyclic pattern under the debugger), fact-sourced return address, metasm-assembled shellcode. Layouts cover the ROP chains (`chain` slots resolve `gadget:`/`plt_addr:`/`got_addr:`/`leak:`/`const:` refs from the facts, loud `BuildError` on any missing piece); under seccomp the `sh` stub switches to the orw chain. |
+| `suggest <facts>` | The agent proposes observations as facts; augure re-decides and the delta comes back - `-o PATH` writes the merged base, so the enrichment is not a dry run. |
 | `draft <facts>` | No technique applies? The observed facts + the measured constants draft a PACK in the staging dir, armor-validated, for the operator to review and install. |
 | `exploit scaffold <technique>` | Draft the ronin exploit for a decided technique: the measured constants embedded, the payload loader wired - review, commit, run. |
-| `run <target>` | The closed loop: decide, execute, outcome, re-decide - with an attempt budget. |
+| `run <target>` | The closed loop: decide, execute, outcome, re-decide - with an attempt budget, `--flag-regex` as the success oracle (the flag in the output, not the exit code), and the leak capture: the output's hex addresses become facts for the next attempt. |
 | `outcome <run-id>` | Record the result; the next decision adapts the priors. |
 | `report` | The auditable engagement report (markdown, provenance included). |
 | `rule validate/install/list` | Teach augure a new technique - as data, through the armor. |

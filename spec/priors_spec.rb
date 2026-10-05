@@ -156,3 +156,45 @@ RSpec.describe "the report carries the whole trail" do
     expect(report).to include("verify: the remote faulted")
   end
 end
+
+RSpec.describe "the defender report" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail) { Lictor::Trail.new(File.join(dir, "t.jsonl")) }
+  let(:pack) do
+    Augure::Pack.load_hash(
+      "technique" => "uaf_tcache", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_uaf_tcache", "head" => %w[applicable uaf_tcache],
+                   "conditions" => [["fact", "vuln", "uaf"]]}],
+      "kb" => [{"id" => "u1", "description" => "u", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "detection" => [{"channel" => "syscall", "signature" => "free without an intervening alloc",
+                       "note" => "the UAF window"},
+        {"channel" => "crash", "signature" => "call through a freed heap ptr",
+         "note" => "the stale pointer"}]
+    )
+  end
+
+  it "the trail becomes the attacker timeline + the detection hints per technique" do
+    trail.record(run: "r1", type: "scan", target: "10.0.0.1")
+    trail.record(run: "r1", type: "harvest", target: "10.0.0.1:9999",
+      addresses: {"win" => "0x401260"})
+    trail.record(run: "r1", type: "outcome", technique: "uaf_tcache",
+      success: false, executed: true, target: "10.0.0.1:9999")
+    report = Lictor::Report.defender(trail, packs: [pack])
+    # the raw timeline
+    expect(report).to include("scanned")
+    expect(report).to include("harvest")
+    # the technique with its hints
+    expect(report).to include("uaf_tcache")
+    expect(report).to include("syscall: free without an intervening alloc")
+    expect(report).to include("the UAF window")
+  end
+
+  it "an unknown technique still renders (no hints, no silence)" do
+    trail.record(run: "r1", type: "outcome", technique: "mystery", success: false, executed: true)
+    report = Lictor::Report.defender(trail, packs: [])
+    expect(report).to include("mystery")
+    expect(report).to include("no detection hints")
+  end
+end

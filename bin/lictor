@@ -81,7 +81,7 @@ HELP = {
   "plan" => "plan <binary-or-facts>\n    Profile if ELF (augure-profile), decide, print the handoff recipe.",
   "outcome" => "outcome <run-id> --success|--failure --technique NAME\n    Record the result; the next plan adapts the priors.",
   "runs" => "runs\n    List the trailed runs.",
-  "report" => "report [--json] [-o PATH]\n    Render the auditable engagement report.",
+  "report" => "report [--json] [--defender] [-o PATH]\n    The operator's report, or (--defender) the blue-side view.",
   "rule" => "rule validate|install|list <pack.yml>\n    Teach augure a technique: data-only pack, validated + corpus-guarded.\n    install is interactive and trailed.",
   "init" => "init\n    Scaffold lictor.yml and an example facts file.",
   "doctor" => "doctor\n    Verify the environment; print the exact fix per check.",
@@ -567,7 +567,16 @@ when "runs"
          "outcomes=#{r[:outcomes].map { |o| "#{o[:technique]}:#{o[:success] ? 'ok' : 'ko'}" }.join(',')}"
   end
 when "report"
-  if options[:json]
+  if options[:defender]
+    packs = Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs")
+    content = Lictor::Report.defender(trail, packs: packs)
+    if options[:output]
+      File.write(options[:output], content)
+      puts "wrote #{options[:output]}"
+    else
+      puts content
+    end
+  elsif options[:json]
     puts JSON.generate(runs: trail.runs)
   elsif options[:output]
     Lictor::Report.to_file(options[:output], trail)

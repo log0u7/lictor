@@ -63,6 +63,7 @@ module Lictor
       # Measurement -> decision, in one trail.
       if binary
         begin
+          require "augure-profiler" # lazy: the enrichment loads metasm
           static = AugureProfiler::StaticOffset.offset(binary)
           enriched = +facts.to_s
           enriched << "vuln_hint(\"unsafe_func:#{static[:sink]}\").\n" if static[:sink]
@@ -103,6 +104,7 @@ module Lictor
         # the file - the loop does not invent craft, it drafts it.
         scaffolded_now = false
         if !result[:executed] && binary && repo_dir && !scaffolded_techniques.include?(technique)
+          require "augure-profiler" # lazy: the scaffold path loads metasm
           build = PayloadBuilder.build(binary: binary, facts: facts,
             technique: technique, out: File.join(repo_dir, "payload.bin"))
           dest = ExploitScaffold.scaffold(technique: technique, constants: build,

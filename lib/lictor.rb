@@ -10,7 +10,7 @@ require_relative "lictor/profiler"
 require_relative "lictor/handoff"
 require_relative "lictor/technique_packs"
 require_relative "lictor/suggestion"
-require_relative "lictor/payload_builder"
+require_relative "lictor/payload_builder" # lazy-loads metasm (the profiler) on first build
 require_relative "lictor/exploit_scaffold"
 require_relative "lictor/pack_draft"
 require_relative "lictor/tube"

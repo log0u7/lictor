@@ -469,6 +469,7 @@ when "draft"
   facts_path = ARGV.shift or abort(parser.to_s)
   binary = ARGV.shift
   begin
+    require "augure-profiler" # lazy: metasm loads on the draft path only
     measurements = {}
     if binary && File.file?(binary)
       static = AugureProfiler::StaticOffset.offset(binary) rescue nil
@@ -497,14 +498,14 @@ when "build"
     facts_path = "target.facts"
   end
   begin
+    packs = Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs")
     decision = Lictor::Handoff.plan(facts: File.read(facts_path), seed: options[:seed],
-      priors: Lictor::Priors.from_trail(trail),
-      packs: Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs"))
+      priors: Lictor::Priors.from_trail(trail), packs: packs)
     technique = decision[:selected] or abort("lictor: build needs a selected technique - plan decided nothing")
     result = Lictor::PayloadBuilder.build(binary: input, facts: File.read(facts_path),
       technique: technique, out: options[:out] || "payload.bin",
       payload_file: options[:payload_file],
-      packs: Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs"))
+      packs: packs)
     trail.record(run: SecureRandom.uuid, type: "build", technique: technique,
       offset: result[:offset], ret: result[:ret_source], arch: result[:arch].to_s,
       size: result[:size], out: result[:path])

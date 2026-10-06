@@ -2,7 +2,8 @@
 
 require "yaml"
 require "augure"
-require "augure-profiler"
+# metasm (+ augure-profiler) loads lazily in build(): every lictor
+# command would otherwise pay the 0.32 s load (H6)
 
 module Lictor
   # The asploit inheritance: from the decision to the actual bytes.
@@ -26,6 +27,7 @@ module Lictor
     # Returns {path:, offset:, offset_source:, sink:, ret:, ret_source:,
     # arch:, size:}.
     def build(binary:, facts:, technique:, out:, payload_file: nil, packs: nil, shellcode_path: nil)
+      require "augure-profiler" # lazy: metasm loads on the first build only
       facts = Augure::Facts.parse(facts) if facts.is_a?(String)
       # The ELF check FIRST: nothing executes - statically or under the
       # debugger - until the file is a real ELF.

@@ -237,6 +237,7 @@ result - the lab is the measurement bench, not the world:
 | corpus: 33/33 technique classifications | `augure-benchmark`, CI-enforced at 100% |
 | the six-target lab, four of them end-to-end | the lab: ret2func lands the flag via `run`; ret2plt/shellcode build real payloads (the exploit's craft decides); fmtstr/uaf_heap/orw decide and hand off loyally |
 | the hardening matrix predicts its own death | `lab/purple.sh`: the hardened mirrors (canary+PIE+RELRO+FORTIFY) + `augure coverage` flips - the decision's applicable set shrinks as documented |
+| MEASURED against a typed-decision classifier (Laya, open weights, the fact text as state, the 16 heads as choices): augure **5/5** at 8.5 ms (warm, MCTS included); the classifier 1/5, confident-and-wrong (0.93-0.98 confidence on its errors) - the global-prior bias, reproduced by a 2026 model | `pappers/laya-bench.py`, measured on CPU (i7 8-core, torch) |
 
 A run that fails says failed: `--flag-regex` makes the flag in the
 output the success oracle (the exit code lies both ways), and the

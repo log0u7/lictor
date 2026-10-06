@@ -65,6 +65,8 @@ module Lictor
           run[:suggested] = event["added"]
         when "leak"
           run[:leaked] = event["addresses"]
+        when "measure"
+          run[:measured] = {sink: event["sink"], offset: event["offset"], source: event["source"]}
         when "pack_draft"
           run[:drafted] = event["technique"]
         end

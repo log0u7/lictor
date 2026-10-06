@@ -65,12 +65,21 @@ module Lictor
         begin
           require "augure-profiler" # lazy: the enrichment loads metasm
           static = AugureProfiler::StaticOffset.offset(binary)
+          # the static read is TRAILED: the measure -> decision chain is
+          # auditable, and a swallowed error class (a NameError hiding
+          # under a bare rescue) cannot hide - the event's absence is
+          # the test's red flag
+          trail.record(run: run_id, type: "measure", target: target,
+            sink: static[:sink], offset: static[:offset], source: "static-frame")
           enriched = +facts.to_s
           enriched << "vuln_hint(\"unsafe_func:#{static[:sink]}\").\n" if static[:sink]
           enriched << "target_function(\"true\").\n" if facts.include?("win_symbol(") && static[:sink]
           facts = enriched if enriched != facts
-        rescue
-          # the static read is an enrichment, never a gate
+        rescue Metasm::DecodeError, Metasm::ParseError, Metasm::InvalidExeFormat,
+          Errno::ENOENT, Errno::EACCES
+          # the static read is an enrichment, never a gate - the
+          # KNOWN failure modes only: a programming error (NameError,
+          # NoMethodError) must crash loudly, not vanish here
         end
       end
 

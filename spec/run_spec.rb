@@ -252,3 +252,38 @@ RSpec.describe "the run manifest + resume" do
     }.to raise_error(Lictor::RunError, /manifest holds run/)
   end
 end
+
+RSpec.describe "the static read is trailed (the measure -> decision chain)" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail_path) { File.join(dir, "t.jsonl") }
+  let(:trail) { Lictor::Trail.new(trail_path) }
+  let(:facts_text) do
+    # NO vuln_hint: only the static read can supply it - the decision
+    # proves the read happened, the trail proves it was ATTEMPTED
+    "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\n" \
+      "win_symbol(\"win\", 4196182).\ngadget(\"ret_align\", 4196100).\n" \
+      "target_function(\"true\").\n"
+  end
+
+  it "the enrichment leaves a measure event even when the decision follows" do
+    builder = ["../../augure/profiler/spec/support/binary_builder.rb",
+      "../augure/profiler/spec/support/binary_builder.rb"]
+      .map { |p| File.expand_path(p, __dir__) }
+      .find { |p| File.file?(p) }
+    require_relative builder
+    executor_class = Class.new do
+      def execute(**)
+        {executed: false, success: nil}
+      end
+    end
+    Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
+      executor: executor_class.new, max_attempts: 1, seed: 42,
+      binary: ProfilerBinaryBuilder.vulnerable)
+    events = File.readlines(trail_path).map { |l| JSON.parse(l) }
+    measure = events.find { |e| e["type"] == "measure" }
+    expect(measure).not_to be_nil, "the static read left no trail event - " \
+      "a swallowed error class (NameError under the bare rescue) hides here"
+    expect(measure["sink"]).to eq("strcpy")
+    expect(measure["source"]).to eq("static-frame")
+  end
+end

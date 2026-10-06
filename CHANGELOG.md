@@ -71,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The capabilities table documents the new surfaces: the chain-slot build, the suggest
   `-o` write-back, `harvest --facts`, the `run --flag-regex` oracle and the leak capture.
 
-### Fixed
+- The run's static enrichment died silently when the lazy metasm require moved (a NameError swallowed by the block's bare `rescue`): the enrichment now trails a `measure` event (the sink, the offset, the source - the report renders it) and the rescue catches only the KNOWN failure modes (the metasm decode family, the file errors) - a programming error crashes loudly instead of vanishing. The regression spec asserts the event's presence: its absence is the red flag.
 
 - `suggest` and `harvest` never persisted their results: the merged fact base was
   printed then dropped (the docs even claimed the tool "merges into the base"), and the

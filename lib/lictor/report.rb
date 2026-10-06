@@ -30,6 +30,9 @@ module Lictor
         lines << "- verify: the remote #{run[:verified] ? "faulted" : "survived"}" unless run[:verified].nil?
         lines << "- suggest: #{run[:suggested]} added" if run[:suggested]
         lines << "- leak: #{run[:leaked]}" if run[:leaked]
+        if (measured = run[:measured])
+          lines << "- measure: the sink #{measured[:sink]} at offset #{measured[:offset]} (#{measured[:source]})"
+        end
         lines << "- drafted: the pack #{run[:drafted]} (staging)" if run[:drafted]
         lines << "- fuzz: #{run[:fuzzed]} (#{run[:crashes]} crashes)" if run[:fuzzed]
         lines << "- mode: #{run[:mode]}" if run[:mode]

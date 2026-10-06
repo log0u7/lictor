@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   engagement state as a directory per target, no database (0003).
 
 ### Changed
+
 - The speed pass (zero verdicts moved): the profiler's gadget scan precompiles its patterns and scans with String#index - profiling a 1MB binary drops 6.07 s to 58 ms (augure side, 45x); StaticOffset runs the cheap e8 scan first (the whole-text disassembly is the last resort - the >600 s hang on a 1 MB text dies); the MCTS depth-bounds the degenerate tree; the corpus guard memoizes; the CLI lazy-loads metasm (the fuzz/draft/scaffold paths load it on use); the build loads its packs once. The augure before/after table lives in augure/tools/bench.rb, the lictor one in tools/bench.sh.
 
 - The report carries the WHOLE trail: `Trail#runs` maps acquire, build (offset, ret

@@ -127,7 +127,8 @@ module Lictor
         end
         attempt = {
           technique: technique, executed: result[:executed],
-          success: result[:success], exploit: result[:exploit], handoff: result[:handoff]
+          success: result[:success], exploit: result[:exploit], handoff: result[:handoff],
+          flag: result[:flag]
         }
         attempts << attempt
         # The outcome feeds the priors ONLY when something actually ran:

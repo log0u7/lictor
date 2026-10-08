@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to leave the whole render in the caller's CWD, which broke the final trail
   tail), and the repo root is referenced as `$PWD` captured before the `cd` -
   no laptop path on screen.
+- The demo's closed loop lands the flag on screen: the tape's `--flag-regex`
+  carried doubled backslashes (vhs sends the typed string verbatim, bash
+  single quotes preserved them, the oracle regex matched a literal backslash
+  and never fired - three executed/failed attempts in every render). The
+  regex is now backslash-free (`FLAG[{][^}]*}`). And `lictor run` surfaces
+  the flag the executor reports: the successful attempt prints
+  `flag: FLAG{...}` after the steps - the proof the loop closed, since the
+  exit code lies both ways.
 
 - The engagement flow without flags: `lictor acquire <name>` resolves the source from the target's registry entry (the `--from`/`--bin` recorded at `target add`) - one `target add` and the acquire needs no flags; the explicit flags still override.
 

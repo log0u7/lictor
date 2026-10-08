@@ -373,6 +373,10 @@ when "run"
     ok = s[:success] ? "success" : (s[:success].nil? ? "-" : "failed")
     puts "  #{s[:technique]} [#{executed}/#{ok}]"
   end
+  # The flag in the output is the proof the loop actually closed - the
+  # exit code lies, the flag does not.
+  flag = result[:steps].filter_map { |s| s[:flag] }.first
+  puts "flag:    #{flag}" if flag
 when "acquire"
   # The nmap -> binary bridge: local copy or http download, ELF-checked,
   # profiled, trailed.

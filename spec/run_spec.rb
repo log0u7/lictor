@@ -41,9 +41,21 @@ RSpec.describe Lictor::Run do
     expect(events.map { |e| e["type"] }).to include("outcome")
   end
 
+  it "the flag the executor reports surfaces in the steps (the proof on screen)" do
+    flag = "FLAG{augure_decides_lictor_executes}"
+    executor = stub_executor.new([{executed: true, success: true, flag: flag}])
+    result = described_class.run(
+      target: "192.168.56.10", facts: facts_text, trail: trail,
+      executor: executor, max_attempts: 3, seed: 42
+    )
+    expect(result[:steps].first[:flag]).to eq(flag),
+      "the executor's flag never reached the steps - the run output cannot prove success"
+  end
+
   it "adapts: a failed attempt feeds the priors and the next attempt avoids it" do
     # ret2plt fails twice (priors shift), then the executor "succeeds" on anything.
-    results = [{executed: true, success: false}, {executed: true, success: false}, {executed: true, success: true}]
+    results = [{executed: true, success: false}, {executed: true, success: false},
+      {executed: true, success: true}]
     executor = stub_executor.new(results)
     result = described_class.run(
       target: "192.168.56.10", facts: facts_text, trail: trail,
@@ -106,7 +118,9 @@ RSpec.describe "the run's auto-scaffold" do
       packs: Lictor::TechniquePacks.load(nil), binary: binary, repo_dir: repo)
     expect(result[:status]).to eq("success")
     expect(Dir.children(repo)).to include("lab_ret2func_001.rb")
-    scaffolded = JSON.parse(File.readlines(File.join(dir, "t.jsonl")).map { |l| JSON.parse(l) }.find { |e| e["type"] == "scaffold" }.to_json)
+    scaffolded = JSON.parse(File.readlines(File.join(dir, "t.jsonl")).map do |l|
+      JSON.parse(l)
+    end.find { |e| e["type"] == "scaffold" }.to_json)
     expect(scaffolded["offset_source"]).to eq("static-frame")
   end
 end
@@ -245,11 +259,11 @@ RSpec.describe "the run manifest + resume" do
   it "resume with a mismatched id is refused loudly" do
     Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
       executor: executor_class.new([]), max_attempts: 1, seed: 42, manifest_path: manifest_path)
-    expect {
+    expect do
       Lictor::Run.run(target: "192.168.56.10", facts: facts_text, trail: trail,
         executor: executor_class.new([]), max_attempts: 1, seed: 42,
         manifest_path: manifest_path, resume: "not-the-id")
-    }.to raise_error(Lictor::RunError, /manifest holds run/)
+    end.to raise_error(Lictor::RunError, /manifest holds run/)
   end
 end
 

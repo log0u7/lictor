@@ -95,7 +95,7 @@ Ctrl+L
 
 Type "# act 7 - the closed loop with the built payload"
 Enter
-Type "lictor run 127.0.0.1:9999 --facts target.facts --executor ronin --payload payload.bin --flag-regex 'FLAG\\{[^}]+\\}' | tail -3"
+Type "lictor run 127.0.0.1:9999 --facts target.facts --executor ronin --payload payload.bin --flag-regex 'FLAG[{][^}]*}' | tail -3"
 Enter
 Sleep 10s
 Sleep 2000ms

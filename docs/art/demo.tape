@@ -1,12 +1,12 @@
 # The lictor demo - the auditable exploitation decision layer.
-# Regenerate BY HAND (never in CI: a bot that commits the gif = push conflicts):
+# Regenerate BY HAND (never in CI: a bot that commits the gif = push conflicts).
+# From the repo root (the tape captures it as $L before cd):
 #   docker compose -f lab/docker-compose.yml up -d --build
-#   rm -rf /tmp/lictor-demo && mkdir /tmp/lictor-demo
-#   printf 'trail: demo-trail.jsonl\n' > /tmp/lictor-demo/lictor.yml
-#   cd lictor && env -u PROMPT_COMMAND -u STARSHIP_SHELL -u STARSHIP_SESSION_KEY \
+#   env -u PROMPT_COMMAND -u STARSHIP_SHELL -u STARSHIP_SESSION_KEY \
 #     mise x vhs@latest -- vhs docs/art/demo.tape
-#   (the -u strips the host shell's starship hooks; the tape's first line
-#   also unsets them - the render is clean whatever the invocation)
+# The tape is self-sufficient: the first (hidden) line creates
+# /tmp/lictor-demo, writes its lictor.yml and cds there - nothing typed
+# shows on screen (Hide/Show), so no host path ever leaks into the gif.
 Output docs/art/demo.gif
 Set Shell bash
 Set FontSize 16
@@ -18,8 +18,11 @@ Set MarginFill "#16161f"
 Set Padding 16
 Set TypingSpeed 30ms
 
-Type "unset PROMPT_COMMAND STARSHIP_SHELL STARSHIP_SESSION_KEY; export PATH=$HOME/projets/blog/draft/lictor/bin:$HOME/.local/share/mise/shims:$PATH; cd /tmp/lictor-demo; export PS1='> '"
+Hide
+Type "L=$PWD; unset PROMPT_COMMAND STARSHIP_SHELL STARSHIP_SESSION_KEY; export PATH=$L/bin:$HOME/.local/share/mise/shims:$PATH; rm -rf /tmp/lictor-demo; mkdir -p /tmp/lictor-demo; printf 'trail: demo-trail.jsonl\n' > /tmp/lictor-demo/lictor.yml; cd /tmp/lictor-demo; export PS1='> '"
 Enter
+Ctrl+L
+Show
 Sleep 300ms
 Type "echo '   AUGURE + LICTOR - the auditable exploitation decision layer'"
 Enter
@@ -31,7 +34,7 @@ Ctrl+L
 
 Type "# act 0 - the lab comes up: six vulnerable targets + the hardened matrix"
 Enter
-Type "docker compose -f $HOME/projets/blog/draft/lictor/lab/docker-compose.yml up -d 2>&1 | tail -2"
+Type "docker compose -f $L/lab/docker-compose.yml up -d 2>&1 | tail -2"
 Enter
 Sleep 3s
 Sleep 2000ms

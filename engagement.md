@@ -1,53 +1,44 @@
 # Engagement report
 
-generated: 2026-10-05T19:10:05Z
+generated: 2026-10-08T19:36:39Z
 
 _All numbers below are model predictions with rule provenance, not field results._
 
-## Run `d5cb4b3d-2536-4dc2-a795-cdf551690016`
+## Run `9c30cf06-d3a0-4be1-9de2-6a74748bc82f`
 
 - scan: 127.0.0.1 (nmap)
 
-## Run `69d1a454-a345-44d0-accf-9aedf3d63530`
+## Run `51135b5a-2240-488d-9fd3-fbda4d36ab27`
+
+- acquire: ./ret2func
+
+## Run `e1870960-e48a-4625-9098-112966e4ce37`
 
 - mode: handoff (prints a recipe; executes nothing)
 - facts: target.facts
-- applicable: fmtstr_write
-- selected: **fmtstr_write**
-  - fmtstr_write <- app_fmtstr_write (vuln=fmtstr)
+- applicable: ret2func, ret2libc
+- selected: **ret2func**
+  - ret2func <- app_ret2func (vuln=sof, pie=false, target_function=true)
 
-## Run `05b6f2ae-635b-4f7b-988c-0af49905bc19`
+## Run `a3fd9fab-6f5f-4647-94ad-b4a62d16242e`
 
 - mode: handoff (prints a recipe; executes nothing)
 - facts: target.facts
-- applicable: fmtstr_write
-- selected: **fmtstr_write**
-  - fmtstr_write <- app_fmtstr_write (vuln=fmtstr)
+- applicable: ret2func, ret2libc
+- selected: **ret2func**
+  - ret2func <- app_ret2func (vuln=sof, pie=false, target_function=true)
 
-## Run `0856df21-16fa-439e-826f-b0da61b519ac`
+## Run `69bd566e-b7a6-443d-83cd-627a7eb53324`
+
+- build: ret2func, offset 16 (win_symbol:win@4198870), 24 bytes -> payload.bin
+
+## Run `dbddfddb-b851-40e8-bf4f-2667953a7de1`
 
 - harvest: {"win" => "0x4011d6"}
 
-## Run `1efc6b2b-d3d4-4ba5-93c5-ff47c9e26ab4`
+## Run `7c23ca92-cdba-4684-8ed7-7870e13146b6`
 
-- scan: 127.0.0.1 (nmap)
-
-## Run `f45b8572-6d08-4485-8ce6-020dc6e291c5`
-
-- mode: handoff (prints a recipe; executes nothing)
-- facts: target.facts
-- applicable: fmtstr_write
-- selected: **fmtstr_write**
-  - fmtstr_write <- app_fmtstr_write (vuln=fmtstr)
-
-## Run `041e3019-a727-4042-8e25-410ed6aa3169`
-
-- mode: handoff (prints a recipe; executes nothing)
-- facts: target.facts
-- applicable: fmtstr_write
-- selected: **fmtstr_write**
-  - fmtstr_write <- app_fmtstr_write (vuln=fmtstr)
-
-## Run `aeb350ed-7937-449d-bf93-b00dcd1b29b0`
-
-- harvest: {"win" => "0x4011d6"}
+- leak: {"win" => "0x4011d6"}
+- outcome: **failure** (ret2func)
+- outcome: **failure** (ret2func)
+- outcome: **failure** (ret2func)

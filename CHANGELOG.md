@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- The demo tape is self-sufficient and leak-free: the setup line (workdir
+  creation, `lictor.yml`, PATH, starship stripping) is typed under `Hide`/`Show`
+  so nothing of the host ever shows in `docs/art/demo.gif`, the workdir
+  `/tmp/lictor-demo` is created by the tape itself (a skipped manual step used
+  to leave the whole render in the caller's CWD, which broke the final trail
+  tail), and the repo root is referenced as `$PWD` captured before the `cd` -
+  no laptop path on screen.
+
 - The engagement flow without flags: `lictor acquire <name>` resolves the source from the target's registry entry (the `--from`/`--bin` recorded at `target add`) - one `target add` and the acquire needs no flags; the explicit flags still override.
 
 - The ROP chaineur: the build layout gains the `chain` slot - one arch-width word per

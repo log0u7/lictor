@@ -42,8 +42,8 @@ hardening matrix + purple.sh. The operator is the authorization.
 
 Same as augure: TDD first, conventional commits (English, atomic),
 CHANGELOG [Unreleased] per change, SemVer 0.x, main stays green. Ruby 3.4+
-via mise. No PR/review required during bootstrap (single author); PRs with
-review become the rule once a second contributor lands.
+via mise. `main` is protected (repository ruleset): every change lands
+through a pull request - see `CONTRIBUTING.md`.
 
 ## Gotchas
 

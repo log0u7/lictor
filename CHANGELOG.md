@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- README banner recompressed: `lictor-v1.png` 1.9M -> 969K (256-color palette
+  with dithering; repo weight only, no content change). `lictor-v0.png` and
+  `demo.gif` are untouched.
 - The demo tape is self-sufficient and leak-free: the setup line (workdir
   creation, `lictor.yml`, PATH, starship stripping) is typed under `Hide`/`Show`
   so nothing of the host ever shows in `docs/art/demo.gif`, the workdir

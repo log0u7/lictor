@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
 
-  spec.files = Dir.glob(File.expand_path("lib", __dir__) + "/**/*.rb") + Dir.glob(File.expand_path("lib", __dir__) + "/config/*.yml") + Dir.glob(File.expand_path("lib", __dir__) + "/lictor/templates/*.erb") + [File.expand_path("bin/lictor", __dir__), "LICENSE", "README.md", "CHANGELOG.md"]
+  spec.files = Dir.glob("lib/**/*.rb") + Dir.glob("lib/config/*.yml") + Dir.glob("lib/lictor/templates/*.erb") + ["bin/lictor", "LICENSE", "README.md", "CHANGELOG.md"]
   spec.bindir = "bin"
   spec.executables = ["lictor"]
   spec.require_paths = ["lib"]

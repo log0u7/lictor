@@ -240,3 +240,17 @@ RSpec.describe Lictor::PayloadBuilder, "seccomp-aware shellcode" do
     expect(after_ret).not_to include("\x00".b), "the orw stub crosses the strcpy channel NUL-free"
   end
 end
+
+RSpec.describe Lictor::PayloadBuilder, "an explicit --technique override" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+
+  it "builds the overridden technique's layout, not the bandit's draw" do
+    out = File.join(dir, "p.bin")
+    # the facts draw shellcode AND ret2func: the override forces ret2func
+    facts = "nx(\"false\").\ngadget(\"jmp_rsp\", 4196200).\nwin_symbol(\"win\", 4198870).\n"
+    result = described_class.build(binary: binary, facts: facts, technique: "ret2func",
+      out: out)
+    expect(result[:ret_source]).to include("win_symbol:win")
+  end
+end

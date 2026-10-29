@@ -55,6 +55,7 @@ parser = OptionParser.new do |opts|
   opts.on("--max-inputs N", Integer, "Fuzz budget: mutated inputs to try (default 50)") { |v| options[:max_inputs] = v }
   opts.on("--mutator NAME", "ruby (default) or radamsa if installed") { |v| options[:mutator] = v }
   opts.on("--executor NAME", "manual (default) or ronin") { |v| options[:executor] = v }
+  opts.on("--technique NAME", "Override the technique the build implements (default: augure's pick)") { |v| options[:technique] = v }
   opts.on("--payload FILE", "Send a pre-built payload (from `lictor build`) with run") { |v| options[:payload] = v }
   opts.on("--shellcode-path PATH", "The flag path embedded in the shellcode stubs (build)") { |v| options[:shellcode_path] = v }
   opts.on("--flag-regex RE", "Success oracle: the flag pattern in the runner's output (the exit code lies)") { |v| options[:flag_regex] = v }
@@ -506,7 +507,8 @@ when "build"
     packs = Lictor::TechniquePacks.load(options[:packs] || Lictor::Config.load[:packs] || "packs")
     decision = Lictor::Handoff.plan(facts: File.read(facts_path), seed: options[:seed],
       priors: Lictor::Priors.from_trail(trail), packs: packs)
-    technique = decision[:selected] or abort("lictor: build needs a selected technique - plan decided nothing")
+    technique = options[:technique] || decision[:selected] or
+      abort("lictor: build needs a selected technique - plan decided nothing")
     result = Lictor::PayloadBuilder.build(binary: input, facts: File.read(facts_path),
                              shellcode_path: options[:shellcode_path],
       technique: technique, out: options[:out] || "payload.bin",

@@ -2,13 +2,13 @@
 
 A self-contained docker lab: **nine services (six targets + three
 hardened mirrors), six fact bases, six decisions from the same
-engine**. Four stack targets land real flags deterministically
-through the lab exploits (ret2func, shellcode, fmtstr, orw); ret2plt's
-exploit stays byte-fragile, its cat command must fit eight bytes and
-swallows the leaked address's raw bytes, the deterministic fix is the
-two-stage leak chain. The heap and seccomp targets decide and hand off
-loyally (their craft is the operator's exercise). The flag is the
-proof where the run reaches it.
+engine**. Five targets land real flags deterministically through the
+lab exploits and the built payload (ret2func, ret2plt, shellcode,
+fmtstr, orw); ret2plt's chain rides the read channel, whose copy is
+bounded by the read length, so the NUL-bearing addresses cross whole
+and rdi aims the service's own command string (30/30 connections).
+The heap target decides and hands off loyally (its craft is the
+operator's exercise). The flag is the proof where the run reaches it.
 
 **For the demo only. The targets are ours; the exploits are ours;
 nothing here touches a real target.**
@@ -43,7 +43,7 @@ lab/
   ronin-repo/exploits/        # the operator's ronin exploits (discovered, never invented)
   setup.sh                    # installs ronin-exploits + registers the local repo
   demo.sh                     # replays the chain: run for the five stack targets
-                              # (ret2plt stays byte-fragile), decide + handoff for uaf_heap
+                              # (the oracle is the target's own flag), decide + handoff for uaf_heap
 ```
 
 ## The demo
@@ -51,7 +51,7 @@ lab/
 ```sh
 sh setup.sh        # ronin toolchain + local repo
 sh demo.sh         # scan, then per target: acquire -> suggest -> decide -> build -> run
-                   # (run for the five stack targets; ret2plt stays byte-fragile, uaf_heap stops at plan/build)
+                   # (run for the five stack targets, uaf_heap stops at plan/build)
 ```
 
 What demo.sh does, per target:

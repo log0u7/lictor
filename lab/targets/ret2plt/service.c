@@ -17,6 +17,12 @@ __attribute__((noinline)) void pop_rdi_gadget(void) {
 }
 
 int vuln_copy(const char *src) {
+    /* 0x28, not 0x20: shifts this frame 8 bytes down, which makes
+       rbp_v+8 (the return slot) 16-aligned, so a straight return into
+       system enters with rsp % 16 == 8 - the ABI a real call would
+       have left. With the 0x20 frame, do_system's SSE prologue faults
+       on the misaligned stack. The small->ret distance (16) is
+       unchanged: the overflow geometry is identical. */
     char small[8];
     strcpy(small, src); /* the write-up classic: unbounded */
     return (int) strlen(small);
@@ -38,7 +44,14 @@ int main(void) {
     n = read(0, input, sizeof(input) - 1);
     if (n <= 0) return 1;
     input[n - 1] = 0;
+    /* The 8-byte rsp shift: the ret2plt chain returns from vuln_copy
+       straight into system (rdi already points at the copied command
+       string, small). system's entry needs rsp % 16 == 8 - the ABI
+       alignment a call would have left - or do_system's SSE prologue
+       faults on the misaligned stack. */
+    __asm__ volatile("sub $8, %rsp");
     vuln_copy(input);
+    __asm__ volatile("add $8, %rsp");
     fputs("hello\n", stdout);
     return 0;
 }

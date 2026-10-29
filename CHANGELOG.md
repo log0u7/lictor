@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-29
+
+- The lab grows to eight targets: the ROP Emporium pair (callme,
+  ret2csu) joins as binary-only services - the challenge binaries and
+  their companion libraries vendored under `lab/targets/` with the
+  provenance noted, served through wrapper scripts (the loader needs
+  `LD_LIBRARY_PATH`, the lib opens the encrypted flag relative to the
+  cwd). The demo walks them like the rest: acquire, suggest (the
+  unbounded copy is a read), the pack-taught layout builds the payload
+  (measured offset), the discovered exploit lands the flag. The build
+  fetches the companion library beside the measured binary so the
+  debugger's cyclic run resolves it.
+- The ret2plt loop is deterministic: the service's copy is bounded by
+  the read length (`memcpy`, not `strcpy`), so the read channel carries
+  NUL bytes and the textbook chain rides whole - the banner's leaks aim
+  pop rdi (entry+4), the service's own command string and system, the
+  chain enters system at the ABI alignment (measured under gdb,
+  30/30 connections land the flag). The demo's oracle is now the
+  target's own flag (success means THIS target's flag, a wrong flag
+  fails), and the ret2plt source knowledge (`vuln("sof")`) enters
+  through suggest like fmtstr's.
+
 - The ret2plt loop is deterministic: the service's copy is bounded by
   the read length (`memcpy`, not `strcpy`), so the read channel carries
   NUL bytes and the textbook chain rides whole - the banner's leaks aim

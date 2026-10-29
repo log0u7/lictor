@@ -1,19 +1,23 @@
 # The augure/lictor lab
 
-A self-contained docker lab: **nine services (six targets + three
-hardened mirrors), six fact bases, six decisions from the same
-engine**. Five targets land real flags deterministically through the
+A self-contained docker lab: **eleven services (eight targets + three
+hardened mirrors), eight fact bases, eight decisions from the same
+engine**. Seven targets land real flags deterministically through the
 lab exploits and the built payload (ret2func, ret2plt, shellcode,
-fmtstr, orw); ret2plt's chain rides the read channel, whose copy is
-bounded by the read length, so the NUL-bearing addresses cross whole
-and rdi aims the service's own command string (30/30 connections).
-The heap target decides and hands off loyally (its craft is the
-operator's exercise). The flag is the proof where the run reaches it.
+fmtstr, orw, callme, ret2csu); ret2plt's chain rides the read channel,
+whose copy is bounded by the read length, so the NUL-bearing addresses
+cross whole and rdi aims the service's own command string (30/30
+connections). The heap target decides and hands off loyally (its craft
+is the operator's exercise). The flag is the proof where the run
+reaches it.
 
-**For the demo only. The targets are ours; the exploits are ours;
-nothing here touches a real target.**
+**For the demo only. Our targets are ours; the exploits are ours;
+nothing here touches a real target.** The callme and ret2csu binaries
+are the ROP Emporium challenge files (public practice binaries, used
+as-is, no source), vendored under `targets/` with their provenance in
+this file.
 
-## The six targets
+## The eight targets
 
 | Target | Port | What makes it different | augure's decision | The lab exploit |
 |---|---|---|---|---|
@@ -23,26 +27,30 @@ nothing here touches a real target.**
 | fmtstr | 9996 | printf(input) - the format IS the weapon; a hook pointer to write | **fmtstr_write** | `lab_fmtstr_004` |
 | uaf_heap | 9995 | tcache UAF, the fn pointer lives ON the heap - the facts come from knowledge (suggest), not the profiler | **uaf_tcache** | the decision layer's recipe |
 | orw | 9994 | seccomp: execve dies; the buffer address is the leak; served under `setarch -R` (the compose notes why) | **orw** | built by `lictor build orw` |
+| callme | 9993 | ROP Emporium, binary-only: three PLT calls with the magic triple; the pack teaches the layout, the profiler learns `pop rsi; pop r15; ret` | **callme** | `lab_callme_005` |
+| ret2csu | 9992 | ROP Emporium, binary-only: no arg gadgets at all - the csu pair + the DT_FINI no-op call; the win_symbol trap (an import is not a win here) lives in the profiler's tests | **ret2csu_v2** | `lab_ret2csu_v2_006` |
 
-Same engine, six fact bases - stack, heap, format, filter - each with
-its rule provenance. That is the product; the lab exists to show it.
-The heap and seccomp targets demo the **suggest** flow: the facts the
-profiler cannot see (a heap class, a filter) enter through the
-operator's knowledge, and the decision moves.
+Same engine, eight fact bases - stack, heap, format, filter, and the
+binary-only ROP Emporium pair - each with its rule provenance. That is
+the product; the lab exists to show it. The heap target demos the
+**suggest** flow: the facts the profiler cannot see (a heap class)
+enter through the operator's knowledge, and the decision moves.
 
 ## Layout
 
 ```
 lab/
-  docker-compose.yml          # one image, NINE socat services + http (seccomp:unconfined for setarch -R)
+  docker-compose.yml          # one image, ELEVEN socat services + http (seccomp:unconfined for setarch -R)
   targets/<name>/service.c    # each service: banner + its own vuln class
   targets/<name>/flag.txt     # each target has its own flag
-  start.sh                    # http (acquisition) + 9 listeners (orw under setarch -R)
+  targets/callme/             # ROP Emporium, binary-only: the binary, its lib, the encrypted flag + keys, the run.sh wrapper
+  targets/ret2csu/            # same shape: the binary, libret2csu.so, the encrypted flag + key, the run.sh wrapper
+  start.sh                    # http (acquisition) + 11 listeners (orw under setarch -R, the emporium pair via the wrappers)
   purple.sh                   # the purple loop: the coverage flips + the defender view
   Dockerfile                  # the targets AND the hardened matrix
   ronin-repo/exploits/        # the operator's ronin exploits (discovered, never invented)
   setup.sh                    # installs ronin-exploits + registers the local repo
-  demo.sh                     # replays the chain: run for the five stack targets
+  demo.sh                     # replays the chain: run for the seven executable targets
                               # (the oracle is the target's own flag), decide + handoff for uaf_heap
 ```
 
@@ -56,7 +64,7 @@ sh demo.sh         # scan, then per target: acquire -> suggest -> decide -> buil
 
 What demo.sh does, per target:
 
-1. `lictor scan 127.0.0.1` - nmap finds the six
+1. `lictor scan 127.0.0.1` - nmap finds the eight
    services; the scan is recorded.
 2. `lictor acquire 127.0.0.1:9999 --from http://127.0.0.1:8000/<name>` -
    the binary is downloaded, ELF-checked, profiled, recorded (the nmap →
@@ -74,18 +82,15 @@ What demo.sh does, per target:
    and built against - run `lictor verify <target> --input crash-input.bin`
    yourself before anything runs against a real remote (the demo does
    not: the lab IS the mirror and the remote in one).
-6. `lictor report` - the auditable engagement report covering all six.
+6. `lictor report` - the auditable engagement report covering all eight.
 
-The honesty note: ret2func executes end-to-end with the BUILT payload
-(`lictor build` measures the offset - 16, no brute-force - and the run
-lands the real flag). The other three currently stop at the
-recipe/attempt level - the classic CTF minutiae (ROP NUL truncation,
-%hn slot alignment) are exactly the hard parts - and the system reports
-them as failures instead of pretending. Before this build, ret2func's
-own "success" was a lie: the exploit exited 0 whether or not the flag
-came; it raises now. The exploits stay in the repo as the lab's test
-harness - and after editing one, refresh ronin's repo cache
-(`cp lab/ronin-repo/exploits/*.rb ~/.cache/ronin-repos/ronin-repo/exploits/`
+The honesty note: seven targets execute end-to-end (the built payload
+or the discovered exploit lands the real flag, the oracle is the
+target's own flag); uaf_heap stops at the handoff by design - the heap
+craft is the operator's exercise, and the system reports the handoff
+as a handoff instead of pretending. The exploits stay in the repo as
+the lab's test harness - and after editing one, refresh ronin's repo
+cache (`cp lab/ronin-repo/exploits/*.rb ~/.cache/ronin-repos/ronin-repo/exploits/`
 or `ronin-repos update`), or ronin keeps serving the old copy.
 
 ## The classic CTF gotchas in this lab (on purpose)

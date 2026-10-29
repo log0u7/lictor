@@ -56,7 +56,20 @@ RUN gcc ret2func.c  -o ret2func_h  -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-str
       -pie -fPIE -Wl,-z,relro,-z,now \
     && chmod 755 ret2func_h ret2plt_h shellcode_h fmtstr_h
 
-EXPOSE 8000 8897 8898 8899 9994 9995 9996 9997 9998 9999
+# The ROP Emporium targets: third-party challenge binaries, used as-is
+# (no source - the whole point: the decision layer reads the BINARY).
+# Each lives in its own directory: the loader needs LD_LIBRARY_PATH for
+# the companion library and the lib opens the encrypted flag + keys
+# relative to the cwd.
+COPY targets/callme/  /opt/target/emporium/callme/
+COPY targets/ret2csu/ /opt/target/emporium/ret2csu/
+COPY targets/callme/run.sh  /opt/target/emporium/callme.sh
+COPY targets/ret2csu/run.sh /opt/target/emporium/ret2csu.sh
+RUN chmod 755 /opt/target/emporium/callme /opt/target/emporium/ret2csu \
+              /opt/target/emporium/*.sh /opt/target/emporium/*/*.so \
+    && chmod 644 /opt/target/emporium/*/*.dat
+
+EXPOSE 8000 8897 8898 8899 9992 9993 9994 9995 9996 9997 9998 9999
 
 COPY start.sh .
 CMD ["./start.sh"]

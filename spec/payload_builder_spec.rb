@@ -52,7 +52,7 @@ RSpec.describe Lictor::PayloadBuilder do
     # the raw 0xcc bytes carry no NUL, but the channel rule is uniform:
     # the body after the return slot is the ENCODED form (the decoder +
     # the keyed data), NUL-free whatever the input contained
-    after_ret = body[(result_offset(body)) + 8..]
+    after_ret = body[result_offset(body) + 8..]
     expect(after_ret).not_to include("\x00".b)
   end
 

@@ -367,7 +367,8 @@ when "run"
                              repo_dir: options[:repo_dir],
                              flag_regex: options[:flag_regex],
                              manifest_path: File.join(when_state, "run.json"),
-                             resume: options[:resume])
+                             resume: options[:resume],
+                             technique: options[:technique])
   puts "run:     #{result[:run_id]}  (interrupted? resume: lictor run ... --resume #{result[:run_id]})"
   puts "status:  #{result[:status]}"
   result[:steps].each do |s|

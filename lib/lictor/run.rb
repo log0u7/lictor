@@ -128,7 +128,11 @@ module Lictor
         attempt = {
           technique: technique, executed: result[:executed],
           success: result[:success], exploit: result[:exploit], handoff: result[:handoff],
-          flag: result[:flag]
+          flag: result[:flag],
+          # the runner's output: the oracle's search region AND the
+          # debugging record - without it a failed attempt is a black
+          # box (the flag_regex eats the only copy of the output)
+          output: result[:output]&.byteslice(0, 2000)
         }
         attempts << attempt
         # The outcome feeds the priors ONLY when something actually ran:

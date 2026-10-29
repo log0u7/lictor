@@ -16,7 +16,7 @@ __attribute__((noinline)) void pop_rdi_gadget(void) {
     __asm__ volatile("pop %rdi; ret");
 }
 
-int vuln_copy(const char *src) {
+int vuln_copy(const char *src, size_t n) {
     /* 0x28, not 0x20: shifts this frame 8 bytes down, which makes
        rbp_v+8 (the return slot) 16-aligned, so a straight return into
        system enters with rsp % 16 == 8 - the ABI a real call would
@@ -24,8 +24,12 @@ int vuln_copy(const char *src) {
        on the misaligned stack. The small->ret distance (16) is
        unchanged: the overflow geometry is identical. */
     char small[8];
-    strcpy(small, src); /* the write-up classic: unbounded */
-    return (int) strlen(small);
+    /* The read channel: the copy is bounded by n, not by a NUL, so
+       NUL bytes ride and the textbook ret2plt chain (pop rdi; the
+       command string; system) crosses whole. The unbounded copy into
+       an 8-byte buffer is the entry point, same sof class. */
+    memcpy(small, src, n);
+    return (int) n;
 }
 
 int main(void) {
@@ -45,12 +49,12 @@ int main(void) {
     if (n <= 0) return 1;
     input[n - 1] = 0;
     /* The 8-byte rsp shift: the ret2plt chain returns from vuln_copy
-       straight into system (rdi already points at the copied command
-       string, small). system's entry needs rsp % 16 == 8 - the ABI
-       alignment a call would have left - or do_system's SSE prologue
-       faults on the misaligned stack. */
+       into the pop-rdi gadget, which loads the command string's
+       address and falls into system. system's entry needs
+       rsp % 16 == 8 - the ABI alignment a call would have left - or
+       do_system's SSE prologue faults on the misaligned stack. */
     __asm__ volatile("sub $8, %rsp");
-    vuln_copy(input);
+    vuln_copy(input, (size_t) n);
     __asm__ volatile("add $8, %rsp");
     fputs("hello\n", stdout);
     return 0;

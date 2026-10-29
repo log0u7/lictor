@@ -40,7 +40,7 @@ shellcode:
   arch: any
   layout:
     - [padding, measured_offset, sled]
-    - [qword, gadget:jmp_rsp]
+    - [qword, leak:buf]
     - [shellcode, sh]
 
 banner_leak:

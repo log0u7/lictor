@@ -42,6 +42,10 @@ for entry in "127.0.0.1:9999 ret2func" "127.0.0.1:9998 ret2plt" \
 		(cd "$WORK" && "$L" suggest target.facts 'vuln("fmtstr").
 fmtstr_read("true").' -o target.facts) | head -3
 	fi
+	if [ "$BIN" = ret2plt ]; then
+		echo "[decide] the source knowledge the profiler cannot see (the unbounded copy is a memcpy):"
+		(cd "$WORK" && "$L" suggest target.facts 'vuln("sof").' -o target.facts) | head -3
+	fi
 	if [ "$BIN" = shellcode ] || [ "$BIN" = orw ]; then
 		echo "[harvest] the service announces its own addresses -> leaked_address facts:"
 		(cd "$WORK" && "$L" harvest "$TGT" --facts target.facts) | head -3
@@ -73,14 +77,16 @@ fmtstr_read("true").' -o target.facts) | head -3
 	done
 
 	echo "[run] the closed loop (the executor discovers the exploit in the repos):"
-	RUN_ARGS="--executor ronin --max-attempts 2 -s 7 --flag-regex FLAG\\{[^}]+\\}"
+	echo "[run] the oracle = the target's own flag: success means THIS target's flag"
+	FLAG_REGEX=$(sed 's/[][\\.^$*+?(){}|]/\\&/g' "$ROOT/lab/targets/$BIN/flag.txt" | tr -d '\n')
+	RUN_ARGS="--executor ronin --max-attempts 2 -s 7 --flag-regex $FLAG_REGEX"
 	if [ -n "$BUILT" ]; then
 		RUN_ARGS="$RUN_ARGS --technique $BUILT"
 		if [ -f "$WORK/payload.bin" ]; then
 			RUN_ARGS="$RUN_ARGS --payload payload.bin"
 		fi
 	fi
-	(cd "$WORK" && "$L" run "$TGT" --facts target.facts $RUN_ARGS) | head -4
+	(cd "$WORK" && "$L" run "$TGT" --facts target.facts $RUN_ARGS) | head -6
 done
 
 echo

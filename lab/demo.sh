@@ -1,6 +1,6 @@
 #!/bin/sh
-# The augure/lictor demo: SIX targets, six different fact bases,
-# six different decisions - the decision layer's showcase.
+# The augure/lictor demo: EIGHT targets, eight different fact bases,
+# eight different decisions - the decision layer's showcase.
 # Run from anywhere: sh lictor/lab/demo.sh
 set -e
 cd "$(dirname "$0")/.."
@@ -26,7 +26,8 @@ echo "=== 1. scan (nmap finds the services, recorded in the trail) ==="
 # target:port  binary  (the binaries are served over http)
 STEP=2
 for entry in "127.0.0.1:9999 ret2func" "127.0.0.1:9998 ret2plt" \
-	"127.0.0.1:9997 shellcode" "127.0.0.1:9996 fmtstr" "127.0.0.1:9994 orw"; do
+	"127.0.0.1:9997 shellcode" "127.0.0.1:9996 fmtstr" "127.0.0.1:9994 orw" \
+	"127.0.0.1:9993 callme" "127.0.0.1:9992 ret2csu"; do
 	set -- $entry
 	TGT=$1
 	BIN=$2
@@ -35,7 +36,13 @@ for entry in "127.0.0.1:9999 ret2func" "127.0.0.1:9998 ret2plt" \
 	STEP=$((STEP + 1))
 
 	echo "[acquire] the binary: downloaded, ELF-checked, profiled, recorded"
-	(cd "$WORK" && "$L" acquire "$TGT" --from "http://127.0.0.1:8000/$BIN") | head -2
+	SUBDIR=""
+	if [ "$BIN" = callme ] || [ "$BIN" = ret2csu ]; then
+		# the emporium targets live in their own directories (the http
+		# server serves files, not directory listings)
+		SUBDIR="emporium/$BIN/"
+	fi
+	(cd "$WORK" && "$L" acquire "$TGT" --from "http://127.0.0.1:8000/${SUBDIR}$BIN") | head -2
 
 	if [ "$BIN" = fmtstr ]; then
 		echo "[decide] the source knowledge the profiler cannot see (printf is not a vuln):"
@@ -44,6 +51,10 @@ fmtstr_read("true").' -o target.facts) | head -3
 	fi
 	if [ "$BIN" = ret2plt ]; then
 		echo "[decide] the source knowledge the profiler cannot see (the unbounded copy is a memcpy):"
+		(cd "$WORK" && "$L" suggest target.facts 'vuln("sof").' -o target.facts) | head -3
+	fi
+	if [ "$BIN" = callme ] || [ "$BIN" = ret2csu ]; then
+		echo "[decide] the source knowledge the profiler cannot see (the unbounded copy is a read):"
 		(cd "$WORK" && "$L" suggest target.facts 'vuln("sof").' -o target.facts) | head -3
 	fi
 	if [ "$BIN" = shellcode ] || [ "$BIN" = orw ]; then
@@ -60,6 +71,14 @@ fmtstr_read("true").' -o target.facts) | head -3
 
 	echo "[build] the offset is MEASURED (cyclic pattern under the debugger);"
 	echo "[build] the build walks the ranking, the first buildable technique runs:"
+	if [ "$BIN" = callme ] || [ "$BIN" = ret2csu ]; then
+		# the debugger runs the binary IN the workdir: the companion
+		# library must ride beside it (the loader resolves it there)
+		echo "[build] the companion library joins the measured binary:"
+		(cd "$WORK" && curl -sf "http://127.0.0.1:8000/${SUBDIR}lib$BIN.so" -o "lib$BIN.so")
+		LD_LIBRARY_PATH="$WORK${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+		export LD_LIBRARY_PATH
+	fi
 	rm -f "$WORK/payload.bin"
 	BUILD_EXTRA=""
 	[ "$BIN" = orw ] && BUILD_EXTRA="--shellcode-path /opt/target/orw.flag"
@@ -100,7 +119,7 @@ function_pointer_on_heap("true").' -o target.facts) | head -3
 (cd "$WORK" && "$L" plan target.facts -s 7) | head -5
 
 echo
-echo "=== 8. the auditable engagement report (all six targets) ==="
+echo "=== 8. the auditable engagement report (all eight targets) ==="
 (cd "$WORK" && "$L" report) | tail -30
 
 echo

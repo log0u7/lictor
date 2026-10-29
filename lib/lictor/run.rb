@@ -19,7 +19,7 @@ module Lictor
 
     def run(target:, facts:, trail:, executor: nil, max_attempts: 3,
       seed: nil, priors: nil, packs: nil, payload: nil, binary: nil, repo_dir: nil,
-      flag_regex: nil, manifest_path: nil, resume: nil)
+      flag_regex: nil, manifest_path: nil, resume: nil, technique: nil)
       executor ||= ManualExecutor.new
       attempts = []
       leaks = {}
@@ -84,7 +84,13 @@ module Lictor
       end
 
       (start...max_attempts).each do
-        decision = Handoff.plan(facts: facts, seed: seed, priors: Priors.from_trail(trail), packs: packs)
+        # technique: the pipeline's decided technique pinned across the
+        # attempts - the run's own bandit draw could pick a technique
+        # whose layout differs from the payload the build just produced
+        # (measured: the pilot's build built shellcode, the run's draw
+        # picked ret2libc, no exploit exists for it -> handoff x4)
+        decision = Handoff.plan(facts: facts, seed: seed, priors: Priors.from_trail(trail), packs: packs,
+          technique: technique)
         technique = decision[:selected]
         break if technique.nil?
 

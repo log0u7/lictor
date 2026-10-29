@@ -301,3 +301,37 @@ RSpec.describe "the static read is trailed (the measure -> decision chain)" do
     expect(measure["source"]).to eq("static-frame")
   end
 end
+
+RSpec.describe Lictor::Run, "the pinned technique" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail_path) { File.join(dir, "t.jsonl") }
+  let(:trail) { Lictor::Trail.new(trail_path) }
+  let(:facts_text) do
+    "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\nplt(\"system\").\n" \
+      "gadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n"
+  end
+  let(:stub_executor) do
+    Class.new do
+      def initialize(results)
+        @results = results
+      end
+
+      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil)
+        r = @results.empty? ? {executed: true, success: true} : @results.shift
+        r[:technique] = technique
+        r
+      end
+    end
+  end
+
+  it "runs the pipeline's decided technique, not the bandit's own draw" do
+    # the facts draw ret2plt-class techniques: the pin forces shellcode,
+    # the technique the build just produced the payload for
+    executor = stub_executor.new([{executed: true, success: true}])
+    result = described_class.run(
+      target: "192.168.56.10", facts: facts_text, trail: trail,
+      executor: executor, max_attempts: 3, seed: 42, technique: "shellcode"
+    )
+    expect(result[:steps].first[:technique]).to eq("shellcode")
+  end
+end

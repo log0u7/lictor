@@ -196,7 +196,10 @@ RSpec.describe Lictor::PayloadBuilder, "the orw shellcode slot" do
   it "an orw slot carries its flag path and reads it live" do
     out = File.join(dir, "p.bin")
     facts = "nx(\"false\").\nleaked_address(\"input\", 4196300).\n"
-    flag = File.join(dir, "flag.txt")
+    # the override and the slot default must differ: the builder's
+    # shellcode_path wins, the slot's flag.txt stays the fallback (the
+    # old spec masked the precedence: its flag.txt WAS the override)
+    flag = File.join(dir, "real.flag")
     File.write(flag, "FLAG{orw_slot}")
     result = described_class.build(binary: binary, facts: facts, technique: "orw",
       out: out, shellcode_path: flag)

@@ -96,9 +96,11 @@ module Lictor
             File.binread(payload_file)
           else
             stub = (slot[1] || "sh").to_sym
-            # the orw stub embeds its flag path: the slot's third
-            # element or the builder-level shellcode_path
-            path = ((slot.size > 2) ? slot[2] : nil) || shellcode_path
+            # the orw stub embeds its flag path: the builder-level
+            # shellcode_path is the operator's explicit override and
+            # wins over the slot's default (measured: the orw slot
+            # carried flag.txt, the shared ret2func flag came back)
+            path = shellcode_path || ((slot.size > 2) ? slot[2] : nil)
             # seccomp: execve dies, the sh stub is a booby trap - the
             # orw chain (open/read/write, clean exit) is the answer;
             # the flag path defaults to the CTF convention.

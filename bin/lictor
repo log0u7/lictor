@@ -56,6 +56,7 @@ parser = OptionParser.new do |opts|
   opts.on("--mutator NAME", "ruby (default) or radamsa if installed") { |v| options[:mutator] = v }
   opts.on("--executor NAME", "manual (default) or ronin") { |v| options[:executor] = v }
   opts.on("--payload FILE", "Send a pre-built payload (from `lictor build`) with run") { |v| options[:payload] = v }
+  opts.on("--shellcode-path PATH", "The flag path embedded in the shellcode stubs (build)") { |v| options[:shellcode_path] = v }
   opts.on("--flag-regex RE", "Success oracle: the flag pattern in the runner's output (the exit code lies)") { |v| options[:flag_regex] = v }
   opts.on("--resume RUN-ID", "Continue an interrupted run (the manifest carries the id)") { |v| options[:resume] = v }
   opts.on("--payload-file FILE", "Custom shellcode/payload bytes for build") { |v| options[:payload_file] = v }
@@ -507,6 +508,7 @@ when "build"
       priors: Lictor::Priors.from_trail(trail), packs: packs)
     technique = decision[:selected] or abort("lictor: build needs a selected technique - plan decided nothing")
     result = Lictor::PayloadBuilder.build(binary: input, facts: File.read(facts_path),
+                             shellcode_path: options[:shellcode_path],
       technique: technique, out: options[:out] || "payload.bin",
       payload_file: options[:payload_file],
       packs: packs)

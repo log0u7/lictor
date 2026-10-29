@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- The ret2plt loop is deterministic: the service's copy is bounded by
+  the read length (`memcpy`, not `strcpy`), so the read channel carries
+  NUL bytes and the textbook chain rides whole - the banner's leaks aim
+  pop rdi (entry+4), the service's own command string and system, the
+  chain enters system at the ABI alignment (measured under gdb,
+  30/30 connections land the flag). The demo's oracle is now the
+  target's own flag (success means THIS target's flag, a wrong flag
+  fails), and the ret2plt source knowledge (`vuln("sof")`) enters
+  through suggest like fmtstr's.
 - README banner recompressed: `lictor-v1.png` 1.9M -> 969K (256-color palette
   with dithering; repo weight only, no content change). `lictor-v0.png` and
   `demo.gif` are untouched.

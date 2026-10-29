@@ -2,10 +2,13 @@
 
 A self-contained docker lab: **nine services (six targets + three
 hardened mirrors), six fact bases, six decisions from the same
-engine**. The four stack targets land real flags through the lab
-exploits; the heap and seccomp targets decide and hand off loyally
-(their craft is the operator's exercise). The flag is the proof where
-the run reaches it.
+engine**. Four stack targets land real flags deterministically
+through the lab exploits (ret2func, shellcode, fmtstr, orw); ret2plt's
+exploit stays byte-fragile, its cat command must fit eight bytes and
+swallows the leaked address's raw bytes, the deterministic fix is the
+two-stage leak chain. The heap and seccomp targets decide and hand off
+loyally (their craft is the operator's exercise). The flag is the
+proof where the run reaches it.
 
 **For the demo only. The targets are ours; the exploits are ours;
 nothing here touches a real target.**
@@ -39,8 +42,8 @@ lab/
   Dockerfile                  # the targets AND the hardened matrix
   ronin-repo/exploits/        # the operator's ronin exploits (discovered, never invented)
   setup.sh                    # installs ronin-exploits + registers the local repo
-  demo.sh                     # replays the chain: run for the four stack targets,
-                              # decide + handoff for uaf_heap/orw (the craft exercise)
+  demo.sh                     # replays the chain: run for the five stack targets
+                              # (ret2plt stays byte-fragile), decide + handoff for uaf_heap
 ```
 
 ## The demo
@@ -48,7 +51,7 @@ lab/
 ```sh
 sh setup.sh        # ronin toolchain + local repo
 sh demo.sh         # scan, then per target: acquire -> suggest -> decide -> build -> run
-                   # (run for the four stack targets; uaf_heap/orw stop at plan/build)
+                   # (run for the five stack targets; ret2plt stays byte-fragile, uaf_heap stops at plan/build)
 ```
 
 What demo.sh does, per target:

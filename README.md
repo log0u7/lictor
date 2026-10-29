@@ -235,7 +235,7 @@ result - the lab is the measurement bench, not the world:
 | a missing exploit drafts itself | the run's auto-scaffold: discovery empty + binary in hand -> the exploit file lands in the repo, the next attempt uses it |
 | an unknown crash becomes a pack | `lictor draft`: the observed facts + the measured constants -> an armor-validated pack in the staging dir |
 | corpus: 33/33 technique classifications | `augure-benchmark`, CI-enforced at 100% |
-| the six-target lab, four of them end-to-end | the lab: ret2func lands the flag via `run`; ret2plt/shellcode build real payloads (the exploit's craft decides); fmtstr/uaf_heap/orw decide and hand off loyally |
+| the six-target lab, four deterministic end-to-end | the lab: ret2func/shellcode/fmtstr/orw land the flag via `run` (orw reads its own flag, not the shared one); ret2plt's cat command rides the leaked address's bytes and stays byte-fragile (the two-stage leak chain is the fix); uaf_heap decides and hands off loyally |
 | the hardening matrix predicts its own death | `lab/purple.sh`: the hardened mirrors (canary+PIE+RELRO+FORTIFY) + `augure coverage` flips - the decision's applicable set shrinks as documented |
 | MEASURED against a typed-decision classifier (Laya, open weights, the fact text as state, the 16 heads as choices): augure **5/5** at 8.5 ms (warm, MCTS included); the classifier 1/5, confident-and-wrong (0.93-0.98 confidence on its errors) - the global-prior bias, reproduced by a 2026 model | `pappers/laya-bench.py`, measured on CPU (i7 8-core, torch) |
 

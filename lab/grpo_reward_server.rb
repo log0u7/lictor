@@ -74,7 +74,7 @@ module GrpoReward
     plan = Timeout.timeout(PLAN_TIMEOUT) do
       Open3.capture3(lictor, "plan", "target.facts", "-s", "7", chdir: work)
     end
-    ranked = plan[0][/^ranking:\s+(.*)$/, 1]
+    ranked = plan[0][/^ranking:[ \t]+(.*)$/, 1]
     ranked = ranked.split(">").map(&:strip).reject(&:empty?) if ranked
     return [false, "no applicable technique"] if !ranked || ranked.empty?
 
@@ -190,6 +190,14 @@ module GrpoReward
   end
 
   def serve
+    # the measurement sweeps run the target until it segfaults (the
+    # offset IS the crash): without this the every-crash coredump
+    # floods apport and the box drowns (measured: load 120 on 8 cores)
+    begin
+      Process.setrlimit(Process::RLIMIT_CORE, 0)
+    rescue
+      nil
+    end
     server = TCPServer.new("127.0.0.1", PORT)
     puts "grpo reward server on 127.0.0.1:#{PORT}"
     loop do

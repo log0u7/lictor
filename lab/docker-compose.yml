@@ -6,6 +6,14 @@ services:
     # blocks - the leak-and-strike demo depends on it
     security_opt:
       - seccomp:unconfined
+    # the services crash BY DESIGN (the exploit lands, the wrapper
+    # restarts them): without a core limit every crash writes a core
+    # file on the host and apport's handling drowns the box (measured:
+    # load 120 on 8 cores, 100+ apport processes mid-training)
+    ulimits:
+      core:
+        soft: 0
+        hard: 0
     ports:
       - "8000:8000"
       - "9996:9996"

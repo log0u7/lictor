@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-30
+
+- The demo drops its manual suggests for ret2plt, fmtstr and callme:
+  the profiler now emits the binary's own vuln facts (the static frame
+  read proves the sof, the stack-borne printf format proves the
+  fmtstr). ret2csu keeps one suggest - its overflow lives in the
+  companion library, no ELF of the binary alone can show it - and
+  uaf_heap keeps the heap-class suggest. augure 0.3.0.
+
 ## [0.4.0] - 2026-10-29
 
 - The lab grows to eight targets: the ROP Emporium pair (callme,

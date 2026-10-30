@@ -44,17 +44,8 @@ for entry in "127.0.0.1:9999 ret2func" "127.0.0.1:9998 ret2plt" \
 	fi
 	(cd "$WORK" && "$L" acquire "$TGT" --from "http://127.0.0.1:8000/${SUBDIR}$BIN") | head -2
 
-	if [ "$BIN" = fmtstr ]; then
-		echo "[decide] the source knowledge the profiler cannot see (printf is not a vuln):"
-		(cd "$WORK" && "$L" suggest target.facts 'vuln("fmtstr").
-fmtstr_read("true").' -o target.facts) | head -3
-	fi
-	if [ "$BIN" = ret2plt ]; then
-		echo "[decide] the source knowledge the profiler cannot see (the unbounded copy is a memcpy):"
-		(cd "$WORK" && "$L" suggest target.facts 'vuln("sof").' -o target.facts) | head -3
-	fi
-	if [ "$BIN" = callme ] || [ "$BIN" = ret2csu ]; then
-		echo "[decide] the source knowledge the profiler cannot see (the unbounded copy is a read):"
+	if [ "$BIN" = ret2csu ]; then
+		echo "[decide] the source knowledge no ELF can show (the overflow lives in the companion library):"
 		(cd "$WORK" && "$L" suggest target.facts 'vuln("sof").' -o target.facts) | head -3
 	fi
 	if [ "$BIN" = shellcode ] || [ "$BIN" = orw ]; then

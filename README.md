@@ -253,17 +253,20 @@ operator's chosen tooling; the knowledge lives in the repos, not here.
 
 ## Install
 
-Lictor is distributed as a source checkout for a reason: an orchestrator
-around pentest tooling has no business being one `gem install` away
-from anyone. Bundle it from this repo:
+Published on rubygems:
 
-```ruby
-# Gemfile
-gem "augure", path: "../augure"    # resolved by path - NOT on rubygems yet
-# lictor + lictor-mcp: bundle from your own checkout, private
-# (augure's tag release can publish it; until then the sibling
-#  checkout is the source of truth - the Gemfile in this repo says so)
+```sh
+gem install lictor          # the orchestrator
+gem install lictor-mcp      # the MCP server surface
 ```
+
+augure and augure-profiler install the same way (`gem install augure
+augure-profiler`); the gems carry the decision layer, the profiler and
+the engine, not the knowledge: the technique packs and the exploits
+live in the repositories, `bin/lictor` in a checkout stays the source
+of truth for the lab and the pack drafts. The operator model is
+unchanged: nothing executes without the operator's own target, the
+handoff mode is the default, the closed loop is opt-in.
 
 ## Documentation
 

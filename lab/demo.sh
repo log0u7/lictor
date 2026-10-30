@@ -44,10 +44,6 @@ for entry in "127.0.0.1:9999 ret2func" "127.0.0.1:9998 ret2plt" \
 	fi
 	(cd "$WORK" && "$L" acquire "$TGT" --from "http://127.0.0.1:8000/${SUBDIR}$BIN") | head -2
 
-	if [ "$BIN" = ret2csu ]; then
-		echo "[decide] the source knowledge no ELF can show (the overflow lives in the companion library):"
-		(cd "$WORK" && "$L" suggest target.facts 'vuln("sof").' -o target.facts) | head -3
-	fi
 	if [ "$BIN" = shellcode ] || [ "$BIN" = orw ]; then
 		echo "[harvest] the service announces its own addresses -> leaked_address facts:"
 		(cd "$WORK" && "$L" harvest "$TGT" --facts target.facts) | head -3

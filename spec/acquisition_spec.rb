@@ -4,6 +4,7 @@ require "lictor"
 require "json"
 require "tmpdir"
 require "open3"
+require "fileutils"
 
 builder = ["../../augure/profiler/spec/support/binary_builder.rb",
   "../augure/profiler/spec/support/binary_builder.rb"]
@@ -26,8 +27,35 @@ RSpec.describe Lictor::Acquisition do
     expect(event["source"]).to start_with("local:")
   end
 
-  it "acquires over http (stdlib net/http against a fixture server)" do
-    # A tiny fixture server serving the binary.
+  it "profiles the companion library and merges its facts" do
+    lib = ProfilerBinaryBuilder.vulnerable(dir)
+    lib_name = "lib#{File.basename(binary)}.so"
+    FileUtils.cp(lib, File.join(File.dirname(binary), lib_name))
+    result = described_class.acquire("127.0.0.1:9999", source: "local:#{binary}",
+      trail: trail, out_dir: dir)
+    # the lib's own facts ride the merged file (the vulnerable builder
+    # binary carries the strcpy sink fact)
+    facts = File.read(result[:facts_path])
+    expect(facts.scan('vuln("sof")').size).to be >= 2
+  end
+
+  it "stays silent when no companion library exists" do
+    result = described_class.acquire("127.0.0.1:9999", source: "local:#{binary}",
+      trail: trail, out_dir: dir)
+    facts = File.read(result[:facts_path])
+    expect(facts.scan('vuln("sof")').size).to eq(1)
+  end
+
+  it "skips a companion library the profiler cannot read" do
+    lib_name = "lib#{File.basename(binary)}.so"
+    File.binwrite(File.join(File.dirname(binary), lib_name), "\x7fELF" + "\x00" * 32)
+    result = described_class.acquire("127.0.0.1:9999", source: "local:#{binary}",
+      trail: trail, out_dir: dir)
+    facts = File.read(result[:facts_path])
+    expect(facts.scan('vuln("sof")').size).to eq(1)
+  end
+
+  it "acquires over http (stdlib net/http against a fixture server)" do # A tiny fixture server serving the binary.
     server = TCPServer.new("127.0.0.1", 0)
     port = server.addr[1]
     thread = Thread.new do
@@ -53,19 +81,19 @@ RSpec.describe Lictor::Acquisition do
   it "refuses a non-ELF payload with the service-facts guidance" do
     path = File.join(dir, "notelf.txt")
     File.write(path, "just some text")
-    expect {
+    expect do
       described_class.acquire("127.0.0.1:9999", source: "local:#{path}",
         trail: trail, out_dir: dir)
-    }.to raise_error(Lictor::AcquisitionError, /not an ELF|service packs|service facts/i)
+    end.to raise_error(Lictor::AcquisitionError, /not an ELF|service packs|service facts/i)
   end
 
   it "surfaces the profiler stderr when profiling fails" do
     bad = File.join(dir, "bad_profiler")
     File.write(bad, "#!/bin/sh\necho 'augure-profile: boom: parse error' >&2\nexit 1\n")
     File.chmod(0o755, bad)
-    expect {
+    expect do
       described_class.acquire("127.0.0.1:9999", source: "local:#{binary}",
         trail: trail, out_dir: dir, profiler_cmd: bad)
-    }.to raise_error(Lictor::AcquisitionError, /boom: parse error/)
+    end.to raise_error(Lictor::AcquisitionError, /boom: parse error/)
   end
 end

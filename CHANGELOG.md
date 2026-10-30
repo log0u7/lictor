@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- acquire profiles the companion libraries beside the binary and
+  merges their facts (the parity rule: the target is the binary AND
+  every library shipped next to it). The lab demo loses its last
+  stack-side suggest: ret2csu's overflow lives in libret2csu.so and
+  the merged facts now carry it, only uaf_heap's heap class still
+  enters via suggest (the knowledge no ELF can show). A companion
+  that will not fetch or profile is skipped, never a failed acquire.
+
 ## [0.4.1] - 2026-10-30
 
 - The demo drops its manual suggests for ret2plt, fmtstr and callme:

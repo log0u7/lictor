@@ -38,13 +38,66 @@ module Lictor
           "profiling failed: #{[out, err].map(&:strip).reject(&:empty?).join(" | ")}"
       end
 
+      # The companion libraries ride the merge (the parity rule: the
+      # target is the binary AND every library shipped next to it): a
+      # lib-side overflow is the target's overflow, the facts the
+      # profiler cannot see in the binary alone. A lib that will not
+      # fetch or profile is skipped, never a failed acquire.
+      companions = companion_facts(binary_path, source, out_dir, cmd)
+      out = merge_facts(out, companions.values) unless companions.empty?
+      trail.record(run: SecureRandom.uuid, type: "acquire", target: target,
+        source: source, binary: binary_path,
+        companions: companions.keys)
+
       facts_path = File.join(out_dir, "target.facts")
       File.write(facts_path, out)
-      trail.record(run: SecureRandom.uuid, type: "acquire", target: target,
-        source: source, binary: binary_path)
       {facts: out, facts_path: facts_path, binary_path: binary_path}
     rescue Timeout::Error
       raise AcquisitionError, "profiling #{binary_path} timed out after 300s (hung metasm? check the binary)"
+    end
+
+    # The lib<name>.so files shipped beside the binary, profiled the
+    # same way. Local: glob the directory. http: fetch from the same
+    # URL directory (a 404 is the honest "no companion").
+    def companion_facts(binary_path, source, out_dir, cmd)
+      name = File.basename(binary_path)
+      lib_name = "lib#{name}.so"
+      case source
+      when /\Alocal:(.+)/
+        lib = File.join(File.dirname(Regexp.last_match(1)), lib_name)
+        libs = File.file?(lib) ? {lib_name => lib} : {}
+      when %r{\A(https?://.+/)([^/]+)\z}
+        libs = {}
+        begin
+          lib_file = fetch("#{Regexp.last_match(1)}#{lib_name}", out_dir: out_dir)
+          libs[lib_name] = lib_file if lib_file
+        rescue AcquisitionError
+          # a 404 is the honest "no companion library here"
+          libs
+        end
+      else
+        libs = {}
+      end
+      libs.filter_map do |lib_name, lib_path|
+        out, _err, status = Timeout.timeout(300) { Open3.capture3(cmd, lib_path) }
+        [lib_name, out] if status.success? && !out.empty?
+      rescue Timeout::Error, AcquisitionError
+        nil
+      end.to_h
+    end
+
+    # Facts text concatenated: a fact tuple is a set member, the
+    # duplicate predicates the merge introduces are harmless in the
+    # engine and the provenance stays per-tuple.
+    def merge_facts(base, extras)
+      return base if extras.empty?
+
+      require "augure"
+      merged = Augure::Facts.parse(base)
+      extras.each { |extra| merged = merged.merge(Augure::Facts.parse(extra)) }
+      merged.to_s
+    rescue Augure::MalformedFact, Augure::UnknownPredicate
+      base + extras.join
     end
 
     def fetch(source, out_dir:)

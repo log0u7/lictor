@@ -28,7 +28,7 @@ this file.
 | uaf_heap | 9995 | tcache UAF, the fn pointer lives ON the heap - the facts come from knowledge (suggest), not the profiler | **uaf_tcache** | the decision layer's recipe |
 | orw | 9994 | seccomp: execve dies; the buffer address is the leak; served under `setarch -R` (the compose notes why) | **orw** | built by `lictor build orw` |
 | callme | 9993 | ROP Emporium, binary-only: three PLT calls with the magic triple; the pack teaches the layout, the profiler learns `pop rsi; pop r15; ret` | **callme** | `lab_callme_005` |
-| ret2csu | 9992 | ROP Emporium, binary-only: no arg gadgets at all - the csu pair + the DT_FINI no-op call; the win_symbol trap (an import is not a win here) lives in the profiler's tests | **ret2csu_v2** | `lab_ret2csu_v2_006` |
+| ret2csu | 9992 | ROP Emporium, no arg gadgets at all - the csu pair + the DT_FINI no-op call; the overflow lives in the companion library, acquire profiles `libret2csu.so` beside the binary, no suggest; the win_symbol trap (an import is not a win here) lives in the profiler's tests | **ret2csu_v2** | `lab_ret2csu_v2_006` |
 
 Same engine, eight fact bases - stack, heap, format, filter, and the
 binary-only ROP Emporium pair - each with its rule provenance. That is
@@ -59,8 +59,8 @@ lab/
 ```sh
 sh setup.sh        # ronin toolchain + local repo
 sh demo.sh         # scan, then per target: acquire -> decide -> build -> run
-                   # (the vuln facts come off the binary; ret2csu's lib-side
-                   # overflow and uaf_heap's heap class still enter via suggest)
+                   # (the vuln facts come off the binary AND its companion
+                   # libraries; uaf_heap's heap class still enters via suggest)
                    # (run for the five stack targets, uaf_heap stops at plan/build)
 ```
 

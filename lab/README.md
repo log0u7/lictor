@@ -58,7 +58,9 @@ lab/
 
 ```sh
 sh setup.sh        # ronin toolchain + local repo
-sh demo.sh         # scan, then per target: acquire -> suggest -> decide -> build -> run
+sh demo.sh         # scan, then per target: acquire -> decide -> build -> run
+                   # (the vuln facts come off the binary; ret2csu's lib-side
+                   # overflow and uaf_heap's heap class still enter via suggest)
                    # (run for the five stack targets, uaf_heap stops at plan/build)
 ```
 

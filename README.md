@@ -9,8 +9,12 @@ profiling, execution - every action recorded, handoff by default.**
 > executed judgments. He did not judge. He executed what was judged.*
 
 [![CI](https://github.com/log0u7/lictor/actions/workflows/ci.yml/badge.svg)](https://github.com/log0u7/lictor/actions/workflows/ci.yml)
-[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.4-ruby.svg)](https://www.ruby-lang.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Ruby](https://img.shields.io/badge/Ruby-%3E%3D%203.4-CC342D?logo=ruby&logoColor=white)](https://www.ruby-lang.org/)
+[![Gem Version](https://img.shields.io/gem/v/lictor)](https://rubygems.org/gems/lictor)
+[![nmap](https://img.shields.io/badge/nmap-4682B4.svg)](https://nmap.org)
+[![MCP](https://img.shields.io/badge/MCP-333333.svg)](https://modelcontextprotocol.io)
+[![JSONL](https://img.shields.io/badge/JSONL-333333.svg)](https://jsonlines.org)
 
 **v0.3.0** - pairs with [augure](https://github.com/log0u7/augure), the
 auditable exploitation decision layer. augure decides; lictor executes;

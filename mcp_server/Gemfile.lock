@@ -1,12 +1,12 @@
 PATH
   remote: ../../augure
   specs:
-    augure (0.1.0)
+    augure (0.3.0)
 
 PATH
   remote: ..
   specs:
-    lictor (0.3.0)
+    lictor (0.4.1)
       augure (>= 0.1.0)
       ruby-nmap (~> 1.0)
 

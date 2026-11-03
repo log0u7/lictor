@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: ten new bench targets join the lab (ret2libc-001, ret2libc-002,
+  fmtstr-002, ret2func-002, shellcode-002, uaf_heap-002, orw-002,
+  callme-002, ret2plt-002, srop-001), one technique per target with
+  its own flag file, ORACLE.md contract, docker-compose port and
+  socat listener. orw-002 reclaims the low fd slots before seccomp
+  so the chain's openat lands on fd 3 in every serving environment.
 - acquire profiles the companion libraries beside the binary and
   merges their facts (the parity rule: the target is the binary AND
   every library shipped next to it). The lab demo loses its last

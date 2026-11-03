@@ -41,20 +41,25 @@ enter through the operator's knowledge, and the decision moves.
 The MR5 scale-up: ten original variants, each an additional fact base,
 each isolating a distinct constraint (PIE leak-first, no-leak static,
 canary, safe-linked tcache, stricter seccomp, the 3-argument call-me
-convention, full-ASLR PLT, the sigreturn frame). Ports 9982-9991.
+convention, full-ASLR PLT, the sigreturn frame). Ports 9982-9991. The
+executor's discovery matches the decided technique by substring and
+takes the first name the list reports - where a variant shares a
+technique with an original (or with a sibling variant), the variant's
+exploit is named to sort FIRST and dispatches on the banner: the
+original's craft stays verbatim, the variant's rides its own branch.
 
-| Target | Port | What makes it different | The build flags |
-|---|---|---|---|
-| ret2libc-001 | 9982 | classic ret2libc, PIE ON: puts(GOT) leaks libc, stage 2 system("/bin/sh"); the loop keeps the frame reachable | `-fno-stack-protector -pie -fPIE` |
-| ret2libc-002 | 9983 | ret2libc WITHOUT a leak: -static -no-pie, system + "/bin/sh" resolve offline | `-fno-stack-protector -no-pie -static` |
-| fmtstr-002 | 9984 | format string on PIE: leak the anchor, derive the PIE base, %n writes the hook | `-fno-stack-protector -pie -fPIE` |
-| ret2func-002 | 9985 | stack overflow behind a canary: the dump rides the canary out, the strike restores it | `-fstack-protector-strong -no-pie` |
-| shellcode-002 | 9986 | NX OFF + PIE: the buf leak is load-bearing (leak-and-strike in one connection) | `-fno-stack-protector -pie -fPIE -z execstack` |
-| uaf_heap-002 | 9987 | UAF on a safe-linked tcache: the edit lands straight through the dangling pointer, the mangling is the trap | `-fno-stack-protector -no-pie` |
-| orw-002 | 9988 | seccomp STRICTER: ONLY open/openat/read/write/exit; the .data anchors are fixed (no-PIE), NX ON, no execstack | `-fno-stack-protector -no-pie` |
-| callme-002 | 9989 | call-me with 3 arguments: one/two/three must fire in order, each with (1,2,3) | `-fno-stack-protector -no-pie` |
-| ret2plt-002 | 9990 | ret2plt with full ASLR (PIE): puts(GOT) leaks, write@plt dumps the flag buffer | `-fno-stack-protector -pie -fPIE` |
-| srop-001 | 9991 | SROP: the mov rax,15; syscall gadget + the forged rt_sigreturn frame (execve("/bin/sh")) | `-fno-stack-protector -no-pie` |
+| Target | Port | What makes it different | The build flags | The lab exploit |
+|---|---|---|---|---|
+| ret2libc-001 | 9982 | classic ret2libc, PIE ON: puts(GOT) leaks libc, stage 2 system("/bin/sh"); the loop keeps the frame reachable | `-fno-stack-protector -pie -fPIE` | `lab_ret2libc_008` / `lab_ret2plt_leak_009` |
+| ret2libc-002 | 9983 | ret2libc WITHOUT a leak: -static -no-pie, system + "/bin/sh" resolve offline | `-fno-stack-protector -no-pie -static` | `lab_ret2libc_008` / `lab_rop_011` |
+| fmtstr-002 | 9984 | format string on PIE: leak the anchor, derive the PIE base, %n writes the hook | `-fno-stack-protector -pie -fPIE` | `lab_fmtstr_leak_002` / `lab_fmtstr_write_002` |
+| ret2func-002 | 9985 | stack overflow behind a canary: the dump rides the canary out, the strike restores it | `-fstack-protector-strong -no-pie` | `lab_ret2func_000` |
+| shellcode-002 | 9986 | NX OFF + PIE: the buf leak is load-bearing (leak-and-strike in one connection) | `-fno-stack-protector -pie -fPIE -z execstack` | `lab_shellcode_002` |
+| uaf_heap-002 | 9987 | UAF on a safe-linked tcache: the edit lands straight through the dangling pointer, the mangling is the trap | `-fno-stack-protector -no-pie` | `lab_uaf_tcache_010` |
+| orw-002 | 9988 | seccomp STRICTER: ONLY open/openat/read/write/exit; the .data anchors are fixed (no-PIE), NX ON, no execstack | `-fno-stack-protector -no-pie` | `lab_orw_002` / `lab_rop_011` |
+| callme-002 | 9989 | call-me with 3 arguments: one/two/three must fire in order, each with (1,2,3) | `-fno-stack-protector -no-pie` | `lab_callme_002` / `lab_rop_011` |
+| ret2plt-002 | 9990 | ret2plt with full ASLR (PIE): puts(GOT) leaks, write@plt dumps the flag buffer | `-fno-stack-protector -pie -fPIE` | `lab_ret2plt_leak_009` |
+| srop-001 | 9991 | SROP: the mov rax,15; syscall gadget + the forged rt_sigreturn frame (execve("/bin/sh")) | `-fno-stack-protector -no-pie` | `lab_srop_012` / `lab_ret2libc_008` |
 
 Each target carries its own `ORACLE.md`: the technique, the exact gcc
 command, the serving port, and the literal stdout on success - the

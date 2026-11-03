@@ -38,3 +38,12 @@ FLAG{mr5_srop_sigreturn_frame}
 
 The oracle regex matches the flag line (the shell's own prompt noise
 is acceptable; the flag line is decisive).
+
+## The lab exploit
+
+`lab_srop_012` (the `srop` discovery binding; the `lab_ret2libc_008`
+dispatch covers it too): ret into the sigreturn gadget body (entry +
+4, past the prologue) - rax=15 fires and the kernel restores the whole
+register state from the forged rt_sigreturn frame: rax=59 (execve),
+rdi = "/bin/sh" (the banner's sh() anchor), rip = the gadget's syscall
+(entry + 0xb). The shell cats the flag.

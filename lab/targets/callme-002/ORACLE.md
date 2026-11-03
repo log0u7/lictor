@@ -40,3 +40,13 @@ FLAG: FLAG{mr5_callme_three_args}
 (The "hello" echo is absent: the chain replaces the return path.)
 The oracle regex matches the FLAG: line (the helper echoes are
 recon; the FLAG: line is decisive).
+
+## The lab exploit
+
+`lab_callme_002` (named to sort before `lab_callme_005`, and
+replicating its behaviour for the ROP Emporium target): the banner
+hands the three helper addresses and the pop3 gadget - the chain fires
+one/two/three in order, each with the (1, 2, 3) triple; the trailing
+filler absorbs the service's input[n - 1] = 0. helper_three exits
+inside the win path. The `rop` binding `lab_rop_011` dispatches to the
+same chain.

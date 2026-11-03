@@ -54,6 +54,15 @@ ret2plt:
     - [padding, measured_offset]
     - [chain, "gadget:pop_rdi_ret", "got_addr:puts", "plt_addr:puts"]
 
+ret2plt_leak:
+  arch: any
+  # the leak-first stage: puts@plt prints a GOT/.bss slot's raw bytes
+  # (the libc or heap address rides out) - the exploit derives the
+  # strike from the leak and finishes the job itself
+  layout:
+    - [padding, measured_offset]
+    - [chain, "gadget:pop_rdi_ret", "got_addr:puts", "plt_addr:puts"]
+
 ret2libc:
   arch: any
   layout:

@@ -41,3 +41,13 @@ FLAG: FLAG{mr5_canary_leak_then_win}
 
 The oracle regex matches the FLAG: line (the service's own banner and
 the dump's raw bytes are noise; the FLAG: line is decisive).
+
+## The lab exploit
+
+`lab_ret2func_000` (named to sort before `lab_ret2func_001`, whose
+offset brute force cannot cross the canary): round 1 rides the 40-byte
+raw dump out (the canary's NUL crosses whole) and parses the canary
+from dump[8:16]; round 2 restores it verbatim, parks a dummy saved rbp
+and aims the return slot at win(). The banner's win() address is the
+target; the exploit is banner-driven, the built payload is ignored
+here (a canary-smashing payload would only trip the check).

@@ -44,3 +44,13 @@ FLAG: FLAG{mr5_uaf_safe_linking}
 
 The oracle regex matches the FLAG: line (the menu's echoes are noise;
 the FLAG: line is decisive).
+
+## The lab exploit
+
+`lab_uaf_tcache_010`: the menu protocol (1=alloc 2=free 3=edit
+4=call) - after the free the exploit writes the win() address (hex
+text) straight through the dangling pointer into the fn slot (the
+mangled tcache next is overwritten, not decoded), then the call fires
+the freed chunk's fn. The alloc echo's chunk address is noted but the
+straight path never unmangles. The original uaf_heap's edit lands on
+the name slot: the exploit bails honestly there.

@@ -41,3 +41,15 @@ FLAG: FLAG{mr5_fmtstr_pie_leak_write}
 
 The oracle regex matches the FLAG: line (the service's own banner and
 the format walk's output are noise; the FLAG: line is decisive).
+
+## The lab exploit
+
+`lab_fmtstr_leak_002` / `lab_fmtstr_write_002` (the discovery bindings
+that sort before the original fmtstr aliases): round 1 leaks the input
+buffer (arg 1) and the anchor slot (arg 39, holding &the_hook) with a
+%p walk - the PIE base falls out; round 2 fires ONE printf with four
+positional %hn writes rebuilding win() in main's saved return slot
+(the 16-bit words sorted, the gaps padded with %1$Nc, the addresses
+riding after the NUL-terminated format at slots 13-16). EOF makes main
+return into win(). The original fmtstr target's banner (hook()/win()
+addresses) still rides the parent's %hhn craft.

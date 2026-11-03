@@ -1,7 +1,7 @@
 # The augure/lictor lab
 
 A self-contained docker lab: **twenty-one services (eighteen targets
-+ three hardened mirrors), eighteen fact bases, eighteen decisions
+plus three hardened mirrors), eighteen fact bases, eighteen decisions
 from the same engine**. Seven targets land real flags deterministically
 through the lab exploits and the built payload (ret2func, ret2plt,
 shellcode, fmtstr, orw, callme, ret2csu); ret2plt's chain rides the

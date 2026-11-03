@@ -16,4 +16,16 @@ socat TCP-LISTEN:8899,reuseaddr,fork EXEC:/opt/target/ret2func_h,stderr &
 socat TCP-LISTEN:8898,reuseaddr,fork EXEC:/opt/target/ret2plt_h,stderr &
 socat TCP-LISTEN:8897,reuseaddr,fork EXEC:/opt/target/shellcode_h,stderr &
 setarch -R socat TCP-LISTEN:9994,reuseaddr,fork EXEC:/opt/target/orw,stderr &
+# the MR5 bench targets (ten more fact bases; the orw-002 chain aims
+# .data anchors offline, no setarch needed)
+socat TCP-LISTEN:9982,reuseaddr,fork EXEC:/opt/target/ret2libc-001,stderr &
+socat TCP-LISTEN:9983,reuseaddr,fork EXEC:/opt/target/ret2libc-002,stderr &
+socat TCP-LISTEN:9984,reuseaddr,fork EXEC:/opt/target/fmtstr-002,stderr &
+socat TCP-LISTEN:9985,reuseaddr,fork EXEC:/opt/target/ret2func-002,stderr &
+socat TCP-LISTEN:9986,reuseaddr,fork EXEC:/opt/target/shellcode-002,stderr &
+socat TCP-LISTEN:9987,reuseaddr,fork EXEC:/opt/target/uaf_heap-002,stderr &
+socat TCP-LISTEN:9988,reuseaddr,fork EXEC:/opt/target/orw-002,stderr &
+socat TCP-LISTEN:9989,reuseaddr,fork EXEC:/opt/target/callme-002,stderr &
+socat TCP-LISTEN:9990,reuseaddr,fork EXEC:/opt/target/ret2plt-002,stderr &
+socat TCP-LISTEN:9991,reuseaddr,fork EXEC:/opt/target/srop-001,stderr &
 wait

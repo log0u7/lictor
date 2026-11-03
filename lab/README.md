@@ -65,6 +65,19 @@ Each target carries its own `ORACLE.md`: the technique, the exact gcc
 command, the serving port, and the literal stdout on success - the
 per-target oracle regex's contract.
 
+## The MR6 training twins (two more)
+
+The training twins: two NEW programs of the uaf_heap CAPABILITY class
+(tcache UAF, function pointer on the heap, interactive menu), built to
+train a small model on the class while the eval targets (uaf_heap,
+uaf_heap-002) stay unseen. Not copies: different structure, different
+menu layout, different flags. Ports 19991-19992.
+
+| Target | Port | What makes it different | The build flags | The lab exploit |
+|---|---|---|---|---|
+| uaf_train_a | 19991 | 48-byte canvas, brush at +40, LETTER menu ([f]ree first), the call gated on a LIVE chunk - the free forces the tcache-REUSE path | `-fno-stack-protector -no-pie` | `lab_uaf_twins_001` |
+| uaf_train_b | 19992 | PIE: two-slot registry, UAF BY INDEX (free A, realloc B over A's chunk, edit via the stale A slot, call B), drop FIRST in the menu, win() rides the banner leak | `-fno-stack-protector -pie -fPIE` | `lab_uaf_twins_001` |
+
 ## Layout
 
 ```

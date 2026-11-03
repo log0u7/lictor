@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: two uaf training twins join the lab (uaf_train_a on 19991,
+  uaf_train_b on 19992) - NEW programs of the uaf_heap capability
+  class (tcache UAF, function pointer on the heap, interactive menu)
+  to train a small model on the class while the eval targets
+  (uaf_heap, uaf_heap-002) stay unseen: different structure, menu
+  layout and flags, never copies. One exploit covers both
+  (lab_uaf_twins_001 in the ronin repo).
 - lab: the ten MR5 bench targets execute end to end - one ronin
   exploit per target in the lab's ronin repo (lab_ret2libc_008,
   lab_ret2plt_leak_009, lab_rop_011, lab_srop_012, lab_ret2func_000,

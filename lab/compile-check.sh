@@ -26,4 +26,6 @@ build orw-002 "-fno-stack-protector -no-pie -O0"
 build callme-002 "-fno-stack-protector -no-pie -O0"
 build ret2plt-002 "-fno-stack-protector -pie -fPIE -O0 -Wl,-z,now"
 build srop-001 "-fno-stack-protector -no-pie -O0"
+build uaf_train_a "-fno-stack-protector -no-pie -O0"
+build uaf_train_b "-fno-stack-protector -pie -fPIE -O0"
 [ "$ok" -eq 1 ]

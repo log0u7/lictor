@@ -35,3 +35,12 @@ FLAG{mr5_shellcode_pie_stack}
 
 The oracle regex matches the flag line (the shell's own prompt noise
 is acceptable; the flag line is decisive).
+
+## The lab exploit
+
+`lab_shellcode_002` (named to sort before `lab_shellcode_003`, and
+replicating its behaviour for the original no-PIE target): the
+strcpy channel stops at the leaked buffer address's own NUL byte, so
+the return slot lands on the exact leaked buffer; the sled's jmp skips
+the embedded pointer and the execve("/bin/sh") stub runs from the
+stack. The shell cats the flag over the same connection.

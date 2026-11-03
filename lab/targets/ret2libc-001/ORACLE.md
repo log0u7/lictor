@@ -41,3 +41,13 @@ FLAG{mr5_ret2libc_leak_first}
 
 The oracle regex matches the flag line (the shell's own prompt noise
 is acceptable; the flag line is decisive).
+
+## The lab exploit
+
+`lab_ret2libc_008` (and its `ret2plt_leak` binding `lab_ret2plt_leak_009`):
+two rounds on one connection - round 1 puts(&GOT[puts]) rides the raw
+libc address out and returns into main, round 2 aims pop rdi at libc's
+"/bin/sh" (the bare ret gives system its ABI alignment) and the shell
+cats the flag. Banner-driven: main's leak yields the PIE base, the
+gadget/PLT/GOT offsets are the measured bookworm build's, the libc
+offsets pin the container's glibc 2.36.

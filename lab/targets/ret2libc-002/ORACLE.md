@@ -35,3 +35,9 @@ FLAG{mr5_ret2libc_no_leak_static}
 
 The oracle regex matches the flag line (the shell's own prompt noise
 is acceptable; the flag line is decisive).
+
+## The lab exploit
+
+`lab_ret2libc_008` (and its `rop` binding `lab_rop_011`): the banner
+hands system, the /bin/sh string and the pop-rdi gadget - the strike is
+one pop rdi + one system call, no leak round. The shell cats the flag.

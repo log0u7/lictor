@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: the ten MR5 bench targets execute end to end - one ronin
+  exploit per target in the lab's ronin repo (lab_ret2libc_008,
+  lab_ret2plt_leak_009, lab_rop_011, lab_srop_012, lab_ret2func_000,
+  lab_shellcode_002, lab_orw_002, lab_callme_002, lab_fmtstr_leak_002,
+  lab_fmtstr_write_002, lab_uaf_tcache_010), each porting the target's
+  smoke-test craft and landing its own flag against the live listener.
+  Where a variant shares a decided technique with an original (or a
+  sibling), the variant's exploit is named to sort first in the
+  discovery list and dispatches on the banner - the original's craft
+  stays verbatim. The ret2plt_leak build layout joins
+  build_layouts.yml (the leak-first stage: pop rdi; the GOT slot;
+  puts@plt), so the two PIE targets pin the leak-first technique and
+  the exploit finishes the strike itself.
+- lab: the MR5 target table in the lab README carries the exploit
+  column, and every MR5 ORACLE.md documents its exploit's contract
+  (the craft, the dispatch, the banner it reads).
 - lab: ten new bench targets join the lab (ret2libc-001, ret2libc-002,
   fmtstr-002, ret2func-002, shellcode-002, uaf_heap-002, orw-002,
   callme-002, ret2plt-002, srop-001), one technique per target with

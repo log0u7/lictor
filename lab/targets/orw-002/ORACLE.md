@@ -38,3 +38,13 @@ FLAG{mr5_orw_strict_filter}
 
 The oracle regex matches the flag line (the service's own banner and
 the "hello" echo are noise; the flag line is decisive).
+
+## The lab exploit
+
+`lab_orw_002` (named to sort before `lab_orw_007`, and replicating its
+behaviour for the original target): the banner's five gadgets (+4 past
+each prologue) build the openat(AT_FDCWD, path, 0) / read(3, buf,
+0x100) / write(1, buf, 0x100) / exit(0) chain - the .data anchors are
+the measured fixed addresses (flag_path 0x404050, out_buf 0x404080).
+No shell, no execve: the raw 0x100 bytes carry the flag line. The
+`rop` binding `lab_rop_011` dispatches to the same chain.

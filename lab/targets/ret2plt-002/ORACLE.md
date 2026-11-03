@@ -45,3 +45,12 @@ FLAG{mr5_ret2plt_aslr_write}
 
 The oracle regex matches the flag line (the banner re-prints and the
 leak's raw bytes are noise; the flag line is decisive).
+
+## The lab exploit
+
+`lab_ret2plt_leak_009` (the `ret2plt_leak` discovery binding; the
+`lab_ret2libc_008` dispatch covers it too): round 1 puts(&flag_ptr)
+leaks the heap pointer and returns into main, round 2 write(1, heap,
+0x100) dumps the flag buffer - both stages ride the binary's own PLT,
+no libc addresses anywhere. The `ret2plt_leak` build layout produces
+the stage-1 chain (pop rdi; &flag_ptr; puts@plt) from the facts.

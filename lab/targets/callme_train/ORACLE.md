@@ -31,7 +31,7 @@ from its own directory (the flag file is opened relative).
 ## Success output
 
 The exploit builds the chain in ONE read (the prompt is
-`sequence? `, no newline):
+`sequence?`, no newline):
 
 1. pad: 16 filler bytes (measured: the return slot sits at +16).
 2. For each stage in order (seal, turn, open):
@@ -69,7 +69,7 @@ The oracle regex matches the FLAG: line (the stage echoes and
 | vault_open | banner `open() at 0x...` | runtime |
 
 Caveat: the lab container's toolchain may shift the no-PIE addresses
-- re-extract load3 and probe from the deployed binary; the banner
+re-extract load3 and probe from the deployed binary; the banner
 leaks the three stages at runtime regardless.
 
 ## The lab exploit

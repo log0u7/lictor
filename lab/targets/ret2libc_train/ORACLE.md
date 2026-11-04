@@ -31,7 +31,7 @@ from its own directory (the flag file is opened relative).
 ## Success output
 
 The exploit runs in two rounds on one connection (the service loops
-on `name? `):
+on `name?`):
 
 1. Round 1 (leak): chain = pop_rdi; &GOT[puts]; puts@plt; main - puts
    prints the raw libc pointer (6 bytes of printable garbage, then
@@ -62,7 +62,7 @@ The oracle regex matches the FLAG: line (the raw leak bytes, the
 | GOT[puts] | 0x404018 | `objdump -R ret2libc_train \| grep puts` |
 
 Caveat: the lab container's toolchain may shift the no-PIE addresses
-- re-extract every constant from the deployed binary; the banner
+re-extract every constant from the deployed binary; the banner
 leaks the static anchors at runtime regardless.
 
 ## The lab exploit

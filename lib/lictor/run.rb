@@ -94,8 +94,20 @@ module Lictor
         technique = decision[:selected]
         break if technique.nil?
 
+        # The one measured constant the uaf class needs beyond
+        # host/port: the win symbol address. The fact store measured it
+        # on the no-PIE binaries (win_symbol("win", 4198886)); the PIE
+        # twins leak it in their banner instead, so the param stays nil
+        # and the exploit reads the banner. Other techniques take no
+        # extra params.
+        params = nil
+        if technique == "uaf_tcache" && (win = facts.to_s[/win_symbol\("win",\s*(\d+)\)/, 1])
+          params = {"win_addr" => format("0x%x", win.to_i)}
+        end
+
         result = executor.execute(target: target, technique: technique,
-          recipe: decision[:recipe], payload: payload, flag_regex: flag_regex)
+          recipe: decision[:recipe], payload: payload, flag_regex: flag_regex,
+          params: params)
         # The leak capture: the service's own output hex addresses
         # become leaked_address facts for the NEXT attempt (the
         # two-steps: leak, then rebuild with the observed values). The
@@ -134,7 +146,7 @@ module Lictor
         attempt = {
           technique: technique, executed: result[:executed],
           success: result[:success], exploit: result[:exploit], handoff: result[:handoff],
-          flag: result[:flag],
+          flag: result[:flag], params: result[:params],
           # the runner's output: the oracle's search region AND the
           # debugging record - without it a failed attempt is a black
           # box (the flag_regex eats the only copy of the output)

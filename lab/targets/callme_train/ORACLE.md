@@ -79,3 +79,15 @@ and load3's, calibrates nothing (the 16-byte offset is fixed by the
 build), and rides one write: pad + [load3, a1, b1, c1, seal,
 load3, a2, b2, c2, turn, load3, a3, b3, c3, open] + "\n", then reads
 to the FLAG line.
+
+## Smoke test
+
+Run INSIDE the lab container (the libc offsets resolve at
+runtime from the process own mapped libc; from the host the
+resolution picks the wrong glibc and the derived base fails the
+page-alignment check):
+
+```
+docker cp callme_train/smoke_test.py lab-targets-1:/tmp/smoke-callme_train.py
+python3 /tmp/smoke-callme_train.py
+```

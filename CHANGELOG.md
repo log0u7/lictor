@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- executor: the watchdog - a hung exploit no longer hangs lictor
+  forever. The runner executes in its own process group (pgroup: true)
+  under two caps: a soft cap (30s without any output = hung, the
+  exact MR6-bench failure where a menu reader waited on a banner the
+  target never prints) and a hard cap (120s wall clock, a chatty
+  runner that never finishes dies too). The kill takes the whole
+  process group, so no orphan worker survives (the bench measured
+  three ruby workers hung 1-3h, abandoned by the old capture3+Timeout
+  path). A timeout is an outcome, not a crash: the attempt records
+  `timeout: true`, the trail outcome says "hung and killed", and the
+  attempt still counts against the budget.
+
 - lab: the class-twin smoke tests verify the DEPLOYED binaries -
   srop_train asserts the compile-stable gadget deltas (syscall =
   sigreturn + 0xA) instead of the reference build's absolute offset

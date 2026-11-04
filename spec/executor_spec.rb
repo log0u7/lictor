@@ -92,16 +92,69 @@ RSpec.describe Lictor::RoninExecutor do
   end
 end
 
-RSpec.describe "the executor timeout" do
-  it "kills a black-holed runner instead of hanging forever" do
+RSpec.describe "the executor watchdog" do
+  it "kills a black-holed runner and reports a timeout outcome (no crash, no orphan)" do
     sleeper = File.join(Dir.mktmpdir, "sleep.sh")
     File.write(sleeper, "#!/bin/sh\nsleep 300\n")
     File.chmod(0o755, sleeper)
-    exec = Lictor::Executor.resolve(:ronin)
-    exec.instance_variable_set(:@runner, sleeper)
-    expect {
-      exec.execute(target: "127.0.0.1:9", technique: "x", recipe: {console: ""}, exploit_name: "whatever", timeout: 1)
-    }.to raise_error(Lictor::ExecutorError)
+    exec = Lictor::RoninExecutor.new(runner: sleeper)
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    result = exec.execute(target: "127.0.0.1:9", technique: "x", recipe: {console: ""},
+      exploit_name: "whatever", timeout: 1)
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+    expect(result[:executed]).to be true
+    expect(result[:timeout]).to be true
+    expect(result[:success]).to be false
+    expect(elapsed).to be < 10
+  end
+
+  it "kills the whole process group - no orphan survives the timeout" do
+    spawner = File.join(Dir.mktmpdir, "spawner.sh")
+    File.write(spawner, <<~SH)
+      #!/bin/sh
+      sleep 300 &
+      echo "$!" > "#{spawner}.pid"
+      sleep 300
+    SH
+    File.chmod(0o755, spawner)
+    exec = Lictor::RoninExecutor.new(runner: spawner)
+    result = exec.execute(target: "127.0.0.1:9", technique: "x", recipe: {console: ""},
+      exploit_name: "whatever", timeout: 1)
+    expect(result[:timeout]).to be true
+    child_pid = File.read("#{spawner}.pid").to_i
+    expect { Process.kill(0, child_pid) }.to raise_error(Errno::ESRCH)
+  end
+
+  it "kills a SILENT runner on the soft timeout - the exact MR6 bench hang" do
+    silent = File.join(Dir.mktmpdir, "silent.sh")
+    File.write(silent, "#!/bin/sh\nsleep 300\n")
+    File.chmod(0o755, silent)
+    exec = Lictor::RoninExecutor.new(runner: silent, soft_timeout: 2)
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    result = exec.execute(target: "127.0.0.1:9", technique: "x", recipe: {console: ""},
+      exploit_name: "whatever", timeout: 60)
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+    expect(result[:timeout]).to be true
+    expect(elapsed).to be < 15
+  end
+
+  it "a chatty runner that never finishes dies on the hard cap (the soft cap never fires)" do
+    chatty = File.join(Dir.mktmpdir, "chatty.sh")
+    File.write(chatty, <<~SH)
+      #!/bin/sh
+      i=0
+      while [ $i -lt 100 ]; do
+        echo tick
+        sleep 0.5
+        i=$((i+1))
+      done
+    SH
+    File.chmod(0o755, chatty)
+    exec = Lictor::RoninExecutor.new(runner: chatty, soft_timeout: 2)
+    result = exec.execute(target: "127.0.0.1:9", technique: "x", recipe: {console: ""},
+      exploit_name: "whatever", timeout: 1)
+    expect(result[:timeout]).to be true
+    expect(result[:output]).to include("tick")
   end
 end
 
@@ -134,7 +187,7 @@ RSpec.describe "the executor reads the flag, not the exit code" do
   it "a flag in the output succeeds even when the runner exits non-zero" do
     exec = Lictor::RoninExecutor.new(runner: runner(printing: "FLAG{the_flag}", exit_code: 1))
     result = exec.execute(target: "127.0.0.1:9999", technique: "ret2func", recipe: recipe,
-      exploit_name: "lab_ret2func_001", flag_regex: "FLAG\\{[^}]+\\}")
+      exploit_name: "lab_ret2func_001", flag_regex: 'FLAG\\{[^}]+\\}')
     expect(result[:executed]).to be(true)
     expect(result[:success]).to be(true), "the flag came; the exit code must not lie about it"
     expect(result[:flag]).to eq("FLAG{the_flag}")
@@ -143,7 +196,7 @@ RSpec.describe "the executor reads the flag, not the exit code" do
   it "no flag in the output fails even when the runner exits zero" do
     exec = Lictor::RoninExecutor.new(runner: runner(printing: "all quiet", exit_code: 0))
     result = exec.execute(target: "127.0.0.1:9999", technique: "ret2func", recipe: recipe,
-      exploit_name: "lab_ret2func_001", flag_regex: "FLAG\\{[^}]+\\}")
+      exploit_name: "lab_ret2func_001", flag_regex: 'FLAG\\{[^}]+\\}')
     expect(result[:success]).to be(false), "an exit code is not a flag"
   end
 

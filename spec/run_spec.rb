@@ -18,9 +18,11 @@ RSpec.describe Lictor::Run do
         @results = results
       end
 
-      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil)
+      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil,
+        params: nil)
         r = @results.empty? ? {executed: true, success: true} : @results.shift
         r[:technique] = technique
+        r[:params] = params
         r
       end
     end
@@ -102,7 +104,8 @@ RSpec.describe "the run's auto-scaffold" do
         @technique = technique
       end
 
-      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil)
+      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil,
+        params: nil)
         if Dir.empty?(@repo)
           {executed: false, success: nil, note: "no #{@technique} exploit"}
         else
@@ -316,9 +319,11 @@ RSpec.describe Lictor::Run, "the pinned technique" do
         @results = results
       end
 
-      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil)
+      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil,
+        params: nil)
         r = @results.empty? ? {executed: true, success: true} : @results.shift
         r[:technique] = technique
+        r[:params] = params
         r
       end
     end
@@ -333,5 +338,67 @@ RSpec.describe Lictor::Run, "the pinned technique" do
       executor: executor, max_attempts: 3, seed: 42, technique: "shellcode"
     )
     expect(result[:steps].first[:technique]).to eq("shellcode")
+  end
+end
+
+RSpec.describe Lictor::Run, "the uaf win_addr param" do
+  let(:dir) { Dir.mktmpdir }
+  let(:trail_path) { File.join(dir, "t.jsonl") }
+  let(:trail) { Lictor::Trail.new(trail_path) }
+  # the no-PIE twin's measured facts: the profiler read win() at a fixed
+  # address (the fact store measured it), the exploit needs it as a param
+  let(:uaf_facts) do
+    "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\nrelro(\"partial\").\n" \
+      "plt(\"free\").\nplt(\"malloc\").\nplt(\"puts\").\n" \
+      "gadget(\"ret_align\", 4198422).\ntarget_function(\"true\").\n" \
+      "win_symbol(\"win\", 4198886).\n"
+  end
+  let(:stub_executor) do
+    Class.new do
+      def initialize(results)
+        @results = results
+      end
+
+      def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, flag_regex: nil,
+        params: nil)
+        r = @results.empty? ? {executed: true, success: true} : @results.shift
+        r[:technique] = technique
+        r[:params] = params
+        r
+      end
+    end
+  end
+
+  let(:uaf_pack) do
+    Augure::Pack.load_hash(
+      "technique" => "uaf_tcache", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_uaf_tcache_static", "head" => %w[applicable uaf_tcache],
+                   "conditions" => [%w[fact plt free], %w[fact plt malloc]]}],
+      "kb" => [{"id" => "x1", "description" => "x", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1]
+    )
+  end
+
+  it "hands the measured win symbol to the uaf exploit as win_addr" do
+    executor = stub_executor.new([{executed: true, success: true}])
+    result = described_class.run(
+      target: "127.0.0.1:19991", facts: uaf_facts, trail: trail,
+      executor: executor, max_attempts: 1, seed: 42, packs: [uaf_pack]
+    )
+    expect(result[:steps].first[:technique]).to eq("uaf_tcache")
+    expect(result[:steps].first[:params]).to eq({"win_addr" => "0x4011e6"}),
+      "the measured win symbol never reached the exploit - the no-PIE twin cannot fire"
+  end
+
+  it "carries no params for techniques that take none" do
+    plain_facts = "nx(\"true\").\npie(\"false\").\ncanary(\"false\").\nplt(\"system\").\n" \
+      "gadget(\"pop_rdi_ret\", 1).\nvuln_hint(\"unsafe_func:gets\").\n"
+    executor = stub_executor.new([{executed: true, success: true}])
+    result = described_class.run(
+      target: "192.168.56.10", facts: plain_facts, trail: trail,
+      executor: executor, max_attempts: 1, seed: 42
+    )
+    expect(result[:steps].first[:params]).to be_nil
   end
 end

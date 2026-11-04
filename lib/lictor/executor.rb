@@ -25,7 +25,8 @@ module Lictor
 
   # The default: augure decided, lictor prints, a human runs.
   class ManualExecutor
-    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, timeout: nil, flag_regex: nil)
+    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, timeout: nil, flag_regex: nil,
+      params: nil)
       {
         executed: false,
         success: nil,
@@ -76,7 +77,8 @@ module Lictor
       end
     end
 
-    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, timeout: nil, flag_regex: nil)
+    def execute(target:, technique:, recipe:, exploit_name: nil, payload: nil, timeout: nil, flag_regex: nil,
+      params: nil)
       exploit_name ||= discover(technique).first
       unless exploit_name
         return {executed: false, success: nil,
@@ -87,6 +89,11 @@ module Lictor
       args = ["run", exploit_name, "--param", "host=#{host || target}"]
       args += ["--param", "port=#{port}"] if port
       args += ["--param", "payload_file=#{File.expand_path(payload)}"] if payload
+      # The measured constants an exploit declares beyond host/port/payload:
+      # the run layer derives them from the fact store (win_addr from the
+      # measured win symbol, for the uaf class). An exploit that declares
+      # no such param refuses it - ronin errors loudly, the trail shows it.
+      args += params.flat_map { |k, v| ["--param", "#{k}=#{v}"] } if params
       # A neutral cwd: a Gemfile in the working directory pulls the
       # subprocess back into a bundle context where ronin-exploits
       # "is not included in the bundle".

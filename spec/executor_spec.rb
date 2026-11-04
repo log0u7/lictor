@@ -154,3 +154,28 @@ RSpec.describe "the executor reads the flag, not the exit code" do
     expect(result[:success]).to be(true)
   end
 end
+
+RSpec.describe "the executor carries measured params" do
+  let(:recipe) do
+    {technique: "uaf_tcache", runner: "ronin", mixin: "RemoteTCP",
+     console: "ronin-exploits run <exploit-name-from-your-repos> --technique uaf_tcache"}
+  end
+
+  it "forwards the measured win_addr to the exploit" do
+    echoer = File.join(Dir.mktmpdir, "ronin-exploits")
+    File.write(echoer, <<~SH)
+      #!/bin/sh
+      if [ "$1" = "list" ]; then
+        echo "  lab_uaf_tcache_001"
+      elif [ "$1" = "run" ]; then
+        echo "args: $*"
+        exit 0
+      fi
+    SH
+    File.chmod(0o755, echoer)
+    executor = Lictor::RoninExecutor.new(runner: echoer)
+    result = executor.execute(target: "127.0.0.1:19991", technique: "uaf_tcache",
+      recipe: recipe, params: {"win_addr" => "0x4012e6"})
+    expect(result[:output]).to include("--param win_addr=0x4012e6")
+  end
+end

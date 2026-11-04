@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: the ronin exploit repo becomes a plain in-tree directory
+  (lab/ronin-repo/exploits/) - it was a phantom submodule: a gitlink
+  committed without any .gitmodules and no remote repository, so
+  `git submodule status` failed and fresh clones could never fetch it.
+  The 13 exploit scripts now live in lictor itself.
 - lab: three class twins join the stack (callme_train on 19993,
   ret2libc_train on 19994, srop_train on 19995) - NEW programs of the
   callme, ret2libc and srop capability classes to train the small

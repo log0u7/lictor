@@ -1,4 +1,7 @@
 # The in-tree augure checkout (CI) is not this repo's code.
+# The lab's ronin exploit repo is operator-owned exploit code
+# (the same precedent); it is orchestrated by lictor, not part of it.
 ignore:
   - augure/**/*
+  - lab/ronin-repo/**/*
   - vendor/**/*

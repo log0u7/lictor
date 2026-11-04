@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "open3"
-require "timeout"
 require "tmpdir"
 
 module Lictor
@@ -60,8 +59,20 @@ module Lictor
       "TERM" => ENV["TERM"].to_s
     }.freeze
 
-    def initialize(runner: "ronin-exploits")
+    # The watchdog caps. SOFT: a runner producing NO output for this
+    # many seconds is hung (the exact MR6-bench hang: a menu reader
+    # waiting on a banner the target never prints) - kill it. An
+    # exploit that keeps producing output lives and gets the hard cap
+    # instead. HARD: the wall-clock cap kills a chatty runner that
+    # never finishes. Both caps kill the whole PROCESS GROUP: the
+    # orphan leak the old capture3+Timeout path measured (three 1-3h
+    # old ruby workers abandoned mid-hang) cannot happen.
+    SOFT_TIMEOUT = 30
+    HARD_TIMEOUT = 120
+
+    def initialize(runner: "ronin-exploits", soft_timeout: SOFT_TIMEOUT)
       @runner = runner
+      @soft_timeout = soft_timeout
     end
 
     # The exploits available in the operator's repos, matched to the
@@ -97,18 +108,16 @@ module Lictor
       # A neutral cwd: a Gemfile in the working directory pulls the
       # subprocess back into a bundle context where ronin-exploits
       # "is not included in the bundle".
-      out, _err, status = nil
+      out, timed_out, status = nil
       Dir.chdir(Dir.tmpdir) do
-        # unsetenv_others: true = the env -i semantics - Open3 would
-        # otherwise MERGE CLEAN_ENV into the (bundler-contaminated)
-        # parent environment.
-        # the timeout kills the SERVER's wait, the child may linger: a
-        # black-holed target must not hang the stdio loop forever
-        out, _err, status = Timeout.timeout(timeout || 300) do
-          Open3.capture3(CLEAN_ENV, @runner, *args, unsetenv_others: true)
-        end
-      rescue Timeout::Error, SignalException
-        raise ExecutorError, "the runner timed out - a black-holed target hangs the loop"
+        out, timed_out, status = run_with_watchdog(args, hard_timeout: timeout || HARD_TIMEOUT)
+      end
+      # A timeout is an outcome, not a crash: the trail shows the
+      # attempt as "hung and killed" (timeout: true), the budget counts
+      # it, the run moves on to the next technique.
+      if timed_out
+        return {executed: true, success: false, exploit: exploit_name,
+                output: out, timeout: true}
       end
       # Success semantics: the flag in the OUTPUT is the truth the
       # operator cares about; the exit code lies both ways (a polite
@@ -121,6 +130,88 @@ module Lictor
       else
         {executed: true, success: status.success?, exploit: exploit_name, output: out}
       end
+    end
+
+    private
+
+    # The watchdog runner: popen2e with the child in its OWN process
+    # group (pgroup: true), so the kill below takes every descendant -
+    # the capture3+Timeout path left the child alive (an orphan worker
+    # kept hanging for hours mid-bench). Two caps:
+    # - HARD: the wall-clock cap. A chatty-but-never-finishing runner
+    #   dies even though it keeps producing output.
+    # - SOFT: no NEW output for @soft_timeout seconds = hung. A menu
+    #   reader waiting on a banner the target never prints produces
+    #   nothing and dies here, minutes instead of hours.
+    # Completion is the runner process EXITING (never the pipe EOF -
+    # a grandchild can keep the pipe open). A timeout returns
+    # [output, true, nil]; a normal exit returns [output, false, status].
+    def run_with_watchdog(args, hard_timeout:)
+      out = +""
+      timed_out = false
+      status = nil
+      Open3.popen2e(CLEAN_ENV, @runner, *args, unsetenv_others: true, pgroup: true) do |stdin, pipe, waiter|
+        stdin.close # the exploits read nothing from stdin (capture3 semantics)
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        last_output = started
+        wait_thr = Thread.new { waiter.value }
+        loop do
+          now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          if now - started >= hard_timeout
+            timed_out = true
+            kill_group(waiter.pid)
+            wait_thr.join(2) # the group kill lands: reap, no zombie
+            break
+          end
+          if pipe
+            if IO.select([pipe], nil, nil, 0.5)
+              begin
+                out << pipe.readpartial(4096)
+                last_output = now
+              rescue EOFError
+                # the runner closed its streams - it exited (or a
+                # grandchild still holds the pipe; the wait_thr below
+                # is the truth). Stop reading, keep the caps running.
+                pipe = nil
+              end
+            elsif now - last_output >= @soft_timeout
+              timed_out = true
+              kill_group(waiter.pid)
+              wait_thr.join(2) # the group kill lands: reap, no zombie
+              break
+            end
+          else
+            sleep 0.1 # EOF: no more output can arrive; let the exit land
+          end
+          if wait_thr.join(0)
+            status = wait_thr.value
+            break
+          end
+        end
+        unless timed_out
+          wait_thr.join # reap the normal exit
+          status = wait_thr.value
+          if pipe # drain the tail the runner wrote just before exiting
+            while IO.select([pipe], nil, nil, 1)
+              begin
+                out << pipe.readpartial(4096)
+              rescue EOFError
+                break
+              end
+            end
+          end
+        end
+      end
+      [out, timed_out, status]
+    end
+
+    # Kill the runner's whole process group (pgroup: true made the
+    # child its own group leader): a plain PID kill leaves the ronin
+    # children orphaned - the exact leak the bench measured.
+    def kill_group(pid)
+      Process.kill("-KILL", Process.getpgid(pid))
+    rescue Errno::ESRCH, Errno::EPERM
+      nil
     end
   end
 end

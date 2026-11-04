@@ -147,6 +147,10 @@ module Lictor
           technique: technique, executed: result[:executed],
           success: result[:success], exploit: result[:exploit], handoff: result[:handoff],
           flag: result[:flag], params: result[:params],
+          # the watchdog's verdict: a hung-and-killed runner is
+          # recorded, never silent (the MR6 bench measured hours of
+          # trail silence from one abandoned worker)
+          timeout: result[:timeout],
           # the runner's output: the oracle's search region AND the
           # debugging record - without it a failed attempt is a black
           # box (the flag_regex eats the only copy of the output)
@@ -158,9 +162,16 @@ module Lictor
         # and recording it as a failure systematically downgrades the
         # decided technique for every future decision.
         if result[:executed]
-          trail.record(run: run_id, type: "outcome", technique: technique,
-            success: result[:success] == true, executed: true,
-            target: target)
+          if result[:timeout]
+            # the watchdog killed the runner: the outcome says so -
+            # "hung and killed" is not "ran and failed fast"
+            trail.record(run: run_id, type: "outcome", technique: technique,
+              success: false, executed: true, target: target, timeout: true)
+          else
+            trail.record(run: run_id, type: "outcome", technique: technique,
+              success: result[:success] == true, executed: true,
+              target: target)
+          end
         end
         break if result[:success] == true
 

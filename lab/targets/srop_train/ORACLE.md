@@ -86,3 +86,15 @@ staging buffer (the payload's first qword), then rides the forge
 (round 3) with pad + pivot + the 248-byte rt_sigreturn frame (rax=59,
 rdi=staging, rip=syscall, eflags=0x202) and reads until the FLAG
 regex.
+
+## Smoke test
+
+Run INSIDE the lab container (the libc offsets resolve at
+runtime from the process own mapped libc; from the host the
+resolution picks the wrong glibc and the derived base fails the
+page-alignment check):
+
+```
+docker cp srop_train/smoke_test.py lab-targets-1:/tmp/smoke-srop_train.py
+python3 /tmp/smoke-srop_train.py
+```

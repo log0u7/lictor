@@ -74,3 +74,15 @@ embedded defaults for the reference build), rides the leak chain
 (round 1), parses the raw libc pointer, derives the base, and rides
 the strike chain (round 2) with the shell command
 `cat ret2libc_train.flag`.
+
+## Smoke test
+
+Run INSIDE the lab container (the libc offsets resolve at
+runtime from the process own mapped libc; from the host the
+resolution picks the wrong glibc and the derived base fails the
+page-alignment check):
+
+```
+docker cp ret2libc_train/smoke_test.py lab-targets-1:/tmp/smoke-ret2libc_train.py
+python3 /tmp/smoke-ret2libc_train.py
+```

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: three class twins join the stack (callme_train on 19993,
+  ret2libc_train on 19994, srop_train on 19995) - NEW programs of the
+  callme, ret2libc and srop capability classes to train the small
+  model on the class while the eval targets stay unseen. Compile
+  flags match the ORACLE docs; compile-check covers all 15 targets.
 - lab: two uaf training twins join the lab (uaf_train_a on 19991,
   uaf_train_b on 19992) - NEW programs of the uaf_heap capability
   class (tcache UAF, function pointer on the heap, interactive menu)

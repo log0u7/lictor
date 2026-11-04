@@ -1,0 +1,1 @@
+FLAG{mr6_callme_train_3gates}

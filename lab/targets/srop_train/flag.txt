@@ -1,0 +1,1 @@
+FLAG{mr6_srop_train_rtframe}

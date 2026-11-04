@@ -31,4 +31,8 @@ socat TCP-LISTEN:9991,reuseaddr,fork EXEC:/opt/target/srop-001,stderr &
 # the MR6 training twins (the uaf capability class; the eval targets stay unseen)
 socat TCP-LISTEN:19991,reuseaddr,fork EXEC:/opt/target/uaf_train_a,stderr &
 socat TCP-LISTEN:19992,reuseaddr,fork EXEC:/opt/target/uaf_train_b,stderr &
+# the MR6 class training twins (callme, ret2libc, srop; the eval targets stay unseen)
+socat TCP-LISTEN:19993,reuseaddr,fork EXEC:/opt/target/callme_train,stderr &
+socat TCP-LISTEN:19994,reuseaddr,fork EXEC:/opt/target/ret2libc_train,stderr &
+socat TCP-LISTEN:19995,reuseaddr,fork EXEC:/opt/target/srop_train,stderr &
 wait

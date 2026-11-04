@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: the class-twin smoke tests verify the DEPLOYED binaries -
+  srop_train asserts the compile-stable gadget deltas (syscall =
+  sigreturn + 0xA) instead of the reference build's absolute offset
+  (the container's gcc shifts it), and ret2libc_train's libc-offset
+  resolution must run inside the container (the host picks the wrong
+  glibc; the ORACLE.md carries the invocation). All three twins land
+  their flags on the deployed stack.
 - lab: the ronin exploit repo becomes a plain in-tree directory
   (lab/ronin-repo/exploits/) - it was a phantom submodule: a gitlink
   committed without any .gitmodules and no remote repository, so

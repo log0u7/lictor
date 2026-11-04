@@ -40,6 +40,10 @@ COPY targets/srop-001/flag.txt    /opt/target/srop-001.flag
 # the MR6 training twins (the uaf capability class; the eval targets stay unseen)
 COPY targets/uaf_train_a/flag.txt /opt/target/uaf_train_a.flag
 COPY targets/uaf_train_b/flag.txt /opt/target/uaf_train_b.flag
+# the MR6 class twins wave 2 (callme, ret2libc, srop capability classes)
+COPY targets/callme_train/flag.txt    /opt/target/callme_train.flag
+COPY targets/ret2libc_train/flag.txt  /opt/target/ret2libc_train.flag
+COPY targets/srop_train/flag.txt      /opt/target/srop_train.flag
 COPY targets/ret2func/service.c /opt/target/ret2func.c
 COPY targets/ret2plt/service.c  /opt/target/ret2plt.c
 COPY targets/shellcode/service.c /opt/target/shellcode.c
@@ -58,6 +62,9 @@ COPY targets/ret2plt-002/service.c /opt/target/ret2plt-002.c
 COPY targets/srop-001/service.c    /opt/target/srop-001.c
 COPY targets/uaf_train_a/service.c /opt/target/uaf_train_a.c
 COPY targets/uaf_train_b/service.c /opt/target/uaf_train_b.c
+COPY targets/callme_train/service.c    /opt/target/callme_train.c
+COPY targets/ret2libc_train/service.c  /opt/target/ret2libc_train.c
+COPY targets/srop_train/service.c      /opt/target/srop_train.c
 
 # ret2func + ret2plt: NX ON (default), no canary, no PIE.
 RUN gcc ret2func.c  -o ret2func  -fno-stack-protector -no-pie -O0 \
@@ -78,10 +85,14 @@ RUN gcc ret2func.c  -o ret2func  -fno-stack-protector -no-pie -O0 \
     && gcc srop-001.c   -o srop-001   -fno-stack-protector -no-pie -O0 \
     && gcc uaf_train_a.c -o uaf_train_a -fno-stack-protector -no-pie -O0 \
     && gcc uaf_train_b.c -o uaf_train_b -fno-stack-protector -pie -fPIE -O0 \
+    && gcc callme_train.c   -o callme_train   -fno-stack-protector -no-pie -O0 \
+    && gcc ret2libc_train.c -o ret2libc_train -fno-stack-protector -no-pie -O0 \
+    && gcc srop_train.c     -o srop_train     -fno-stack-protector -pie -fPIE -O0 \
     && chmod 755 ret2func ret2plt shellcode fmtstr uaf_heap orw \
       ret2libc-001 ret2libc-002 fmtstr-002 ret2func-002 shellcode-002 \
       uaf_heap-002 orw-002 callme-002 ret2plt-002 srop-001 \
       uaf_train_a uaf_train_b \
+      callme_train ret2libc_train srop_train \
     && chmod 644 *.flag
 
 # The HARDENING MATRIX (the purple side): the same sources compiled
@@ -110,7 +121,7 @@ RUN chmod 755 /opt/target/emporium/callme /opt/target/emporium/ret2csu \
               /opt/target/emporium/*.sh /opt/target/emporium/*/*.so \
     && chmod 644 /opt/target/emporium/*/*.dat
 
-EXPOSE 8000 8897 8898 8899 9992 9993 9994 9995 9996 9997 9998 9999 9982 9983 9984 9985 9986 9987 9988 9989 9990 9991 19991 19992
+EXPOSE 8000 8897 8898 8899 9992 9993 9994 9995 9996 9997 9998 9999 9982 9983 9984 9985 9986 9987 9988 9989 9990 9991 19991 19992 19993 19994 19995
 
 COPY start.sh .
 CMD ["./start.sh"]

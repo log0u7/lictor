@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- suggestion: the suggest merge uses augure's suggested-provenance path
+  (merge_suggested) instead of a plain measured merge. An LLM-only fact
+  (the fmtstr poison) can no longer fire a corroborated routing rule
+  in-memory, and Facts#to_s keeps the `// suggested` marker so the
+  poison stays closed across the disk round-trip (the bench showed the
+  poison persisting into target.facts and flipping the next rep's
+  plan).
+
 - executor: the watchdog - a hung exploit no longer hangs lictor
   forever. The runner executes in its own process group (pgroup: true)
   under two caps: a soft cap (30s without any output = hung, the

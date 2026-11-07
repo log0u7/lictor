@@ -25,10 +25,42 @@ RSpec.describe Lictor::Suggestion do
   end
 
   it "rejects facts outside the schema - an agent cannot assert applicability" do
-    expect {
+    expect do
       described_class.apply(base_facts: base, suggested: "applicable(ret2plt).\n",
         trail: trail, target: "192.168.56.10")
-    }.to raise_error(Augure::UnknownPredicate, /applicable/)
+    end.to raise_error(Augure::UnknownPredicate, /applicable/)
+  end
+
+  it "blocks a suggested-only fmtstr poison: corroboration stays closed" do
+    rich = base + "vuln(\"sof\").\nplt(\"__libc_start_main\").\nplt(\"snprintf\").\n"
+    result = described_class.apply(base_facts: rich,
+      suggested: "vuln(\"fmtstr\").\nfmtstr_read(\"true\").\n",
+      trail: trail, target: "192.168.56.10", seed: 42)
+
+    expect(result[:applicable_before].grep(/\Afmtstr/)).to be_empty
+    expect(result[:applicable_after].grep(/\Afmtstr/)).to be_empty
+  end
+
+  it "blocks the poison across the disk round-trip: the marker survives" do
+    rich = base + "vuln(\"sof\").\nplt(\"__libc_start_main\").\nplt(\"snprintf\").\n"
+    first = described_class.apply(base_facts: rich,
+      suggested: "vuln(\"fmtstr\").\nfmtstr_read(\"true\").\n",
+      trail: trail, target: "192.168.56.10", seed: 42)
+    # the bench writes result[:facts] back to target.facts and the next rep
+    # re-reads that file as its base: the poison must not become measured
+    # through persistence
+    second = described_class.apply(base_facts: first[:facts].to_s,
+      suggested: "", trail: trail, target: "192.168.56.10", seed: 42)
+    expect(second[:applicable_before].grep(/\Afmtstr/)).to be_empty
+  end
+
+  it "does not report cap-dropped suggestions as landed" do
+    overflow = (1..18).map { |i| "plt(\"fn#{i}\").\n" }.join
+    result = described_class.apply(base_facts: base,
+      suggested: overflow, trail: trail, target: "192.168.56.10")
+    # SUGGEST_CAP is 16: two facts must be dropped, and the trail's
+    # added must report only what actually landed
+    expect(result[:added].size).to eq(16)
   end
 
   it "records the suggestion in the trail: who proposed what, what changed" do

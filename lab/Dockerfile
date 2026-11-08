@@ -110,6 +110,14 @@ RUN gcc ret2func.c  -o ret2func  -fno-stack-protector -no-pie -O0 \
     && gcc callme_train.c   -o callme_train   -fno-stack-protector -no-pie -O0 \
     && gcc ret2libc_train.c -o ret2libc_train -fno-stack-protector -no-pie -O0 \
     && gcc srop_train.c     -o srop_train     -fno-stack-protector -pie -fPIE -O0 \
+    && chmod 755 ret2func ret2plt shellcode fmtstr uaf_heap orw \
+      ret2libc-001 ret2libc-002 fmtstr-002 ret2func-002 shellcode-002 \
+      uaf_heap-002 orw-002 callme-002 ret2plt-002 srop-001 \
+      uaf_train_a uaf_train_b \
+      callme_train ret2libc_train srop_train \
+    && chmod 644 *.flag
+
+
 # the MR6 eval twins (the clean set)
 RUN gcc uaf-eval-001.c -o uaf-eval-001 -fno-stack-protector -no-pie -O0 \
     && gcc uaf-eval-002.c -o uaf-eval-002 -fno-stack-protector -no-pie -O0 \
@@ -121,14 +129,8 @@ RUN gcc uaf-eval-001.c -o uaf-eval-001 -fno-stack-protector -no-pie -O0 \
     && gcc ret2libc-eval.c -o ret2libc-eval -fno-stack-protector -pie -fPIE -O0 \
     && gcc callme-eval.c -o callme-eval -fno-stack-protector -no-pie -O0 \
     && gcc srop-eval.c -o srop-eval -fno-stack-protector -no-pie -O0 \
-    && chmod 755 ret2func ret2plt shellcode fmtstr uaf_heap orw \
-      uaf-eval-001 uaf-eval-002 fmtstr-eval orw-eval ret2plt-eval \
-      ret2func-eval shellcode-eval ret2libc-eval callme-eval srop-eval \
-      ret2libc-001 ret2libc-002 fmtstr-002 ret2func-002 shellcode-002 \
-      uaf_heap-002 orw-002 callme-002 ret2plt-002 srop-001 \
-      uaf_train_a uaf_train_b \
-      callme_train ret2libc_train srop_train \
-    && chmod 644 *.flag
+    && chmod 755 uaf-eval-001 uaf-eval-002 fmtstr-eval orw-eval ret2plt-eval \
+      ret2func-eval shellcode-eval ret2libc-eval callme-eval srop-eval
 
 # The HARDENING MATRIX (the purple side): the same sources compiled
 # under full hardening - canary on, PIE on, full RELRO, FORTIFY. The

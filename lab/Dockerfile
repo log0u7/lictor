@@ -44,7 +44,6 @@ COPY targets/uaf_train_b/flag.txt /opt/target/uaf_train_b.flag
 COPY targets/callme_train/flag.txt    /opt/target/callme_train.flag
 COPY targets/ret2libc_train/flag.txt  /opt/target/ret2libc_train.flag
 COPY targets/srop_train/flag.txt      /opt/target/srop_train.flag
-
 # the MR6 eval twins (the clean set: never in any training dataset)
 COPY targets/uaf-eval-001/flag.txt    /opt/target/uaf-eval-001.flag
 COPY targets/uaf-eval-002/flag.txt    /opt/target/uaf-eval-002.flag
@@ -65,19 +64,7 @@ COPY targets/orw/service.c      /opt/target/orw.c
 COPY targets/ret2libc-001/service.c /opt/target/ret2libc-001.c
 COPY targets/ret2libc-002/service.c /opt/target/ret2libc-002.c
 COPY targets/fmtstr-002/service.c  /opt/target/fmtstr-002.c
-COPY tar
-# the MR6 eval twins: the sources
-COPY targets/uaf-eval-001/service.c    /opt/target/uaf-eval-001.c
-COPY targets/uaf-eval-002/service.c    /opt/target/uaf-eval-002.c
-COPY targets/fmtstr-eval/service.c    /opt/target/fmtstr-eval.c
-COPY targets/orw-eval/service.c    /opt/target/orw-eval.c
-COPY targets/ret2plt-eval/service.c    /opt/target/ret2plt-eval.c
-COPY targets/ret2func-eval/service.c    /opt/target/ret2func-eval.c
-COPY targets/shellcode-eval/service.c    /opt/target/shellcode-eval.c
-COPY targets/ret2libc-eval/service.c    /opt/target/ret2libc-eval.c
-COPY targets/callme-eval/service.c    /opt/target/callme-eval.c
-COPY targets/srop-eval/service.c    /opt/target/srop-eval.c
-gets/ret2func-002/service.c /opt/target/ret2func-002.c
+COPY targets/ret2func-002/service.c /opt/target/ret2func-002.c
 COPY targets/shellcode-002/service.c /opt/target/shellcode-002.c
 COPY targets/uaf_heap-002/service.c /opt/target/uaf_heap-002.c
 COPY targets/orw-002/service.c     /opt/target/orw-002.c
@@ -89,6 +76,17 @@ COPY targets/uaf_train_b/service.c /opt/target/uaf_train_b.c
 COPY targets/callme_train/service.c    /opt/target/callme_train.c
 COPY targets/ret2libc_train/service.c  /opt/target/ret2libc_train.c
 COPY targets/srop_train/service.c      /opt/target/srop_train.c
+# the MR6 eval twins: the sources
+COPY targets/uaf-eval-001/service.c    /opt/target/uaf-eval-001.c
+COPY targets/uaf-eval-002/service.c    /opt/target/uaf-eval-002.c
+COPY targets/fmtstr-eval/service.c    /opt/target/fmtstr-eval.c
+COPY targets/orw-eval/service.c    /opt/target/orw-eval.c
+COPY targets/ret2plt-eval/service.c    /opt/target/ret2plt-eval.c
+COPY targets/ret2func-eval/service.c    /opt/target/ret2func-eval.c
+COPY targets/shellcode-eval/service.c    /opt/target/shellcode-eval.c
+COPY targets/ret2libc-eval/service.c    /opt/target/ret2libc-eval.c
+COPY targets/callme-eval/service.c    /opt/target/callme-eval.c
+COPY targets/srop-eval/service.c    /opt/target/srop-eval.c
 
 # ret2func + ret2plt: NX ON (default), no canary, no PIE.
 RUN gcc ret2func.c  -o ret2func  -fno-stack-protector -no-pie -O0 \
@@ -112,7 +110,6 @@ RUN gcc ret2func.c  -o ret2func  -fno-stack-protector -no-pie -O0 \
     && gcc callme_train.c   -o callme_train   -fno-stack-protector -no-pie -O0 \
     && gcc ret2libc_train.c -o ret2libc_train -fno-stack-protector -no-pie -O0 \
     && gcc srop_train.c     -o srop_train     -fno-stack-protector -pie -fPIE -O0 \
-
 # the MR6 eval twins (the clean set)
 RUN gcc uaf-eval-001.c -o uaf-eval-001 -fno-stack-protector -no-pie -O0 \
     && gcc uaf-eval-002.c -o uaf-eval-002 -fno-stack-protector -no-pie -O0 \

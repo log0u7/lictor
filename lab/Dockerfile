@@ -44,6 +44,18 @@ COPY targets/uaf_train_b/flag.txt /opt/target/uaf_train_b.flag
 COPY targets/callme_train/flag.txt    /opt/target/callme_train.flag
 COPY targets/ret2libc_train/flag.txt  /opt/target/ret2libc_train.flag
 COPY targets/srop_train/flag.txt      /opt/target/srop_train.flag
+
+# the MR6 eval twins (the clean set: never in any training dataset)
+COPY targets/uaf-eval-001/flag.txt    /opt/target/uaf-eval-001.flag
+COPY targets/uaf-eval-002/flag.txt    /opt/target/uaf-eval-002.flag
+COPY targets/fmtstr-eval/flag.txt    /opt/target/fmtstr-eval.flag
+COPY targets/orw-eval/flag.txt    /opt/target/orw-eval.flag
+COPY targets/ret2plt-eval/flag.txt    /opt/target/ret2plt-eval.flag
+COPY targets/ret2func-eval/flag.txt    /opt/target/ret2func-eval.flag
+COPY targets/shellcode-eval/flag.txt    /opt/target/shellcode-eval.flag
+COPY targets/ret2libc-eval/flag.txt    /opt/target/ret2libc-eval.flag
+COPY targets/callme-eval/flag.txt    /opt/target/callme-eval.flag
+COPY targets/srop-eval/flag.txt    /opt/target/srop-eval.flag
 COPY targets/ret2func/service.c /opt/target/ret2func.c
 COPY targets/ret2plt/service.c  /opt/target/ret2plt.c
 COPY targets/shellcode/service.c /opt/target/shellcode.c
@@ -53,7 +65,19 @@ COPY targets/orw/service.c      /opt/target/orw.c
 COPY targets/ret2libc-001/service.c /opt/target/ret2libc-001.c
 COPY targets/ret2libc-002/service.c /opt/target/ret2libc-002.c
 COPY targets/fmtstr-002/service.c  /opt/target/fmtstr-002.c
-COPY targets/ret2func-002/service.c /opt/target/ret2func-002.c
+COPY tar
+# the MR6 eval twins: the sources
+COPY targets/uaf-eval-001/service.c    /opt/target/uaf-eval-001.c
+COPY targets/uaf-eval-002/service.c    /opt/target/uaf-eval-002.c
+COPY targets/fmtstr-eval/service.c    /opt/target/fmtstr-eval.c
+COPY targets/orw-eval/service.c    /opt/target/orw-eval.c
+COPY targets/ret2plt-eval/service.c    /opt/target/ret2plt-eval.c
+COPY targets/ret2func-eval/service.c    /opt/target/ret2func-eval.c
+COPY targets/shellcode-eval/service.c    /opt/target/shellcode-eval.c
+COPY targets/ret2libc-eval/service.c    /opt/target/ret2libc-eval.c
+COPY targets/callme-eval/service.c    /opt/target/callme-eval.c
+COPY targets/srop-eval/service.c    /opt/target/srop-eval.c
+gets/ret2func-002/service.c /opt/target/ret2func-002.c
 COPY targets/shellcode-002/service.c /opt/target/shellcode-002.c
 COPY targets/uaf_heap-002/service.c /opt/target/uaf_heap-002.c
 COPY targets/orw-002/service.c     /opt/target/orw-002.c
@@ -88,7 +112,21 @@ RUN gcc ret2func.c  -o ret2func  -fno-stack-protector -no-pie -O0 \
     && gcc callme_train.c   -o callme_train   -fno-stack-protector -no-pie -O0 \
     && gcc ret2libc_train.c -o ret2libc_train -fno-stack-protector -no-pie -O0 \
     && gcc srop_train.c     -o srop_train     -fno-stack-protector -pie -fPIE -O0 \
+
+# the MR6 eval twins (the clean set)
+RUN gcc uaf-eval-001.c -o uaf-eval-001 -fno-stack-protector -no-pie -O0 \
+    && gcc uaf-eval-002.c -o uaf-eval-002 -fno-stack-protector -no-pie -O0 \
+    && gcc fmtstr-eval.c -o fmtstr-eval -fno-stack-protector -no-pie -O0 \
+    && gcc orw-eval.c -o orw-eval -fno-stack-protector -no-pie -O0 -z execstack \
+    && gcc ret2plt-eval.c -o ret2plt-eval -fno-stack-protector -no-pie -O0 \
+    && gcc ret2func-eval.c -o ret2func-eval -fno-stack-protector -no-pie -O0 \
+    && gcc shellcode-eval.c -o shellcode-eval -fno-stack-protector -no-pie -O0 -z execstack \
+    && gcc ret2libc-eval.c -o ret2libc-eval -fno-stack-protector -pie -fPIE -O0 \
+    && gcc callme-eval.c -o callme-eval -fno-stack-protector -no-pie -O0 \
+    && gcc srop-eval.c -o srop-eval -fno-stack-protector -no-pie -O0 \
     && chmod 755 ret2func ret2plt shellcode fmtstr uaf_heap orw \
+      uaf-eval-001 uaf-eval-002 fmtstr-eval orw-eval ret2plt-eval \
+      ret2func-eval shellcode-eval ret2libc-eval callme-eval srop-eval \
       ret2libc-001 ret2libc-002 fmtstr-002 ret2func-002 shellcode-002 \
       uaf_heap-002 orw-002 callme-002 ret2plt-002 srop-001 \
       uaf_train_a uaf_train_b \
@@ -121,7 +159,7 @@ RUN chmod 755 /opt/target/emporium/callme /opt/target/emporium/ret2csu \
               /opt/target/emporium/*.sh /opt/target/emporium/*/*.so \
     && chmod 644 /opt/target/emporium/*/*.dat
 
-EXPOSE 8000 8897 8898 8899 9992 9993 9994 9995 9996 9997 9998 9999 9982 9983 9984 9985 9986 9987 9988 9989 9990 9991 19991 19992 19993 19994 19995
+EXPOSE 8000 8897 8898 8899 9992 9993 9994 9995 9996 9997 9998 9999 9982 9983 9984 9985 9986 9987 9988 9989 9990 9991 19991 19992 19993 19994 19995 19996 19997 19998 19999 19980 19981 19982 19983 19984 19985
 
 COPY start.sh .
 CMD ["./start.sh"]

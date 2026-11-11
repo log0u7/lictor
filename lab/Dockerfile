@@ -55,6 +55,17 @@ COPY targets/shellcode-eval/flag.txt    /opt/target/shellcode-eval.flag
 COPY targets/ret2libc-eval/flag.txt    /opt/target/ret2libc-eval.flag
 COPY targets/callme-eval/flag.txt    /opt/target/callme-eval.flag
 COPY targets/srop-eval/flag.txt    /opt/target/srop-eval.flag
+# the MR6 eval2 (harder) twins
+COPY targets/uaf-eval2-001/flag.txt  /opt/target/uaf-eval2-001.flag
+COPY targets/uaf-eval2-002/flag.txt  /opt/target/uaf-eval2-002.flag
+COPY targets/fmtstr-eval2/flag.txt   /opt/target/fmtstr-eval2.flag
+COPY targets/orw-eval2/flag.txt      /opt/target/orw-eval2.flag
+COPY targets/ret2plt-eval2/flag.txt  /opt/target/ret2plt-eval2.flag
+COPY targets/ret2func-eval2/flag.txt /opt/target/ret2func-eval2.flag
+COPY targets/shellcode-eval2/flag.txt /opt/target/shellcode-eval2.flag
+COPY targets/ret2libc-eval2/flag.txt /opt/target/ret2libc-eval2.flag
+COPY targets/callme-eval2/flag.txt   /opt/target/callme-eval2.flag
+COPY targets/srop-eval2/flag.txt     /opt/target/srop-eval2.flag
 COPY targets/ret2func/service.c /opt/target/ret2func.c
 COPY targets/ret2plt/service.c  /opt/target/ret2plt.c
 COPY targets/shellcode/service.c /opt/target/shellcode.c
@@ -87,6 +98,17 @@ COPY targets/shellcode-eval/service.c    /opt/target/shellcode-eval.c
 COPY targets/ret2libc-eval/service.c    /opt/target/ret2libc-eval.c
 COPY targets/callme-eval/service.c    /opt/target/callme-eval.c
 COPY targets/srop-eval/service.c    /opt/target/srop-eval.c
+# the MR6 eval2 (harder) twins: the sources
+COPY targets/uaf-eval2-001/service.c  /opt/target/uaf-eval2-001.c
+COPY targets/uaf-eval2-002/service.c  /opt/target/uaf-eval2-002.c
+COPY targets/fmtstr-eval2/service.c   /opt/target/fmtstr-eval2.c
+COPY targets/orw-eval2/service.c      /opt/target/orw-eval2.c
+COPY targets/ret2plt-eval2/service.c  /opt/target/ret2plt-eval2.c
+COPY targets/ret2func-eval2/service.c /opt/target/ret2func-eval2.c
+COPY targets/shellcode-eval2/service.c /opt/target/shellcode-eval2.c
+COPY targets/ret2libc-eval2/service.c /opt/target/ret2libc-eval2.c
+COPY targets/callme-eval2/service.c   /opt/target/callme-eval2.c
+COPY targets/srop-eval2/service.c     /opt/target/srop-eval2.c
 
 # ret2func + ret2plt: NX ON (default), no canary, no PIE.
 RUN gcc ret2func.c  -o ret2func  -fno-stack-protector -no-pie -O0 \
@@ -132,6 +154,20 @@ RUN gcc uaf-eval-001.c -o uaf-eval-001 -fno-stack-protector -no-pie -O0 \
     && chmod 755 uaf-eval-001 uaf-eval-002 fmtstr-eval orw-eval ret2plt-eval \
       ret2func-eval shellcode-eval ret2libc-eval callme-eval srop-eval
 
+# the MR6 eval2 (harder) twins
+RUN gcc uaf-eval2-001.c -o uaf-eval2-001 -fno-stack-protector -no-pie -O0 \
+    && gcc uaf-eval2-002.c -o uaf-eval2-002 -fno-stack-protector -no-pie -O0 \
+    && gcc fmtstr-eval2.c -o fmtstr-eval2 -fno-stack-protector -pie -fPIE -O0 \
+    && gcc orw-eval2.c -o orw-eval2 -fno-stack-protector -no-pie -O0 -z execstack \
+    && gcc ret2plt-eval2.c -o ret2plt-eval2 -fno-stack-protector -no-pie -O0 \
+    && gcc ret2func-eval2.c -o ret2func-eval2 -fno-stack-protector -no-pie -O0 \
+    && gcc shellcode-eval2.c -o shellcode-eval2 -fno-stack-protector -no-pie -O0 -z execstack \
+    && gcc ret2libc-eval2.c -o ret2libc-eval2 -fno-stack-protector -pie -fPIE -O0 \
+    && gcc callme-eval2.c -o callme-eval2 -fno-stack-protector -no-pie -O0 \
+    && gcc srop-eval2.c -o srop-eval2 -fno-stack-protector -no-pie -O0 \
+    && chmod 755 uaf-eval2-001 uaf-eval2-002 fmtstr-eval2 orw-eval2 ret2plt-eval2 \
+      ret2func-eval2 shellcode-eval2 ret2libc-eval2 callme-eval2 srop-eval2
+
 # The HARDENING MATRIX (the purple side): the same sources compiled
 # under full hardening - canary on, PIE on, full RELRO, FORTIFY. The
 # purple demo watches the decision die as the hardening lands.
@@ -158,7 +194,7 @@ RUN chmod 755 /opt/target/emporium/callme /opt/target/emporium/ret2csu \
               /opt/target/emporium/*.sh /opt/target/emporium/*/*.so \
     && chmod 644 /opt/target/emporium/*/*.dat
 
-EXPOSE 8000 8897 8898 8899 9992 9993 9994 9995 9996 9997 9998 9999 9982 9983 9984 9985 9986 9987 9988 9989 9990 9991 19991 19992 19993 19994 19995 19996 19997 19998 19999 19980 19981 19982 19983 19984 19985
+EXPOSE 8000 8897 8898 8899 9992 9993 9994 9995 9996 9997 9998 9999 9982 9983 9984 9985 9986 9987 9988 9989 9990 9991 19991 19992 19993 19994 19995 19996 19997 19998 19999 19980 19981 19982 19983 19984 19985 20000 20001 20002 20003 20004 20005 20006 20007 20008 20009
 
 COPY start.sh .
 CMD ["./start.sh"]

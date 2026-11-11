@@ -47,4 +47,15 @@ socat TCP-LISTEN:19982,reuseaddr,fork EXEC:/opt/target/shellcode-eval,stderr &
 socat TCP-LISTEN:19983,reuseaddr,fork EXEC:/opt/target/ret2libc-eval,stderr &
 socat TCP-LISTEN:19984,reuseaddr,fork EXEC:/opt/target/callme-eval,stderr &
 socat TCP-LISTEN:19985,reuseaddr,fork EXEC:/opt/target/srop-eval,stderr &
+# the MR6 eval2 (harder) twins
+socat TCP-LISTEN:20000,reuseaddr,fork EXEC:/opt/target/uaf-eval2-001,stderr &
+socat TCP-LISTEN:20001,reuseaddr,fork EXEC:/opt/target/uaf-eval2-002,stderr &
+setarch -R socat TCP-LISTEN:20002,reuseaddr,fork EXEC:/opt/target/orw-eval2,stderr &
+socat TCP-LISTEN:20003,reuseaddr,fork EXEC:/opt/target/ret2plt-eval2,stderr &
+socat TCP-LISTEN:20004,reuseaddr,fork EXEC:/opt/target/ret2func-eval2,stderr &
+socat TCP-LISTEN:20005,reuseaddr,fork EXEC:/opt/target/shellcode-eval2,stderr &
+socat TCP-LISTEN:20006,reuseaddr,fork EXEC:/opt/target/ret2libc-eval2,stderr &
+socat TCP-LISTEN:20007,reuseaddr,fork EXEC:/opt/target/callme-eval2,stderr &
+socat TCP-LISTEN:20008,reuseaddr,fork EXEC:/opt/target/srop-eval2,stderr &
+socat TCP-LISTEN:20009,reuseaddr,fork EXEC:/opt/target/fmtstr-eval2,stderr &
 wait

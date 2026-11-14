@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: the ret2plt-eval2 twin keeps the benign system call its ORACLE
+  documents (system@plt exists, the command string stays unannounced
+  in .data). The source had lost the call: the primitive was
+  unreachable and augure's honest answer (ret2libc, leak-first) could
+  never build. With the call restored the profiler emits plt(system),
+  the ret2plt_eval2 pack decides, and the built chain runs the
+  command end to end.
+
 - build: the fmtstr class builds autonomously. The leak layout
   (`fmtstr_leak` / stage-1 of `fmtstr_write`) emits a `%K$p` window
   from the profiler's new `fmt_offset` fact - no measured return-slot

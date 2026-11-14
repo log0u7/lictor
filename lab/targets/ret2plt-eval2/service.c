@@ -42,6 +42,10 @@ int main(void) {
     ssize_t n;
 
     setvbuf(stdout, NULL, _IONBF, 0);
+    /* the benign system call: the primitive the ORACLE documents
+       (system@plt exists - the exploit calls it directly, no leak).
+       The command string's address stays in .data, unannounced. */
+    system("true");
     /* banner announces NOTHING: addresses are static (no PIE) and
        derived by the exploit from the binary. */
     fputs("name? ", stdout);

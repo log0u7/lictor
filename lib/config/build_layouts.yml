@@ -55,6 +55,21 @@ banner_leak:
   layout:
     - [padding, measured_offset]
     - [qword, leak:win]
+
+# the fmtstr class: no return slot to overwrite - the format string IS
+# the payload. The static stage is the leak (the buffer's argument
+# index comes off the frame, fact fmt_offset); the write stage derives
+# its targets from that leak at runtime (the exploit's job, not a
+# static byte layout).
+fmtstr_leak:
+  arch: any
+  layout:
+    - [fmtstr_leak, fmt_offset]
+
+fmtstr_write:
+  arch: any
+  layout:
+    - [fmtstr_leak, fmt_offset]
 ret2plt:
   arch: any
   layout:

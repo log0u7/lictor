@@ -27,6 +27,18 @@ RSpec.describe Lictor::PayloadBuilder do
     expect(body).to eq(("A" * 16).b + [4_196_182].pack("Q<"))
   end
 
+  it "builds the fmtstr leak format off the fmt_offset fact - no measured offset" do
+    # the fmtstr class has no return-slot padding to measure: the leak
+    # format string comes straight from the profiler's fmt_offset
+    bin = ProfilerBinaryBuilder.printf_stack
+    facts = "vuln(\"fmtstr\").\nfmtstr_read(\"true\").\nfmt_offset(\"6\").\n"
+    result = described_class.build(binary: bin, facts: facts, technique: "fmtstr_leak", out: out)
+    body = File.binread(out)
+    expect(body).to start_with("%6$p %7$p")
+    expect(body).to end_with("|")
+    expect(result[:offset]).to be_nil
+  end
+
   it "builds the shellcode payload: sled + the banner leak + the encoded stub" do
     facts = "nx(\"false\").\nleaked_address(\"buf\", 140730103547632).\n"
     result = described_class.build(binary: binary, facts: facts, technique: "shellcode", out: out)
@@ -339,7 +351,8 @@ RSpec.describe Lictor::PayloadBuilder, "the layout variants walk" do
       {"name" => "plt_csu",
        "layout" => [["padding"], ["chain", "gadget:pop_rdi_ret", "plt_addr:callme_one"]]},
       {"name" => "static_stages",
-       "layout" => [["padding"], ["chain", "gadget:pop_rdi_rsi_rdx_ret", "sym:vault_arm", "const:41"]]}
+       "layout" => [["padding"],
+         ["chain", "gadget:pop_rdi_rsi_rdx_ret", "sym:vault_arm", "const:41"]]}
     ])
     result = described_class.build(binary: binary, facts: facts,
       technique: "twin_probe", out: out, packs: [pack])

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- build: the fmtstr class builds autonomously. The leak layout
+  (`fmtstr_leak` / stage-1 of `fmtstr_write`) emits a `%K$p` window
+  from the profiler's new `fmt_offset` fact - no measured return-slot
+  offset, no runtime probe (the measured offset is now demanded only
+  when the layout actually carries a `measured_offset` slot). The
+  window (40 slots) reaches the frame chain behind a 256-byte read
+  buffer while the format still fits that read; the strike derives
+  its targets from what answers.
+
 - build: the builder resolves `sym:NAME` from a `sym_addr(name)` fact
   (the profiler's DEFINED-symbol address for a non-PIE module) and
   walks a technique's `variants`, building with the first layout whose

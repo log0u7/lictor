@@ -193,12 +193,13 @@ module Lictor
         raise BuildError, "no win_symbol fact - the winning function's address is unknown" unless win
 
         [win[1], "win_symbol:#{win[0]}@#{win[1]}"]
-      when /\Agadget:(.+)\z/
+      when /\Agadget:(.+?)(?:\+(\d+))?\z/
         type = Regexp.last_match(1)
+        add = (Regexp.last_match(2) || 0).to_i
         gadget = facts["gadget"]&.find { |t, _| t == type }
         raise BuildError, "no #{type} gadget in the facts" unless gadget
 
-        [gadget[1], "gadget:#{type}@#{gadget[1]}"]
+        [gadget[1] + add, "gadget:#{type}#{"+#{add}" if add.positive?}@#{gadget[1]}"]
       when /\Aleak:(.+)\z/
         name = Regexp.last_match(1)
         leak = facts["leaked_address"]&.find { |n, _| n == name }
@@ -219,15 +220,16 @@ module Lictor
         [entry[1], "got_addr:#{name}@#{entry[1]}"]
       when /\Aconst:(\d+)\z/
         [Regexp.last_match(1).to_i, "const:#{Regexp.last_match(1)}"]
-      when /\Asym:(.+)\z/
+      when /\Asym:(.+?)(?:\+(\d+))?\z/
         name = Regexp.last_match(1)
+        add = (Regexp.last_match(2) || 0).to_i
         entry = facts["sym_addr"]&.find { |n, _| n == name }
         unless entry
           raise BuildError,
             "no sym_addr(\"#{name}\") fact - the symbol is not in the binary's table, profile it first"
         end
 
-        [entry[1], "sym_addr:#{name}@#{entry[1]}"]
+        [entry[1] + add, "sym_addr:#{name}#{"+#{add}" if add.positive?}@#{entry[1]}"]
       else
         raise BuildError,
           "unknown address reference #{ref.inspect} (win | gadget:TYPE | plt_addr:NAME | got_addr:NAME | leak:NAME | sym:NAME | const:N)"

@@ -27,6 +27,30 @@ RSpec.describe Lictor::PayloadBuilder do
     expect(body).to eq(("A" * 16).b + [4_196_182].pack("Q<"))
   end
 
+  it "resolves sym:NAME+offset: the syscall tail behind a symbol" do
+    facts = "sym_addr(\"sigreturn_gadget\", 4198846).\n"
+    result = described_class.build(binary: binary, facts: facts, technique: "srop_probe",
+      out: out, packs: [double(build: {"technique" => "srop_probe",
+                                       "layout" => [[
+                                         "chain", "sym:sigreturn_gadget+7"
+                                       ]]})])
+    body = File.binread(out)
+    expect(body).to eq([4_198_853].pack("Q<"))
+    expect(result[:ret_source]).to include("sym_addr:sigreturn_gadget+7")
+  end
+
+  it "resolves gadget:TYPE+offset: the syscall tail behind the matched bytes" do
+    facts = "gadget(\"sigreturn\", 4198846).\n"
+    result = described_class.build(binary: binary, facts: facts, technique: "srop_probe",
+      out: out, packs: [double(build: {"technique" => "srop_probe",
+                                       "layout" => [[
+                                         "chain", "gadget:sigreturn+7"
+                                       ]]})])
+    body = File.binread(out)
+    expect(body).to eq([4_198_853].pack("Q<"))
+    expect(result[:ret_source]).to include("gadget:sigreturn+7")
+  end
+
   it "builds the fmtstr leak format off the fmt_offset fact - no measured offset" do
     # the fmtstr class has no return-slot padding to measure: the leak
     # format string comes straight from the profiler's fmt_offset

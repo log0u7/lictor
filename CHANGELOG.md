@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: the srop-eval2 twin carries a NUL-tolerant channel (the copy is
+  bounded by the read count, not by a NUL). The rt_sigreturn frame is
+  zeros by construction: a strcpy channel truncated it at its first
+  NUL qword and the sigreturn restored garbage - the documented
+  primitive (craft the frame, ret into the gadget) was unreachable.
+
+- build: the address references take arithmetic - `sym:NAME+off` and
+  `gadget:TYPE+off` resolve base + offset (the SROP frame's rip is the
+  gadget's own syscall tail: the matched bytes plus the syscall's
+  offset inside the pattern). The offset rides the layout, so the
+  provenance keeps naming the fact the byte came from.
+
 - lab: the ret2plt-eval2 twin keeps the benign system call its ORACLE
   documents (system@plt exists, the command string stays unannounced
   in .data). The source had lost the call: the primitive was

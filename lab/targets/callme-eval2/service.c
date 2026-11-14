@@ -7,7 +7,8 @@
  * buffer overflow builds the whole chain: the pop3 gadget (pop rdi;
  * pop rsi; pop rdx; ret) fills the argument registers per stage.
  * NO win() shortcut: the stage sequence IS the win. The banner
- * announces the three stages, the gadget, probe(). Compiled:
+ * announces NOTHING: the stages, the pop3 gadget and probe() are
+ * static (no PIE) and located in the served binary. Compiled:
  * -fno-stack-protector -no-pie, NX ON. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +25,15 @@ __asm__(
     "    ret\n"
 );
 extern void pop3_asm(void);
+
+int vuln_copy(const char *src, size_t n) {
+    /* the copy is bounded by the read length (memcpy, not strcpy):
+       the chain carries NUL-bearing qwords - the read channel crosses
+       them whole. */
+    char small[8];
+    memcpy(small, src, n);
+    return (int) n;
+}
 
 /* the measurement aid: a clean landing the pad calibration aims the
    return slot at (the echo decides the pad). */
@@ -55,7 +65,7 @@ void vault_fire(int a, int b, int c) {
 void vault_open(int a, int b, int c) {
     if (!armed || !fired) return;
     if (a == 0xA1B2C307 && b == 0xA1B2C308 && c == 0xA1B2C309) {
-        FILE *f = fopen("callme-eval.flag", "r");
+        FILE *f = fopen("callme-eval2.flag", "r");
         char flag[64];
         if (!f) { puts("no flag file"); exit(1); }
         if (!fgets(flag, sizeof(flag), f)) exit(1);
@@ -77,5 +87,7 @@ int main(void) {
     n = read(0, input, sizeof(input) - 1);
     if (n <= 0) return 0;
     input[n - 1] = 0;
+    vuln_copy(input, (size_t) n);
+    fputs("hello\n", stdout);
     return 0;
 }

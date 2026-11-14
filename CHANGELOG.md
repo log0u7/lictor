@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: the eval2 twins keep a reachable primitive and the right flag
+  path. orw-eval2 was unreachable (a bounded read and no copy: nothing
+  to overflow) and its ORACLE described a format-string leak the source
+  never had; it is now a ROP orw chain (openat-only filter, .data
+  anchors, NX on, no banner). callme-eval and callme-eval2 read the
+  input and returned without copying it (callme-eval2 also opened
+  `callme-eval.flag`, a file the image never ships); both now copy
+  through the memcpy channel and open their own flag. Verified locally:
+  offset 16, each chain lands its flag.
+
 - suggestion: the suggest merge uses augure's suggested-provenance path
   (merge_suggested) instead of a plain measured merge. An LLM-only fact
   (the fmtstr poison) can no longer fire a corroborated routing rule

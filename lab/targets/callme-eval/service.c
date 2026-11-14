@@ -25,6 +25,15 @@ __asm__(
 );
 extern void pop3_asm(void);
 
+int vuln_copy(const char *src, size_t n) {
+    /* the copy is bounded by the read length (memcpy, not strcpy):
+       the chain carries NUL-bearing qwords - the read channel crosses
+       them whole. */
+    char small[8];
+    memcpy(small, src, n);
+    return (int) n;
+}
+
 /* the measurement aid: a clean landing the pad calibration aims the
    return slot at (the echo decides the pad). */
 void probe(void) {
@@ -83,5 +92,7 @@ int main(void) {
     n = read(0, input, sizeof(input) - 1);
     if (n <= 0) return 0;
     input[n - 1] = 0;
+    vuln_copy(input, (size_t) n);
+    fputs("hello\n", stdout);
     return 0;
 }

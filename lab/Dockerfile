@@ -158,7 +158,7 @@ RUN gcc uaf-eval-001.c -o uaf-eval-001 -fno-stack-protector -no-pie -O0 \
 RUN gcc uaf-eval2-001.c -o uaf-eval2-001 -fno-stack-protector -no-pie -O0 \
     && gcc uaf-eval2-002.c -o uaf-eval2-002 -fno-stack-protector -no-pie -O0 \
     && gcc fmtstr-eval2.c -o fmtstr-eval2 -fno-stack-protector -pie -fPIE -O0 \
-    && gcc orw-eval2.c -o orw-eval2 -fno-stack-protector -no-pie -O0 -z execstack \
+    && gcc orw-eval2.c -o orw-eval2 -fno-stack-protector -no-pie -O0 \
     && gcc ret2plt-eval2.c -o ret2plt-eval2 -fno-stack-protector -no-pie -O0 \
     && gcc ret2func-eval2.c -o ret2func-eval2 -fno-stack-protector -no-pie -O0 \
     && gcc shellcode-eval2.c -o shellcode-eval2 -fno-stack-protector -no-pie -O0 -z execstack \

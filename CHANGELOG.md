@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- build: the ret2libc layout ships two variants, walked in order. The
+  strike (the full system("/bin/sh") chain) needs the leak facts the
+  exploit's leak round supplies; without them the builder emits the
+  leak stage instead - puts(GOT[puts]) prints the raw libc pointer
+  and the strike derives from what answers. No silent guess either
+  way: a variant that cannot resolve fails loudly into the next.
+
+- lab: the ret2libc-eval2 twin imports puts again (the banner's
+  puts("name? ")): the leak primitive its ORACLE documents. The source
+  had drifted to fputs - no puts@plt, no GOT leak, the two-stage
+  contract unreachable.
+
 - lab: the shellcode-eval2 twin lands the payload where it executes.
   The input buffer is main's stack buffer again (RWE under execstack)
   and the banner announces its address - the harvest path carries the

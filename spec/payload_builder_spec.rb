@@ -51,6 +51,20 @@ RSpec.describe Lictor::PayloadBuilder do
     expect(result[:ret_source]).to include("gadget:sigreturn+7")
   end
 
+  it "builds the ret2libc leak stage when no leak facts ride yet" do
+    # the two-stage shape: without leaked facts the builder emits the
+    # leak round (puts(GOT[puts]) rides out raw) - the strike derives
+    # from what answers
+    facts = "vuln(\"sof\").\nnx(\"true\").\npie(\"true\").\n" \
+            "gadget(\"ret_align\", 4122).\ngadget(\"pop_rdi_ret\", 4529).\n" \
+            "plt_addr(\"puts\", 4215).\ngot_addr(\"puts\", 4096).\n"
+    result = described_class.build(binary: binary, facts: facts, technique: "ret2libc", out: out)
+    body = File.binread(out)
+    expect(body).to start_with("A" * 16)
+    expect(body).to include([4529].pack("Q<") + [4096].pack("Q<") + [4215].pack("Q<"))
+    expect(result[:variant]).to eq("leak_stage")
+  end
+
   it "builds the fmtstr leak format off the fmt_offset fact - no measured offset" do
     # the fmtstr class has no return-slot padding to measure: the leak
     # format string comes straight from the profiler's fmt_offset

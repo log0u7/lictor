@@ -276,6 +276,14 @@ RSpec.describe "lictor target" do
   let(:exe) { File.expand_path("../bin/lictor", __dir__) }
   let(:dir) { Dir.mktmpdir }
   let(:trail) { File.join(dir, "t.jsonl") }
+  let(:binary) do
+    builder = ["../../augure/profiler/spec/support/binary_builder.rb",
+      "../augure/profiler/spec/support/binary_builder.rb"]
+      .map { |p| File.expand_path(p, __dir__) }
+      .find { |p| File.file?(p) }
+    require_relative builder
+    ProfilerBinaryBuilder.vulnerable
+  end
 
   it "add scaffolds the target dir + the registry" do
     out, err, status = Open3.capture3(exe, "target", "add", "web01", "10.0.0.5:9999",
@@ -291,7 +299,7 @@ RSpec.describe "lictor target" do
   it "acquire --target scopes the state into the target dir" do
     Open3.capture3(exe, "target", "add", "web01", "127.0.0.1:9999",
       "-t", trail, chdir: dir)
-    binary = ProfilerBinaryBuilder.vulnerable
+    binary = self.binary
     _, err, status = Open3.capture3(exe, "acquire", "web01", "--bin", binary,
       "--target", "web01", "-t", trail, chdir: dir)
     expect(status.exitstatus).to eq(0), "acquire --target failed: #{err[0, 200]}"
@@ -301,7 +309,7 @@ RSpec.describe "lictor target" do
 
   it "plan --target reads the target's facts and writes the target's trail" do
     Open3.capture3(exe, "target", "add", "web01", "127.0.0.1:9999", "-t", trail, chdir: dir)
-    binary = ProfilerBinaryBuilder.vulnerable
+    binary = self.binary
     Open3.capture3(exe, "acquire", "web01", "--bin", binary, "--target", "web01",
       "-t", trail, chdir: dir)
     out, err, status = Open3.capture3(exe, "plan", "--target", "web01", chdir: dir)

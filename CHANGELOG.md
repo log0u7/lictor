@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- build: the ret2libc layout ships two variants, walked in order. The
+  strike (the full system("/bin/sh") chain) needs the leak facts the
+  exploit's leak round supplies; without them the builder emits the
+  leak stage instead - puts(GOT[puts]) prints the raw libc pointer
+  and the strike derives from what answers. No silent guess either
+  way: a variant that cannot resolve fails loudly into the next.
+
+- lab: the ret2libc-eval2 twin imports puts again (the banner's
+  puts("name? ")): the leak primitive its ORACLE documents. The source
+  had drifted to fputs - no puts@plt, no GOT leak, the two-stage
+  contract unreachable.
+
+- lab: the shellcode-eval2 twin lands the payload where it executes.
+  The input buffer is main's stack buffer again (RWE under execstack)
+  and the banner announces its address - the harvest path carries the
+  leak. The global .data variant could not: the .bss is not
+  executable even under -z execstack, and the copy destination is
+  ASLR'd - the ORACLE's "derive the address from the binary" had no
+  executable target to name (verified: a return into the global
+  faults SIGSEGV, the restored shape traps SIGTRAP at the stub).
+
+- lab: the srop-eval2 twin carries a NUL-tolerant channel (the copy is
+  bounded by the read count, not by a NUL). The rt_sigreturn frame is
+  zeros by construction: a strcpy channel truncated it at its first
+  NUL qword and the sigreturn restored garbage - the documented
+  primitive (craft the frame, ret into the gadget) was unreachable.
+
+- build: the address references take arithmetic - `sym:NAME+off` and
+  `gadget:TYPE+off` resolve base + offset (the SROP frame's rip is the
+  gadget's own syscall tail: the matched bytes plus the syscall's
+  offset inside the pattern). The offset rides the layout, so the
+  provenance keeps naming the fact the byte came from.
+
+- lab: the ret2plt-eval2 twin keeps the benign system call its ORACLE
+  documents (system@plt exists, the command string stays unannounced
+  in .data). The source had lost the call: the primitive was
+  unreachable and augure's honest answer (ret2libc, leak-first) could
+  never build. With the call restored the profiler emits plt(system),
+  the ret2plt_eval2 pack decides, and the built chain runs the
+  command end to end.
+
+- build: the fmtstr class builds autonomously. The leak layout
+  (`fmtstr_leak` / stage-1 of `fmtstr_write`) emits a `%K$p` window
+  from the profiler's new `fmt_offset` fact - no measured return-slot
+  offset, no runtime probe (the measured offset is now demanded only
+  when the layout actually carries a `measured_offset` slot). The
+  window (40 slots) reaches the frame chain behind a 256-byte read
+  buffer while the format still fits that read; the strike derives
+  its targets from what answers.
+
+- build: the builder resolves `sym:NAME` from a `sym_addr(name)` fact
+  (the profiler's DEFINED-symbol address for a non-PIE module) and
+  walks a technique's `variants`, building with the first layout whose
+  references the facts satisfy. The trail records which variant built;
+  when none matches, the error names every variant with its own reason.
+  Layout refs and the pack `build:` shape are documented in
+  `lib/config/build_layouts.yml` and augure's `docs/build-format.md`.
+
+- lab: the eval2 twins keep a reachable primitive and the right flag
+  path. orw-eval2 was unreachable (a bounded read and no copy: nothing
+  to overflow) and its ORACLE described a format-string leak the source
+  never had; it is now a ROP orw chain (openat-only filter, .data
+  anchors, NX on, no banner). callme-eval and callme-eval2 read the
+  input and returned without copying it (callme-eval2 also opened
+  `callme-eval.flag`, a file the image never ships); both now copy
+  through the memcpy channel and open their own flag. Verified locally:
+  offset 16, each chain lands its flag.
+
 - suggestion: the suggest merge uses augure's suggested-provenance path
   (merge_suggested) instead of a plain measured merge. An LLM-only fact
   (the fmtstr poison) can no longer fire a corroborated routing rule

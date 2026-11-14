@@ -1,0 +1,1 @@
+FLAG{mr6_shellcode_eval_exec}

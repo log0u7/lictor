@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: the shellcode-eval2 twin lands the payload where it executes.
+  The input buffer is main's stack buffer again (RWE under execstack)
+  and the banner announces its address - the harvest path carries the
+  leak. The global .data variant could not: the .bss is not
+  executable even under -z execstack, and the copy destination is
+  ASLR'd - the ORACLE's "derive the address from the binary" had no
+  executable target to name (verified: a return into the global
+  faults SIGSEGV, the restored shape traps SIGTRAP at the stub).
+
 - lab: the srop-eval2 twin carries a NUL-tolerant channel (the copy is
   bounded by the read count, not by a NUL). The rt_sigreturn frame is
   zeros by construction: a strcpy channel truncated it at its first

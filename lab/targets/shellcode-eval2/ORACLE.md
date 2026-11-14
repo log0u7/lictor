@@ -3,9 +3,10 @@
 ## Technique
 
 shellcode: NX OFF (execstack), the input buffer is the payload. The
-harder twin announces NOTHING: no buffer address. The buffer is a
-global, so its address is static (no PIE) and the exploit derives it
-from the binary. execstack is required.
+banner announces the buffer's address (where the payload lands, on
+the stack); the exploit harvests it - a global .data buffer would not
+carry the primitive (the .bss is not executable even under -z
+execstack, and the copy destination is ASLR'd). execstack required.
 
 ## Build
 

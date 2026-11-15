@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- builder: the NUL-terminated channel refuses chains that cannot land.
+  The strcpy family stops the copy at the first NUL: a chain qword
+  carrying a NUL byte truncates the copy before the rest of the chain
+  lands. The builder checks the sink fact - a NUL-terminated channel
+  refuses every chain qword except the last (the middle qwords must
+  ride NUL-free), the last qword's zeros must sit at the top (the
+  stack keeps the high bytes). The bounded channels (read/fgets/memcpy)
+  copy the exact count: NULs ride whole, no check. The facts without a
+  sink fact build unchecked (the old contracts).
+
+- builder: the real augure pack layouts build in rspec. The eval2
+  twins' pack layouts (srop_eval2's full ucontext frame, callme_eval2's
+  three pop3 vault stages, ret2plt_eval2's ret_align chain, orw's rop
+  syscall chain and its stack variant) were exercised only against the
+  live lab targets: the packs ARE the contract, they must build
+  against the synthetic binary too.
+
 - build: the ret2libc layout ships two variants, walked in order. The
   strike (the full system("/bin/sh") chain) needs the leak facts the
   exploit's leak round supplies; without them the builder emits the

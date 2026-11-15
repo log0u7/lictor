@@ -169,11 +169,40 @@ module Lictor
           sc = AugureProfiler::Encoder.encode(sc.b, badchars: [0x00], arch: arch)[:bytes]
           body << sc.b
         when "chain"
-          slot[1..].each do |ref|
+          # the strcpy family stops the copy at the first NUL: a chain
+          # qword carrying a NUL byte truncates the copy BEFORE the rest
+          # of the chain lands. The bounded channels (read/fgets/...)
+          # copy the exact count - NULs ride whole. The sink fact names
+          # the channel; without it the builder builds (the old shape).
+          sink = facts["sink"]&.first&.first
+          nul_channel = sink && AugureProfiler::StaticOffset::UNSAFE_CALLS.include?(sink)
+          refs = slot[1..]
+          refs.each_with_index do |ref, i|
             value, source = resolve_addr(facts, ref, width)
             ret ||= value
             ret_source ||= source
             body << [value].pack(width)
+            next unless nul_channel
+
+            bytes = [value].pack(width)
+            if i < refs.size - 1
+              # a middle qword must ride NUL-free: the copy stops at its
+              # first NUL, the rest of the chain never lands
+              if bytes.include?("\x00")
+                raise BuildError,
+                  "#{ref} = 0x#{value.to_s(16)} carries a NUL byte - the #{sink} channel " \
+                  "stops the copy before the rest of the chain lands"
+              end
+            else
+              # the last qword may ride partial: the stack keeps the high
+              # bytes - its first NUL must be followed by zeros only
+              first_nul = bytes.bytes.index(0)
+              if first_nul && !bytes.bytes[first_nul..].all?(&:zero?)
+                raise BuildError,
+                  "#{ref} = 0x#{value.to_s(16)} carries a NUL byte before its trailing zeros - " \
+                  "the #{sink} channel would land a partial overwrite of the wrong value"
+              end
+            end
           end
         else
           raise BuildError, "unknown build slot #{slot[0].inspect}"

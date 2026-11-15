@@ -239,6 +239,94 @@ RSpec.describe Lictor::PayloadBuilder, "the chain slot" do
   end
 end
 
+RSpec.describe Lictor::PayloadBuilder, "the NUL-terminated channel" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+  let(:out) { File.join(dir, "p.bin") }
+
+  # the strcpy channel stops at the first NUL: a chain qword carrying a
+  # NUL byte truncates the copy BEFORE the rest of the chain lands -
+  # the middle qwords must ride NUL-free, the last may be partial (the
+  # stack keeps the high bytes). The bounded channels (read/fgets/...)
+  # copy the exact count: NULs ride whole.
+  it "refuses a chain whose middle qword carries a NUL on a strcpy channel" do
+    # the first qword rides NUL-free (the copy continues into the rest
+    # of the chain), so the error names the middle qword
+    facts = "sink(\"strcpy\").\nnx(\"true\").\npie(\"false\").\n" \
+            "gadget(\"pop_rdi_ret\", 4702111234474983745).\n" \
+            "plt_addr(\"puts\", 4196104).\ngot_addr(\"puts\", 4196112).\n"
+    expect do
+      described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
+    end.to raise_error(Lictor::PayloadBuilder::BuildError,
+      /got_addr:puts.*NUL.*strcpy.*stops the copy/m)
+  end
+
+  it "builds the same chain on a bounded channel: NULs ride the copy" do
+    facts = "sink(\"read\").\nnx(\"true\").\npie(\"false\").\n" \
+            "gadget(\"pop_rdi_ret\", 4196100).\n" \
+            "plt_addr(\"puts\", 4196104).\ngot_addr(\"puts\", 4196112).\n"
+    result = described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_196_100, 4_196_112, 4_196_104].pack("Q<*"))
+    expect(result[:ret_source]).to include("gadget:pop_rdi_ret")
+  end
+
+  it "lets the last chain qword ride partial: the stack keeps the high bytes" do
+    # the last qword is the final return address: its trailing NULs are
+    # the stack's own bytes - the copy may stop there, nothing follows.
+    # the first qword must ride NUL-free: the copy continues into the
+    # next qword, so the synthetic address is 0x41-filled (no NUL)
+    facts = "sink(\"strcpy\").\nnx(\"true\").\npie(\"false\").\n" \
+            "gadget(\"pop_rdi_ret\", 4702111234474983745).\n" \
+            "plt_addr(\"puts\", 4196104).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "last_qword_probe", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_lqp", "head" => %w[applicable last_qword_probe],
+                   "conditions" => [%w[fact nx true]]}],
+      "kb" => [{"id" => "l1", "description" => "l", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "last_qword_probe",
+                  "layout" => [["padding"], ["chain", "gadget:pop_rdi_ret", "plt_addr:puts"]]}
+    )
+    result = described_class.build(binary: binary, facts: facts, technique: "last_qword_probe",
+      out: out, packs: [pack])
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_702_111_234_474_983_745, 4_196_104].pack("Q<*"))
+    expect(result[:ret_source]).to include("gadget:pop_rdi_ret")
+  end
+
+  it "refuses a last chain qword whose NUL is not at the top" do
+    # 0x40001234: a NUL at byte 2, followed by 0x40 - the partial
+    # overwrite would land 0x401234, not the intended value. the first
+    # qword rides NUL-free so the error names the last qword
+    facts = "sink(\"strcpy\").\nnx(\"true\").\npie(\"false\").\n" \
+            "gadget(\"pop_rdi_ret\", 4702111234474983745).\n" \
+            "plt_addr(\"puts\", 4196104).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "mid_nul_probe", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_mnp", "head" => %w[applicable mid_nul_probe],
+                   "conditions" => [%w[fact nx true]]}],
+      "kb" => [{"id" => "m1", "description" => "m", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "mid_nul_probe",
+                  "layout" => [["padding"], ["chain", "gadget:pop_rdi_ret", "const:1073747252"]]}
+    )
+    expect do
+      described_class.build(binary: binary, facts: facts, technique: "mid_nul_probe",
+        out: out, packs: [pack])
+    end.to raise_error(Lictor::PayloadBuilder::BuildError, /const:1073747252.*NUL/m)
+  end
+
+  it "leaves the chains unchecked when the facts carry no sink" do
+    # the old contracts: the facts do not name the channel, the builder
+    # builds (the sink fact is the profiler's emission, not the builder's guess)
+    facts = "nx(\"true\").\npie(\"false\").\ngadget(\"pop_rdi_ret\", 4196100).\n" \
+            "plt_addr(\"puts\", 4196104).\ngot_addr(\"puts\", 4196112).\n"
+    described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_196_100, 4_196_112, 4_196_104].pack("Q<*"))
+  end
+end
+
 RSpec.describe Lictor::PayloadBuilder, "the orw shellcode slot" do
   let(:dir) { Dir.mktmpdir }
   let(:binary) { ProfilerBinaryBuilder.vulnerable }
@@ -414,3 +502,4 @@ RSpec.describe Lictor::PayloadBuilder, "the layout variants walk" do
       /plt_csu: .*pop_rdi_ret.*static_stages: .*pop_rdi_rsi_rdx_ret/m)
   end
 end
+

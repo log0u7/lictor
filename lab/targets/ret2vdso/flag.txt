@@ -1,0 +1,1 @@
+FLAG{mr7_ret2vdso_loader_mapped}

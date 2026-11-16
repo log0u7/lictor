@@ -66,6 +66,14 @@ COPY targets/shellcode-eval2/flag.txt /opt/target/shellcode-eval2.flag
 COPY targets/ret2libc-eval2/flag.txt /opt/target/ret2libc-eval2.flag
 COPY targets/callme-eval2/flag.txt   /opt/target/callme-eval2.flag
 COPY targets/srop-eval2/flag.txt     /opt/target/srop-eval2.flag
+# the MR7 technique targets (the 7 new classes: ports 20100-20106)
+COPY targets/brop/flag.txt                /opt/target/brop.flag
+COPY targets/one_gadget/flag.txt          /opt/target/one_gadget.flag
+COPY targets/got_partial_overwrite/flag.txt /opt/target/got_partial_overwrite.flag
+COPY targets/ret2partial_overwrite/flag.txt /opt/target/ret2partial_overwrite.flag
+COPY targets/jop/flag.txt                 /opt/target/jop.flag
+COPY targets/ret2vdso/flag.txt            /opt/target/ret2vdso.flag
+COPY targets/setcontext_srop/flag.txt     /opt/target/setcontext_srop.flag
 COPY targets/ret2func/service.c /opt/target/ret2func.c
 COPY targets/ret2plt/service.c  /opt/target/ret2plt.c
 COPY targets/shellcode/service.c /opt/target/shellcode.c
@@ -109,6 +117,14 @@ COPY targets/shellcode-eval2/service.c /opt/target/shellcode-eval2.c
 COPY targets/ret2libc-eval2/service.c /opt/target/ret2libc-eval2.c
 COPY targets/callme-eval2/service.c   /opt/target/callme-eval2.c
 COPY targets/srop-eval2/service.c     /opt/target/srop-eval2.c
+# the MR7 technique targets: the sources
+COPY targets/brop/service.c                /opt/target/brop.c
+COPY targets/one_gadget/service.c          /opt/target/one_gadget.c
+COPY targets/got_partial_overwrite/service.c /opt/target/got_partial_overwrite.c
+COPY targets/ret2partial_overwrite/service.c /opt/target/ret2partial_overwrite.c
+COPY targets/jop/service.c                 /opt/target/jop.c
+COPY targets/ret2vdso/service.c            /opt/target/ret2vdso.c
+COPY targets/setcontext_srop/service.c     /opt/target/setcontext_srop.c
 
 # ret2func + ret2plt: NX ON (default), no canary, no PIE.
 RUN gcc ret2func.c  -o ret2func  -fno-stack-protector -no-pie -O0 \
@@ -168,6 +184,17 @@ RUN gcc uaf-eval2-001.c -o uaf-eval2-001 -fno-stack-protector -no-pie -O0 \
     && chmod 755 uaf-eval2-001 uaf-eval2-002 fmtstr-eval2 orw-eval2 ret2plt-eval2 \
       ret2func-eval2 shellcode-eval2 ret2libc-eval2 callme-eval2 srop-eval2
 
+# the MR7 technique targets (the 7 new classes)
+RUN gcc brop.c                  -o brop                  -fno-stack-protector -no-pie -O0 \
+    && gcc one_gadget.c         -o one_gadget            -fno-stack-protector -no-pie -O0 \
+    && gcc got_partial_overwrite.c -o got_partial_overwrite -fno-stack-protector -no-pie -O0 \
+    && gcc ret2partial_overwrite.c -o ret2partial_overwrite -fno-stack-protector -static-pie -O0 \
+    && gcc jop.c                -o jop                   -fno-stack-protector -no-pie -O0 \
+    && gcc ret2vdso.c           -o ret2vdso              -fno-stack-protector -pie -fPIE -O0 \
+    && gcc setcontext_srop.c    -o setcontext_srop       -fno-stack-protector -no-pie -O0 \
+    && chmod 755 brop one_gadget got_partial_overwrite ret2partial_overwrite \
+      jop ret2vdso setcontext_srop
+
 # The HARDENING MATRIX (the purple side): the same sources compiled
 # under full hardening - canary on, PIE on, full RELRO, FORTIFY. The
 # purple demo watches the decision die as the hardening lands.
@@ -194,7 +221,7 @@ RUN chmod 755 /opt/target/emporium/callme /opt/target/emporium/ret2csu \
               /opt/target/emporium/*.sh /opt/target/emporium/*/*.so \
     && chmod 644 /opt/target/emporium/*/*.dat
 
-EXPOSE 8000 8897 8898 8899 9992 9993 9994 9995 9996 9997 9998 9999 9982 9983 9984 9985 9986 9987 9988 9989 9990 9991 19991 19992 19993 19994 19995 19996 19997 19998 19999 19980 19981 19982 19983 19984 19985 20000 20001 20002 20003 20004 20005 20006 20007 20008 20009
+EXPOSE 8000 8897 8898 8899 9992 9993 9994 9995 9996 9997 9998 9999 9982 9983 9984 9985 9986 9987 9988 9989 9990 9991 19991 19992 19993 19994 19995 19996 19997 19998 19999 19980 19981 19982 19983 19984 19985 20000 20001 20002 20003 20004 20005 20006 20007 20008 20009 20100 20101 20102 20103 20104 20105 20106
 
 COPY start.sh .
 CMD ["./start.sh"]

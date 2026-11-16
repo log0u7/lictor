@@ -58,4 +58,12 @@ socat TCP-LISTEN:20006,reuseaddr,fork EXEC:/opt/target/ret2libc-eval2,stderr &
 socat TCP-LISTEN:20007,reuseaddr,fork EXEC:/opt/target/callme-eval2,stderr &
 socat TCP-LISTEN:20008,reuseaddr,fork EXEC:/opt/target/srop-eval2,stderr &
 socat TCP-LISTEN:20009,reuseaddr,fork EXEC:/opt/target/fmtstr-eval2,stderr &
+# the MR7 technique targets (the 7 new classes: ports 20100-20106)
+socat TCP-LISTEN:20100,reuseaddr,fork EXEC:/opt/target/brop,stderr &
+socat TCP-LISTEN:20101,reuseaddr,fork EXEC:/opt/target/one_gadget,stderr &
+socat TCP-LISTEN:20102,reuseaddr,fork EXEC:/opt/target/got_partial_overwrite,stderr &
+socat TCP-LISTEN:20103,reuseaddr,fork EXEC:/opt/target/ret2partial_overwrite,stderr &
+socat TCP-LISTEN:20104,reuseaddr,fork EXEC:/opt/target/jop,stderr &
+socat TCP-LISTEN:20105,reuseaddr,fork EXEC:/opt/target/ret2vdso,stderr &
+socat TCP-LISTEN:20106,reuseaddr,fork EXEC:/opt/target/setcontext_srop,stderr &
 wait

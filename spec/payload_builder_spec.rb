@@ -194,6 +194,26 @@ RSpec.describe "the pack build: section" do
     # the dword slot is 4 bytes wide even on x64 (the width per slot)
     expect(File.binread(out)).to eq(("A" * 16).b + [4_196_182].pack("L<"))
   end
+
+  it "truncates the word slot to the low 16 bits (the PIE page hop)" do
+    out = File.join(dir, "w.bin")
+    facts = "nx(\"true\").\npie(\"true\").\nwin_symbol(\"win\", 4196182).\n"
+    pack = Augure::Pack.load_hash(
+      "technique" => "fancy_hop", "author" => "spec", "source" => "https://example.com",
+      "rules" => [{"id" => "app_fancy", "head" => %w[applicable fancy_hop],
+                   "conditions" => [%w[fact target_function true]]}],
+      "kb" => [{"id" => "f1", "description" => "f", "success_rate" => 0.5}],
+      "mcts" => {"requires" => [], "provides" => %w[shell], "terminal" => true, "success" => 0.5},
+      "priors" => [1, 1],
+      "build" => {"technique" => "fancy_hop",
+                  "layout" => [["padding"], %w[word win]]}
+    )
+    Lictor::PayloadBuilder.build(binary: binary, facts: facts,
+      technique: "fancy_hop", out: out, packs: [pack])
+    # the word slot is 2 bytes wide: the low 16 bits only (the saved
+    # RIP's high bytes stay original - the page hop)
+    expect(File.binread(out)).to eq(("A" * 16).b + [4_196_182].pack("S<"))
+  end
 end
 
 RSpec.describe Lictor::PayloadBuilder, "the chain slot" do

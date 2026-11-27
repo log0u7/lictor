@@ -29,7 +29,7 @@ The overflow channel: `vuln_copy` copies the read length with memcpy
 (not strcpy), so NUL-bearing qwords cross the channel whole. The
 small[8] frame puts the return slot at offset 16.
 
-1. Read the served binary (http://host:8000/callme-eval2) and take the
+1. Read the served binary (<http://host:8000/callme-eval2>) and take the
    addresses of `pop3_asm`, `vault_arm`, `vault_fire`, `vault_open`
    with nm (all static, no PIE).
 2. Build one chain: for each stage, pop3 fills rdi/rsi/rdx with that

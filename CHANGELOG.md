@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- lab: the srop-eval twin carries the NUL-tolerant channel (the copy is
+  bounded by the read count, not by a NUL - the srop-eval2 pattern).
+  Its vuln_copy used strcpy: the rt_sigreturn frame is zeros by
+  construction, the addresses and the frame died at the first NUL
+  qword, the documented primitive (craft the frame, ret into the
+  pivot) was unreachable. Verified locally: the frame crosses the
+  channel whole, execve("/bin/sh") runs, the shell answers. The
+  builder side notes the gadget keeps its gcc prologue (endbr64,
+  push rbp): the pivot's syscall sits at gadget+0x0F and the
+  kernel's ucontext base is the ret slot, one qword earlier than the
+  bare-syscall twin.
+
 - build: the ret2libc layout ships two variants, walked in order. The
   strike (the full system("/bin/sh") chain) needs the leak facts the
   exploit's leak round supplies; without them the builder emits the

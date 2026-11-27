@@ -19,9 +19,13 @@ __attribute__((noinline)) void sigreturn_gadget(void) {
 /* the argument string the execve needs: rdi = "/bin/sh". */
 static char sh_cmd[] = "/bin/sh";
 
-int vuln_copy(const char *src) {
+int vuln_copy(const char *src, size_t n) {
+    /* the copy is bounded by n, not by a NUL, so NUL bytes ride: the
+       rt_sigreturn frame (zeros by construction) crosses the channel
+       whole - a strcpy channel would truncate the frame at its first
+       NUL qword and the sigreturn would restore garbage */
     char small[8];
-    strcpy(small, src); /* the write-up classic: unbounded */
+    memcpy(small, src, n);
     return (int) strlen(small);
 }
 
@@ -39,6 +43,6 @@ int main(void) {
     n = read(0, input, sizeof(input) - 1);
     if (n <= 0) return 0;
     input[n - 1] = 0;
-    vuln_copy(input);
+    vuln_copy(input, (size_t) n);
     return 0;
 }
